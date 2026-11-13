@@ -75,6 +75,11 @@ npm install
 npm run build
 ```
 
+Before a change is merged, CI runs `npm run lint`, `npm run build` and `npm test`, plus
+`node .github/scripts/check-homebridge.mjs` (Homebridge plugin rules) and
+`node .github/scripts/check-config-schema.mjs` (the settings schema, and every JSON example in
+this README). Run them locally the same way.
+
 Releases are published by GitHub Actions when a GitHub release is created: the tag must be
 `v<version>` from `package.json`, the release needs notes, `CHANGELOG.md` needs a section for the
 version, and "Set as a pre-release" (for a `-beta` version) publishes to the `beta` tag.

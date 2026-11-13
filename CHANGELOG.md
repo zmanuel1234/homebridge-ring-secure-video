@@ -11,6 +11,10 @@
   scripts are removed, so every npm version goes through those checks.
 - Without a configuration block the plugin now logs "No configuration found" and stays idle,
   instead of crashing on start (it read a setting before checking that the block exists).
+- CI checks that the Homebridge settings form and JSON editor can use `config.schema.json`
+  (it compiles, every setting has a title and type, the form layout only names existing
+  settings) and that every JSON example in the README is valid configuration. The media
+  recording settings get the titles they were missing.
 
 ## Earlier releases (as homebridge-ring-hksv)
 

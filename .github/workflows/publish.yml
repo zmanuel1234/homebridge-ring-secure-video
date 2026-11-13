@@ -41,6 +41,8 @@ jobs:
       - run: npm test
       - name: Homebridge plugin rules (release)
         run: node .github/scripts/check-homebridge.mjs --release
+      - name: Settings schema and README examples
+        run: node .github/scripts/check-config-schema.mjs
       - name: Pack
         run: npm pack --ignore-scripts && mv homebridge-ring-secure-video-*.tgz package.tgz
       - uses: actions/upload-artifact@v4

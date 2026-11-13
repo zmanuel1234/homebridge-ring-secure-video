@@ -34,6 +34,7 @@
         "additionalProperties": false,
         "properties": {
           "profile": {
+            "title": "Media profile",
             "type": "string",
             "default": "adaptive",
             "oneOf": [
@@ -43,80 +44,94 @@
             ]
           },
           "recording": {
+            "title": "Recording overrides",
             "type": "object",
             "additionalProperties": false,
             "properties": {
               "codec": {
+                "title": "Recording codec",
                 "type": "string",
                 "enum": ["auto", "copy", "libx264", "h264_v4l2m2m", "h264_videotoolbox"],
                 "description": "Preferred H.264 handling for recordings."
               },
               "bitrateKbps": {
+                "title": "Video bitrate (kbps)",
                 "type": "integer",
                 "minimum": 256,
                 "maximum": 12000,
                 "description": "Target video bitrate."
               },
               "maxBitrateKbps": {
+                "title": "Maximum video bitrate (kbps)",
                 "type": "integer",
                 "minimum": 256,
                 "maximum": 20000,
                 "description": "Maximum burst video bitrate when using VBR."
               },
               "bufferSizeKbps": {
+                "title": "Rate-control buffer size (kbps)",
                 "type": "integer",
                 "minimum": 256,
                 "maximum": 40000,
                 "description": "FFmpeg video rate-control buffer size."
               },
               "rateControl": {
+                "title": "Rate control",
                 "type": "string",
                 "enum": ["vbr", "cbr"],
                 "default": "vbr",
                 "description": "Use constrained variable bitrate or request constant bitrate. CBR ignores CRF."
               },
               "crf": {
+                "title": "CRF (libx264 quality)",
                 "type": "integer",
                 "minimum": 18,
                 "maximum": 35,
                 "description": "Optional libx264 quality value for VBR recordings."
               },
               "preset": {
+                "title": "libx264 preset",
                 "type": "string",
                 "enum": ["ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow"],
                 "description": "Optional libx264 speed/quality preset."
               },
               "keyframeInterval": {
+                "title": "Keyframe interval (frames)",
                 "type": "integer",
                 "minimum": 5,
                 "maximum": 240,
                 "description": "Maximum frames between keyframes."
               },
               "prebufferLengthMs": {
+                "title": "Prebuffer length (ms)",
                 "type": "integer",
                 "minimum": 4000,
                 "maximum": 16000,
                 "description": "How much pre-event video HomeKit retains."
               },
               "fragmentLengthMs": {
+                "title": "Fragment length (ms)",
                 "type": "integer",
                 "minimum": 1000,
                 "maximum": 8000,
                 "description": "Target fragmented MP4 duration."
               },
               "maxDurationSeconds": {
+                "title": "Maximum recording length (s)",
                 "type": "integer",
                 "minimum": 0,
                 "maximum": 300,
                 "description": "Safety cap per recording stream; set 0 to disable the cap."
               },
               "maxQueuedBytes": {
+                "title": "Maximum queued bytes per recording",
                 "type": "integer",
                 "minimum": 1048576,
                 "maximum": 67108864,
                 "description": "Maximum per-recording buffered data."
               },
               "maxConcurrentRecordings": {
+                "title": "Maximum simultaneous recordings",
                 "type": "integer",
                 "minimum": 1,
                 "maximum": 4,
