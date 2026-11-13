@@ -26,9 +26,9 @@ Big thanks to Dustin, trinityhades and all upstream contributors. This plugin re
 
 | Option | Purpose |
 | --- | --- |
-| `enableHksv` | Enables experimental HKSV support for eligible cameras |
+| `enableHksv` | Enables experimental HKSV support for eligible cameras; on by default, set `false` to turn it off |
 | `enableCameraMotionHistory` | Allows camera motion to fall back to recent Ring event history if live notifications are stale; disable to only trust push-triggered motion |
-| `disableHksvOnBattery` | Disables HKSV on battery cameras to reduce battery/network usage |
+| `disableHksvOnBattery` | Disables HKSV on cameras running on battery to reduce battery/network usage; wired battery models keep it. On by default |
 | `hksvPrebufferLengthMs` | HKSV prebuffer duration (minimum 4000ms) |
 | `hksvFragmentLengthMs` | HKSV fragment duration target |
 | `hksvMaxRecordingSeconds` | Optional safety cap for a recording session (default 180 s; 0 disables) |

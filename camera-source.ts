@@ -483,6 +483,21 @@ export function getHksvRecordingFormatArguments(
 export const HKSV_RECORDING_MOVFLAGS =
   'frag_keyframe+empty_moov+default_base_moof+delay_moov'
 
+/**
+ * Whether a camera gets HomeKit Secure Video. Unset settings mean what the settings form shows:
+ * HKSV on, except for cameras running on battery (each recording opens a Ring live call, which
+ * drains it). A battery model that is wired, like many doorbells, counts as wired.
+ */
+export function isHksvEnabled(
+  config: Pick<RingPlatformConfig, 'enableHksv' | 'disableHksvOnBattery'>,
+  operatingOnBattery: boolean,
+) {
+  return (
+    config.enableHksv !== false &&
+    !(config.disableHksvOnBattery !== false && operatingOnBattery)
+  )
+}
+
 export class CameraSource
   implements CameraStreamingDelegate, CameraRecordingDelegate
 {
@@ -504,8 +519,7 @@ export class CameraSource
     this.config = config
     this.mediaIngress = new RingMediaIngress(ringCamera)
 
-    const enableHksv =
-      config.enableHksv && !(config.disableHksvOnBattery && ringCamera.hasBattery)
+    const enableHksv = isHksvEnabled(config, ringCamera.operatingOnBattery)
 
     const controllerOptions: any = {
       cameraStreamCount: enableHksv ? 1 : 10,
