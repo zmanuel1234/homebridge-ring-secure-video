@@ -149,6 +149,13 @@ Please report your experience and setup details to help improve support.
 Recordings follow the frame rate and audio format HomeKit asks for, and include audio only when
 **Record Audio** is on in the camera's settings in the Home app.
 
+While a live view of the camera is open in the Home app, Ring reports no motion for it: its Event
+History shows only the live view (probably also with a live view in the Ring app; not tested). So
+no motion event, motion notification or HKSV recording starts during a live view (with Ring
+Protect, Ring may still save the live view itself). Once the live view is closed, motion is
+reported again. Opening a live view doesn't cut off an HKSV recording that is already running
+(both share one Ring connection), but that recording still ends as usual once its motion ends.
+
 With recording on, the Home app notifies about a camera's motion only after its home hub has
 analysed the clip, which can be late or never. For a notification as soon as Ring reports
 motion, turn on `cameraMotionNotificationSensor`: each camera gets a separate "<camera> Motion"
