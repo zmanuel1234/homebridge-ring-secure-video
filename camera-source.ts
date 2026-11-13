@@ -428,6 +428,42 @@ class StreamingSessionWrapper {
   }
 }
 
+// HomeKit tells the camera which frame rate and audio it wants recordings in (sample rates are
+// sent as an index). Recordings use that frame rate and mono AAC-LC at that sample rate and
+// bitrate, or no audio track when "Record Audio" is off in the Home app.
+const hksvRecordingSampleRates = [8000, 16000, 24000, 32000, 44100, 48000]
+
+export function getHksvRecordingFormatArguments(
+  configuration: CameraRecordingConfiguration,
+  videoArguments: string[],
+  copy: boolean,
+  audioActive: boolean,
+) {
+  const [width, height, fps] = configuration.videoCodec.resolution,
+    sampleRate =
+      hksvRecordingSampleRates[configuration.audioCodec.samplerate] ?? 16000,
+    audioBitrate = configuration.audioCodec.bitrate || 32
+
+  return {
+    video: copy ? videoArguments : [...videoArguments, '-r', `${fps}`],
+    audio: audioActive
+      ? [
+          '-acodec',
+          'aac',
+          '-profile:a',
+          'aac_low',
+          '-ac',
+          '1',
+          '-ar',
+          `${sampleRate}`,
+          '-b:a',
+          `${audioBitrate}k`,
+        ]
+      : ['-an'],
+    description: `HomeKit chose ${width}x${height} at ${fps} fps, ${configuration.videoCodec.parameters.bitRate} kbps, fragments ${configuration.mediaContainerConfiguration.fragmentLength} ms; sending ${copy ? 'video as received' : `video at ${fps} fps`}, audio ${audioActive ? `AAC mono ${sampleRate} Hz ${audioBitrate} kbps` : 'off'}`,
+  }
+}
+
 // delay_moov: write the init segment (ftyp + moov) together with the first fragment instead
 // of at the start, so moov carries the encoder's SPS/PPS. Encoders that emit them late (the
 // Raspberry Pi's V4L2 encoder) otherwise leave an empty avcC, and HomeKit can't decode the
@@ -875,13 +911,14 @@ export class CameraSource
 
     this.closedRecordingStreams.delete(streamId)
 
+    const recordingConfiguration = this.recordingConfiguration
     const packetQueue: RecordingPacket[] = []
     let waitForPacket: (() => void) | undefined,
       queuedBytes = 0,
       closed = false
 
     const fragmentLengthMs =
-        this.recordingConfiguration.mediaContainerConfiguration.fragmentLength,
+        recordingConfiguration.mediaContainerConfiguration.fragmentLength,
       maxQueuedBytes = normalizeMediaConfig(this.config).recording.maxQueuedBytes,
       parser = new FragmentedMp4Parser(maxQueuedBytes),
       start = Date.now()
@@ -1029,9 +1066,24 @@ export class CameraSource
         }, maxRecordingSeconds * 1000)
       }
 
+      const recordingFormat = getHksvRecordingFormatArguments(
+        recordingConfiguration,
+        videoArguments,
+        selectedVideoCodec === 'copy',
+        Boolean(
+          this.controller.recordingManagement?.recordingManagementService.getCharacteristic(
+            hap.Characteristic.RecordingAudioActive,
+          ).value,
+        ),
+      )
+      logInfo(
+        `HKSV recording format for ${this.ringCamera.name}: ${recordingFormat.description}`,
+      )
+
       recordingTranscoder = await sourceSession.createTranscoder({
         signal: queueAbortController.signal,
-        video: videoArguments,
+        video: recordingFormat.video,
+        audio: recordingFormat.audio,
         output: [
           '-movflags',
           HKSV_RECORDING_MOVFLAGS,

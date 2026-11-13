@@ -4,6 +4,7 @@ import test from 'node:test'
 import { ReplaySubject, Subject } from 'rxjs'
 import {
   CameraSource,
+  getHksvRecordingFormatArguments,
   getReturnAudioPrepareStreamRequest,
   HKSV_RECORDING_MOVFLAGS,
 } from '../lib/camera-source.js'
@@ -458,4 +459,31 @@ test('delays the recording init segment, which still goes out before the first f
     ['ftyp', 'moof'],
     'init segment first, then the fragment',
   )
+})
+
+test('records in the frame rate and audio format HomeKit chose', () => {
+  const configuration = {
+    videoCodec: { resolution: [1280, 720, 30], parameters: { bitRate: 800 } },
+    audioCodec: { samplerate: 1, bitrate: 24 }, // index 1 = 16 kHz
+    mediaContainerConfiguration: { fragmentLength: 4000 },
+  }
+  const encode = ['-vcodec', 'libx264', '-b:v', '800k']
+
+  const withAudio = getHksvRecordingFormatArguments(configuration, encode, false, true)
+  assert.deepEqual(withAudio.video, [...encode, '-r', '30'])
+  assert.deepEqual(withAudio.audio, [
+    '-acodec', 'aac', '-profile:a', 'aac_low', '-ac', '1', '-ar', '16000', '-b:a', '24k',
+  ])
+  assert.match(withAudio.description, /1280x720 at 30 fps, 800 kbps, fragments 4000 ms/)
+
+  const noAudio = getHksvRecordingFormatArguments(configuration, encode, false, false)
+  assert.deepEqual(noAudio.audio, ['-an'], 'no audio track when Record Audio is off')
+
+  const copy = getHksvRecordingFormatArguments(configuration, ['-vcodec', 'copy'], true, true)
+  assert.deepEqual(copy.video, ['-vcodec', 'copy'], 'copied video keeps its own frame rate')
+
+  const at48 = getHksvRecordingFormatArguments(
+    { ...configuration, audioCodec: { samplerate: 5, bitrate: 0 } }, encode, false, true,
+  )
+  assert.deepEqual(at48.audio.slice(-4), ['-ar', '48000', '-b:a', '32k'])
 })

@@ -116,6 +116,9 @@ HKSV support is experimental and actively evolving. Behavior may vary by camera 
 I currently am able to run 3 cameras with HKSV enabled on a Homebridge instance ran on a M4 Mac Mini 32GB of RAM.
 Please report your experience and setup details to help improve support.
 
+Recordings follow the frame rate and audio format HomeKit asks for, and include audio only when
+**Record Audio** is on in the camera's settings in the Home app.
+
 For fast-motion pixelation or stuttering in HKSV recordings, try increasing
 `hksvVideoBitrateKbps` first if you are transcoding. On Apple Silicon Macs,
 `cameraVideoCodec: "h264_videotoolbox"` can reduce CPU load by using hardware

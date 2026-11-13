@@ -30,6 +30,10 @@
   also write their init segment together with the first fragment (`delay_moov`), so it carries
   the SPS/PPS of encoders that send them late. A complete HomeKit clip from the Pi's hardware
   encoder still needs fixes that follow.
+- Recordings use the frame rate and audio format HomeKit asks for: mono AAC-LC at HomeKit's
+  sample rate and bitrate, or no audio track when Record Audio is off in the Home app. Before,
+  the audio was FFmpeg's default AAC (often stereo at the source rate) whatever HomeKit chose.
+  The log shows the chosen format at the start of each recording.
 
 ## Earlier releases (as homebridge-ring-hksv)
 
