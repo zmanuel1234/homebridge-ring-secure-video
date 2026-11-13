@@ -1,15 +1,5 @@
 # homebridge-ring-secure-video
 
-## Unreleased
-
-- `rxjs` is now a declared dependency. The plugin imports it directly, but it was only installed
-  because ring-client-api and @homebridge/camera-utils depend on it. The same version (7.8.2)
-  is used, with no second copy.
-- Remove the root `public/` folder and root `index.html` left over from the fork, unused copies
-  of the settings page in `homebridge-ui/public/` (which is the one the plugin ships).
-- Remove `.swcrc`, an unused swc compiler config inherited from homebridge-ring (the plugin is
-  built with `tsc`, and the file described CommonJS output while the package is ESM).
-
 ## 1.0.0-beta.1 (2026-11-13)
 
 First release as `homebridge-ring-secure-video`, continuing trinityhades/homebridge-ring-hksv
@@ -72,6 +62,13 @@ Known in this beta: complete HomeKit clips have been verified on a Raspberry Pi 
 - `homebridge-config-ui-x` (the Homebridge UI) moves from `dependencies` to
   `devDependencies`: the plugin doesn't use it at runtime, so installing the plugin no longer
   pulls in a second copy of the whole UI.
+- `rxjs` is now a declared dependency. The plugin imports it directly, but it was only installed
+  because ring-client-api and @homebridge/camera-utils depend on it. The same version (7.8.2)
+  is used, with no second copy.
+- Remove the root `public/` folder and root `index.html` left over from the fork, unused copies
+  of the settings page in `homebridge-ui/public/` (which is the one the plugin ships).
+- Remove `.swcrc`, an unused swc compiler config inherited from homebridge-ring (the plugin is
+  built with `tsc`, and the file described CommonJS output while the package is ESM).
 
 ## Earlier releases (as homebridge-ring-hksv)
 
