@@ -40,6 +40,12 @@
 - The default recording safety cap (`media.recording.maxDurationSeconds`) is 180 seconds instead
   of 60. HomeKit ends a recording itself when motion stops; at 60 seconds the plugin cut off
   normal visits mid-way. Set it explicitly to keep the old value.
+- When the plugin ends a recording (the safety cap, the Ring call ending, a stall, the queue
+  limit or any other reason), HomeKit now gets a proper end of stream. Before, the end was sent
+  as an empty packet that HAP-NodeJS never transmits, so HomeKit waited and timed the stream out
+  ("reason=6" in the log). Each fragment is now held until the next one arrives, so the last real
+  fragment carries the end marker. When HomeKit ends a recording itself, the held fragment (up to
+  one fragment, about 4 s) is not sent.
 
 ## Earlier releases (as homebridge-ring-hksv)
 

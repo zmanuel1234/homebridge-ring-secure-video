@@ -1150,12 +1150,22 @@ export class CameraSource
         liveCall?.requestKeyFrame()
       }, selectedVideoCodec === 'copy' ? Math.max(fragmentLengthMs, 1000) : 2000)
 
+      // The init segment goes to HomeKit at once; each fragment is held until the next one
+      // arrives, so the last fragment can carry isLast when the recording ends. HAP-NodeJS
+      // sends nothing for an empty packet, so an empty isLast packet never reaches HomeKit,
+      // which then waits and times the stream out.
+      let initSegmentSent = false
+
       while (
         !closed ||
         packetQueue.length ||
         (shouldSendEndOfStream && !sentEndOfStream)
       ) {
-        if (packetQueue.length) {
+        if (
+          packetQueue.length &&
+          (closed || !initSegmentSent || packetQueue.length > 1)
+        ) {
+          initSegmentSent = true
           const packet = packetQueue.shift()!
           queuedBytes -= packet.data.length
           updateQueuedBytes?.(queuedBytes)
