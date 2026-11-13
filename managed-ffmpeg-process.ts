@@ -63,6 +63,10 @@ export class ManagedFfmpegProcess {
     if (options.stdoutCallback) {
       this.child.stdout.on('data', options.stdoutCallback)
     }
+    // An unhandled 'error' event would crash the whole bridge (alarm included).
+    for (const stream of [this.child.stdout, this.child.stderr]) {
+      stream.on('error', (error: Error) => options.logger.error(prefix + error.message))
+    }
     this.child.stderr.on('data', (data: Buffer) => {
       options.logger.info(prefix + data)
     })
@@ -71,10 +75,11 @@ export class ManagedFfmpegProcess {
         options.logger.error(prefix + error.message)
       }
     })
-    this.child.once('error', (error) => {
-      if (this.didExit) return
+    this.child.on('error', (error) => {
       options.logger.error(prefix + error.message)
-      this.finish(null, null, false)
+      // Without a pid it never started, and no 'exit' will follow. A running process (say a
+      // failed kill) still exits on its own and must stay tracked until then.
+      if (this.child.pid === undefined) this.finish(null, null, false)
     })
     this.child.once('exit', (code, signal) => {
       this.finish(code, signal, true)
