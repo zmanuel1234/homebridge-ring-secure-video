@@ -5,6 +5,7 @@ import { ReplaySubject, Subject } from 'rxjs'
 import {
   CameraSource,
   getReturnAudioPrepareStreamRequest,
+  HKSV_RECORDING_MOVFLAGS,
 } from '../lib/camera-source.js'
 import { addMotionWatchdog } from '../lib/camera.js'
 import { FragmentedMp4Parser } from '../lib/fragmented-mp4-parser.js'
@@ -422,4 +423,39 @@ test('a plugin update does not force a Ring push or session refresh', async () =
   } finally {
     await rm(dir, { recursive: true, force: true })
   }
+})
+
+test("gives the Raspberry Pi's V4L2 encoder numeric profile and level IDs", () => {
+  const argsFor = (codec) => {
+    const source = Object.create(CameraSource.prototype)
+    source.config = { media: { recording: { codec } } }
+    const args = source.getHksvVideoArguments({ encoders: new Set([codec]) })
+    return [
+      args[args.indexOf('-profile:v') + 1],
+      args[args.indexOf('-level:v') + 1],
+    ]
+  }
+
+  assert.deepEqual(argsFor('h264_v4l2m2m'), ['66', '31'])
+  assert.deepEqual(argsFor('libx264'), ['baseline', '3.1'])
+  assert.deepEqual(argsFor('h264_videotoolbox'), ['baseline', '3.1'])
+
+  const copy = Object.create(CameraSource.prototype)
+  copy.config = { media: { recording: { codec: 'copy' } } }
+  assert.equal(copy.getHksvVideoArguments({ encoders: new Set() }).includes('-profile:v'), false)
+})
+
+test('delays the recording init segment, which still goes out before the first fragment', () => {
+  assert.ok(HKSV_RECORDING_MOVFLAGS.split('+').includes('delay_moov'))
+  assert.ok(HKSV_RECORDING_MOVFLAGS.split('+').includes('frag_keyframe'))
+
+  // With delay_moov FFmpeg writes ftyp, moov and the first moof/mdat together.
+  const packets = new FragmentedMp4Parser().append(
+    Buffer.concat([box('ftyp'), box('moov'), box('moof'), box('mdat')]),
+  )
+  assert.deepEqual(
+    packets.map((p) => p.data.subarray(4, 8).toString('ascii')),
+    ['ftyp', 'moof'],
+    'init segment first, then the fragment',
+  )
 })

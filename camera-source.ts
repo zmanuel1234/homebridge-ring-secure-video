@@ -428,6 +428,13 @@ class StreamingSessionWrapper {
   }
 }
 
+// delay_moov: write the init segment (ftyp + moov) together with the first fragment instead
+// of at the start, so moov carries the encoder's SPS/PPS. Encoders that emit them late (the
+// Raspberry Pi's V4L2 encoder) otherwise leave an empty avcC, and HomeKit can't decode the
+// recording. The first media fragment arrives no later than before.
+export const HKSV_RECORDING_MOVFLAGS =
+  'frag_keyframe+empty_moov+default_base_moof+delay_moov'
+
 export class CameraSource
   implements CameraStreamingDelegate, CameraRecordingDelegate
 {
@@ -591,10 +598,13 @@ export class CameraSource
         `${bufferSizeKbps}k`,
         '-pix_fmt',
         'yuv420p',
+        // FFmpeg's V4L2 encoder (Raspberry Pi) rejects named profiles ("Unable to parse
+        // option value baseline", exit 234) and needs the numeric ID (66 = Baseline). It
+        // accepts a numeric level but doesn't pass it on (the Pi still writes level 4.0).
         '-profile:v',
-        'baseline',
+        selectedCodec === 'h264_v4l2m2m' ? '66' : 'baseline',
         '-level:v',
-        '3.1',
+        selectedCodec === 'h264_v4l2m2m' ? '31' : '3.1',
         '-g',
         `${keyframeInterval}`,
       ]
@@ -1024,7 +1034,7 @@ export class CameraSource
         video: videoArguments,
         output: [
           '-movflags',
-          'frag_keyframe+empty_moov+default_base_moof',
+          HKSV_RECORDING_MOVFLAGS,
           '-frag_duration',
           `${fragmentLengthMs * 1000}`,
           '-fflags',

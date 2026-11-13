@@ -25,6 +25,11 @@
   Homebridge share. The two "Force Ring ... Refresh" settings remain for manual recovery, and
   their descriptions now explain these effects. `lastKnownPluginVersion` is no longer written.
   If either setting is still on from an earlier version, turn it off.
+- Recordings with the Raspberry Pi's hardware encoder (`h264_v4l2m2m`, which `auto` picks when
+  FFmpeg has it) no longer fail at start: it gets the numeric profile ID it requires. Recordings
+  also write their init segment together with the first fragment (`delay_moov`), so it carries
+  the SPS/PPS of encoders that send them late. A complete HomeKit clip from the Pi's hardware
+  encoder still needs fixes that follow.
 
 ## Earlier releases (as homebridge-ring-hksv)
 
