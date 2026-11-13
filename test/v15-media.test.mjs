@@ -576,3 +576,62 @@ test('caps recordings at 180 seconds unless configured otherwise', () => {
   assert.equal(getMaxRecordingSeconds({ hksvMaxRecordingSeconds: 90 }), 90, 'legacy setting')
   assert.equal(getMaxRecordingSeconds({ hksvMaxRecordingSeconds: 0 }), 0, 'legacy 0 disables the cap')
 })
+
+test('marks the last fragment of a recording as the end of the stream', async () => {
+  const session = fakeSession()
+  let feed
+  const source = Object.create(CameraSource.prototype)
+  source.ringCamera = { id: 'eos-camera', name: 'eos camera' }
+  source.config = { media: { recording: { codec: 'libx264', maxDurationSeconds: 0 } } }
+  source.controller = {}
+  source.recordingActive = true
+  source.recordingConfiguration = {
+    videoCodec: { resolution: [1280, 720, 30], parameters: { bitRate: 800 } },
+    audioCodec: { samplerate: 1, bitrate: 24 },
+    mediaContainerConfiguration: { fragmentLength: 4_000 },
+  }
+  source.closedRecordingStreams = new Set()
+  source.recordingWaiters = new Map()
+  source.activeRecordingSessions = new Map()
+  source.mediaIngress = {
+    acquire: async () => ({
+      session,
+      release() {},
+      createTranscoder: async (options) => {
+        feed = options.stdoutCallback
+        return { stop() {}, exited: Promise.resolve() }
+      },
+    }),
+  }
+  const fragment = (size) => Buffer.concat([box('moof'), box('mdat', size)])
+  const types = (packet) => packet.data.subarray(4, 8).toString('ascii')
+
+  const generator = source.handleRecordingStreamRequest(7)
+  const first = generator.next()
+  while (!feed) await delay(5)
+
+  feed(Buffer.concat([box('ftyp'), box('moov'), fragment(16)]))
+  const init = (await within(first, 1_000)).value
+  assert.deepEqual([types(init), init.isLast], ['ftyp', false], 'init segment goes out at once')
+
+  const second = generator.next()
+  assert.equal(
+    await Promise.race([second.then(() => 'sent'), delay(50).then(() => 'held')]),
+    'held',
+    'a fragment is held until the next one arrives',
+  )
+
+  feed(fragment(24))
+  const firstFragment = (await within(second, 1_000)).value
+  assert.deepEqual([firstFragment.data.length, firstFragment.isLast], [8 + 16, false])
+
+  const third = generator.next()
+  session.stop() // the Ring call ends, so the recording ends
+  const lastFragment = (await within(third, 1_000)).value
+  assert.deepEqual(
+    [lastFragment.data.length, lastFragment.isLast],
+    [8 + 24, true],
+    'the last real fragment carries isLast, so HomeKit gets the end of the stream',
+  )
+  assert.equal((await within(generator.next(), 1_000)).done, true)
+})
