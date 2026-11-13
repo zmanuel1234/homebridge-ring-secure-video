@@ -19,6 +19,7 @@ import { TargetValueTimer } from './target-value-timer.ts'
 import { delay, logError, logInfo } from 'ring-client-api/util'
 import { defer, EMPTY, firstValueFrom, from, merge, of, timer } from 'rxjs'
 import type { Observable } from 'rxjs'
+import type { PushHealthReporter } from './push-health.ts'
 
 export const MOTION_WATCHDOG_MS = 30_000
 /** How often Ring's event history is checked once its push notifications are known to arrive. */
@@ -49,8 +50,10 @@ const ID_MEMORY_MS = 60 * 60_000
  * would only record an empty doorway.
  */
 export function getHistoryMotionEvents(
-  device: Pick<RingCamera, 'name' | 'getEvents' | 'onNewNotification'>,
+  device: Pick<RingCamera, 'name' | 'getEvents' | 'onNewNotification'> &
+    Partial<Pick<RingCamera, 'data'>>,
   pollSeconds: number,
+  pushHealth?: PushHealthReporter,
 ): Observable<boolean> {
   return defer(() => {
     const startedAt = Date.now() - 5000,
@@ -75,6 +78,9 @@ export function getHistoryMotionEvents(
       nextCheckAt = 0
 
     const notifications = device.onNewNotification.subscribe((notification) => {
+      pushHealth?.recordPush(
+        notification.android_config?.category === PushNotificationAction.Motion,
+      )
       if (notification.android_config?.category !== PushNotificationAction.Motion) return
       const id = notification.data?.event?.ding?.id,
         now = Date.now()
@@ -150,6 +156,17 @@ export function getHistoryMotionEvents(
             }
 
             if (missed.length) {
+              // Ring sends no alert while motion is snoozed, nor, when set to alert for people
+              // only, for motion it saw no person in: those say nothing about whether its
+              // pushes reach the plugin.
+              const peopleOnly =
+                  device.data?.settings?.advanced_motion_detection_human_only_mode === true,
+                unexplained = device.data?.motion_snooze
+                  ? []
+                  : missed.filter(
+                    (event) => !peopleOnly || event.cv_properties?.person_detected !== false,
+                  )
+              if (unexplained.length) pushHealth?.recordMissed(unexplained.length)
               matchedInARow = 0
               if (pushWorks) {
                 pushWorks = false
@@ -272,17 +289,20 @@ export class Camera extends BaseDataAccessory<RingCamera> {
   public readonly accessory
   public readonly config
   public readonly motionDetected?: Observable<boolean>
+  private readonly pushHealth?: PushHealthReporter
 
   constructor(
     device: RingCamera,
     accessory: PlatformAccessory,
     config: RingPlatformConfig,
+    pushHealth?: PushHealthReporter,
   ) {
     super()
 
     this.device = device
     this.accessory = accessory
     this.config = config
+    this.pushHealth = pushHealth
     this.cameraSource = new CameraSource(this.device, this.config)
 
     if (!hap.CameraController) {
@@ -486,7 +506,7 @@ export class Camera extends BaseDataAccessory<RingCamera> {
 
     const pollSeconds = Math.max(this.config.cameraStatusPollingSeconds ?? 20, 10)
     return addMotionWatchdog(
-      merge(pushMotionEvents, getHistoryMotionEvents(this.device, pollSeconds)),
+      merge(pushMotionEvents, getHistoryMotionEvents(this.device, pollSeconds, this.pushHealth)),
     )
   }
 
