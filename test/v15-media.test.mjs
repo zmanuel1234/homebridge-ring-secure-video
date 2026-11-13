@@ -4,7 +4,10 @@ import test from 'node:test'
 import { ReplaySubject, Subject } from 'rxjs'
 import {
   CameraSource,
+  getHksvRecordingFormatArguments,
+  getMaxRecordingSeconds,
   getReturnAudioPrepareStreamRequest,
+  HKSV_RECORDING_MOVFLAGS,
 } from '../lib/camera-source.js'
 import { addMotionWatchdog } from '../lib/camera.js'
 import { FragmentedMp4Parser } from '../lib/fragmented-mp4-parser.js'
@@ -341,4 +344,235 @@ test('does not start, and does not crash, without a configuration block', async 
 
   assert.deepEqual(infos, ['No configuration found for platform Ring Secure Video'])
   assert.deepEqual(listeners, [], 'nothing is started')
+})
+
+test("decrypts Ring pushes with the current FCM header format through ring-client-api's push-receiver", async () => {
+  const { createECDH, randomBytes } = await import('node:crypto')
+  const { createRequire } = await import('node:module')
+  const { fileURLToPath } = await import('node:url')
+  const { applyPushReceiverDecryptFix } = await import('../lib/push-receiver-fix.js')
+  await import('ring-client-api') // loads push-receiver's client the way the plugin does
+  const ringRequire = createRequire(fileURLToPath(import.meta.resolve('ring-client-api')))
+  const decryptModules = Object.keys(ringRequire.cache).filter((path) =>
+    path.endsWith('/@eneris/push-receiver/dist/utils/decrypt.js'),
+  )
+  assert.deepEqual(
+    decryptModules,
+    [ringRequire.resolve('@eneris/push-receiver/dist/utils/decrypt.js')],
+    "the decrypt module patched is the one ring-client-api's push client loaded",
+  )
+  const ece = ringRequire('http_ece')
+  const loadedDecrypt = ringRequire('@eneris/push-receiver/dist/utils/decrypt.js')
+
+  // A push encrypted the way FCM sends it today: "dh=...; p256ecdsa=..." and "salt=...".
+  const receiver = createECDH('prime256v1')
+  receiver.generateKeys()
+  const sender = createECDH('prime256v1')
+  sender.generateKeys()
+  const keys = {
+    privateKey: receiver.getPrivateKey('base64'),
+    authSecret: randomBytes(16).toString('base64'),
+  }
+  const salt = randomBytes(16).toString('base64url')
+  const payload = { android_config: { category: 'com.ring.pn.live-event.motion' } }
+  const rawData = ece.encrypt(Buffer.from(JSON.stringify(payload)), {
+    version: 'aesgcm',
+    dh: receiver.getPublicKey('base64url'),
+    privateKey: sender,
+    salt,
+    authSecret: keys.authSecret,
+  })
+  const message = {
+    rawData,
+    appData: [
+      { key: 'crypto-key', value: `dh=${sender.getPublicKey('base64url')}; p256ecdsa=BOgus` },
+      { key: 'encryption', value: `salt=${salt}` },
+    ],
+  }
+
+  assert.throws(() => loadedDecrypt.default(message, keys), 'push-receiver 4.3.0 fails on this format')
+  const fix = applyPushReceiverDecryptFix()
+  assert.equal(fix.result, 'applied', fix.detail)
+  assert.deepEqual(loadedDecrypt.default(message, keys), payload)
+  assert.equal(applyPushReceiverDecryptFix().result, 'applied', 'applying twice is harmless')
+})
+
+test('a plugin update does not force a Ring push or session refresh', async () => {
+  const { mkdtemp, writeFile, readFile: read, rm } = await import('node:fs/promises')
+  const { tmpdir } = await import('node:os')
+  const { join } = await import('node:path')
+  const { RingPlatform } = await import('../lib/ring-platform.js')
+  const dir = await mkdtemp(join(tmpdir(), 'ring-update-'))
+  const configPath = join(dir, 'config.json')
+  const platformConfig = {
+    platform: 'Ring Secure Video',
+    refreshToken: 'token',
+    lastKnownPluginVersion: '0.0.1',
+  }
+  try {
+    const original = `${JSON.stringify({ platforms: [platformConfig] }, null, 4)}\n`
+    await writeFile(configPath, original)
+    const log = { info() {}, error() {}, warn() {}, debug() {} }
+    const api = { on() {}, user: { configPath: () => configPath, storagePath: () => dir } }
+
+    // disableLogs keeps this test from replacing the library's global logger.
+    const config = { ...platformConfig, disableLogs: true }
+    new RingPlatform(log, config, api)
+
+    assert.equal(config.forceRefreshRingPushCredentials, undefined)
+    assert.equal(config.forceRefreshRingApiSession, undefined)
+    assert.equal(await read(configPath, 'utf8'), original, 'config.json is not rewritten')
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+})
+
+test("gives the Raspberry Pi's V4L2 encoder numeric profile and level IDs", () => {
+  const argsFor = (codec) => {
+    const source = Object.create(CameraSource.prototype)
+    source.config = { media: { recording: { codec } } }
+    const args = source.getHksvVideoArguments({ encoders: new Set([codec]) })
+    return [
+      args[args.indexOf('-profile:v') + 1],
+      args[args.indexOf('-level:v') + 1],
+    ]
+  }
+
+  assert.deepEqual(argsFor('h264_v4l2m2m'), ['66', '31'])
+  assert.deepEqual(argsFor('libx264'), ['baseline', '3.1'])
+  assert.deepEqual(argsFor('h264_videotoolbox'), ['baseline', '3.1'])
+
+  const copy = Object.create(CameraSource.prototype)
+  copy.config = { media: { recording: { codec: 'copy' } } }
+  assert.equal(copy.getHksvVideoArguments({ encoders: new Set() }).includes('-profile:v'), false)
+})
+
+test('delays the recording init segment, which still goes out before the first fragment', () => {
+  assert.ok(HKSV_RECORDING_MOVFLAGS.split('+').includes('delay_moov'))
+  assert.ok(HKSV_RECORDING_MOVFLAGS.split('+').includes('frag_keyframe'))
+
+  // With delay_moov FFmpeg writes ftyp, moov and the first moof/mdat together.
+  const packets = new FragmentedMp4Parser().append(
+    Buffer.concat([box('ftyp'), box('moov'), box('moof'), box('mdat')]),
+  )
+  assert.deepEqual(
+    packets.map((p) => p.data.subarray(4, 8).toString('ascii')),
+    ['ftyp', 'moof'],
+    'init segment first, then the fragment',
+  )
+})
+
+test('records in the frame rate and audio format HomeKit chose', () => {
+  const configuration = {
+    videoCodec: { resolution: [1280, 720, 30], parameters: { bitRate: 800 } },
+    audioCodec: { samplerate: 1, bitrate: 24 }, // index 1 = 16 kHz
+    mediaContainerConfiguration: { fragmentLength: 4000 },
+  }
+  const encode = ['-vcodec', 'libx264', '-b:v', '800k']
+
+  const withAudio = getHksvRecordingFormatArguments(configuration, encode, false, true)
+  assert.deepEqual(withAudio.video, [...encode, '-r', '30'])
+  assert.deepEqual(withAudio.audio, [
+    '-acodec', 'aac', '-profile:a', 'aac_low', '-ac', '1', '-ar', '16000', '-b:a', '24k',
+  ])
+  assert.match(withAudio.description, /1280x720 at 30 fps, 800 kbps, fragments 4000 ms/)
+
+  const noAudio = getHksvRecordingFormatArguments(configuration, encode, false, false)
+  assert.deepEqual(noAudio.audio, ['-an'], 'no audio track when Record Audio is off')
+
+  const copy = getHksvRecordingFormatArguments(configuration, ['-vcodec', 'copy'], true, true)
+  assert.deepEqual(copy.video, ['-vcodec', 'copy'], 'copied video keeps its own frame rate')
+
+  const at48 = getHksvRecordingFormatArguments(
+    { ...configuration, audioCodec: { samplerate: 5, bitrate: 0 } }, encode, false, true,
+  )
+  assert.deepEqual(at48.audio.slice(-4), ['-ar', '48000', '-b:a', '32k'])
+})
+
+test('starts a recording with the first fragment that begins with a keyframe', () => {
+  const container = (type, ...children) => {
+    const body = Buffer.concat(children)
+    const header = Buffer.alloc(8)
+    header.writeUInt32BE(8 + body.length, 0)
+    header.write(type, 4, 4, 'ascii')
+    return Buffer.concat([header, body])
+  }
+  const fullBox = (type, flags, fields) => {
+    const body = Buffer.alloc(4 + fields.length * 4)
+    body.writeUInt32BE(flags, 0) // version 0 + flags
+    fields.forEach((value, i) => body.writeUInt32BE(value >>> 0, 4 + i * 4))
+    return container(type, body)
+  }
+  const NON_SYNC = 0x10000
+  // trun with first_sample_flags (0x4) and data_offset (0x1): sample_count, data_offset, flags
+  const fragmentWithFirstSampleFlags = (sampleFlags) => [
+    container('moof', container('traf',
+      fullBox('tfhd', 0x20000, [1]),
+      fullBox('trun', 0x1 | 0x4, [1, 0, sampleFlags]))),
+    box('mdat', 16),
+  ]
+  // trun without first-sample flags: tfhd default_sample_flags (0x20) decide
+  const fragmentWithDefaultFlags = (sampleFlags) => [
+    container('moof', container('traf',
+      fullBox('tfhd', 0x20, [1, sampleFlags]),
+      fullBox('trun', 0x1, [1, 0]))),
+    box('mdat', 16),
+  ]
+  const types = (packets) => packets.map((p) => p.data.subarray(4, 8).toString('ascii'))
+
+  const parser = new FragmentedMp4Parser()
+  const packets = parser.append(Buffer.concat([
+    box('ftyp'), box('moov'),
+    ...fragmentWithFirstSampleFlags(NON_SYNC), // SPS/PPS-only fragment, no keyframe: dropped
+    ...fragmentWithDefaultFlags(NON_SYNC), // still no keyframe: dropped
+    ...fragmentWithFirstSampleFlags(0), // keyframe: the recording starts here
+    ...fragmentWithDefaultFlags(NON_SYNC), // later fragments are kept as they are
+  ]))
+  assert.deepEqual(types(packets), ['ftyp', 'moof', 'moof'])
+
+  // per-sample flags (0x400) after duration (0x100) and size (0x200)
+  const perSampleFragment = (sampleFlags) => [
+    container('moof', container('traf',
+      fullBox('tfhd', 0, [1]),
+      fullBox('trun', 0x1 | 0x100 | 0x200 | 0x400, [1, 0, 3000, 100, sampleFlags]))),
+    box('mdat', 16),
+  ]
+  const perSample = new FragmentedMp4Parser().append(Buffer.concat([
+    box('ftyp'), box('moov'), ...perSampleFragment(NON_SYNC), ...perSampleFragment(0),
+  ]))
+  assert.equal(perSample.length, 2, 'per-sample sync flag is read: the first fragment is dropped')
+
+  // Audio as track 1 and video as track 2: the video track's flags decide.
+  const trak = (trackId, handler) => container('trak',
+    fullBox('tkhd', 0, [0, 0, trackId]),
+    container('mdia', container('hdlr', Buffer.concat([
+      Buffer.alloc(8), Buffer.from(handler, 'ascii'), Buffer.alloc(12),
+    ]))))
+  const twoTrackFragment = (videoFlags) => [
+    container('moof',
+      container('traf', fullBox('tfhd', 0x20, [1, 0]), fullBox('trun', 0x1, [1, 0])),
+      container('traf', fullBox('tfhd', 0x20, [2, videoFlags]), fullBox('trun', 0x1, [1, 0]))),
+    box('mdat', 16),
+  ]
+  const twoTracks = new FragmentedMp4Parser().append(Buffer.concat([
+    box('ftyp'), container('moov', trak(1, 'soun'), trak(2, 'vide')),
+    ...twoTrackFragment(NON_SYNC), ...twoTrackFragment(0),
+  ]))
+  assert.equal(twoTracks.length, 2, 'an audio keyframe before the video keyframe does not start the recording')
+
+  // A truncated trun can't be read: treated as a keyframe rather than throwing.
+  const truncated = new FragmentedMp4Parser().append(Buffer.concat([
+    box('ftyp'), box('moov'),
+    container('moof', container('traf', fullBox('tfhd', 0, [1]), fullBox('trun', 0x1 | 0x4, [1, 0]))),
+    box('mdat', 16),
+  ]))
+  assert.equal(truncated.length, 2)
+})
+
+test('caps recordings at 180 seconds unless configured otherwise', () => {
+  assert.equal(getMaxRecordingSeconds({}), 180)
+  assert.equal(getMaxRecordingSeconds({ media: { recording: { maxDurationSeconds: 90 } } }), 90)
+  assert.equal(getMaxRecordingSeconds({ media: { recording: { maxDurationSeconds: 0 } } }), 0, '0 disables the cap')
+  assert.equal(getMaxRecordingSeconds({ hksvMaxRecordingSeconds: 90 }), 90, 'legacy setting')
+  assert.equal(getMaxRecordingSeconds({ hksvMaxRecordingSeconds: 0 }), 0, 'legacy 0 disables the cap')
 })

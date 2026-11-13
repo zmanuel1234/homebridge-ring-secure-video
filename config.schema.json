@@ -34,6 +34,7 @@
         "additionalProperties": false,
         "properties": {
           "profile": {
+            "title": "Media profile",
             "type": "string",
             "default": "adaptive",
             "oneOf": [
@@ -43,80 +44,95 @@
             ]
           },
           "recording": {
+            "title": "Recording overrides",
             "type": "object",
             "additionalProperties": false,
             "properties": {
               "codec": {
+                "title": "Recording codec",
                 "type": "string",
                 "enum": ["auto", "copy", "libx264", "h264_v4l2m2m", "h264_videotoolbox"],
                 "description": "Preferred H.264 handling for recordings."
               },
               "bitrateKbps": {
+                "title": "Video bitrate (kbps)",
                 "type": "integer",
                 "minimum": 256,
                 "maximum": 12000,
                 "description": "Target video bitrate."
               },
               "maxBitrateKbps": {
+                "title": "Maximum video bitrate (kbps)",
                 "type": "integer",
                 "minimum": 256,
                 "maximum": 20000,
                 "description": "Maximum burst video bitrate when using VBR."
               },
               "bufferSizeKbps": {
+                "title": "Rate-control buffer size (kbps)",
                 "type": "integer",
                 "minimum": 256,
                 "maximum": 40000,
                 "description": "FFmpeg video rate-control buffer size."
               },
               "rateControl": {
+                "title": "Rate control",
                 "type": "string",
                 "enum": ["vbr", "cbr"],
                 "default": "vbr",
                 "description": "Use constrained variable bitrate or request constant bitrate. CBR ignores CRF."
               },
               "crf": {
+                "title": "CRF (libx264 quality)",
                 "type": "integer",
                 "minimum": 18,
                 "maximum": 35,
                 "description": "Optional libx264 quality value for VBR recordings."
               },
               "preset": {
+                "title": "libx264 preset",
                 "type": "string",
                 "enum": ["ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow"],
                 "description": "Optional libx264 speed/quality preset."
               },
               "keyframeInterval": {
+                "title": "Keyframe interval (frames)",
                 "type": "integer",
                 "minimum": 5,
                 "maximum": 240,
                 "description": "Maximum frames between keyframes."
               },
               "prebufferLengthMs": {
+                "title": "Prebuffer length (ms)",
                 "type": "integer",
                 "minimum": 4000,
                 "maximum": 16000,
                 "description": "How much pre-event video HomeKit retains."
               },
               "fragmentLengthMs": {
+                "title": "Fragment length (ms)",
                 "type": "integer",
                 "minimum": 1000,
                 "maximum": 8000,
                 "description": "Target fragmented MP4 duration."
               },
               "maxDurationSeconds": {
+                "title": "Maximum recording length (s)",
                 "type": "integer",
                 "minimum": 0,
                 "maximum": 300,
-                "description": "Safety cap per recording stream; set 0 to disable the cap."
+                "placeholder": 180,
+                "description": "Safety cap per recording stream (default 180); HomeKit normally ends a recording when motion stops. Set 0 to disable the cap."
               },
               "maxQueuedBytes": {
+                "title": "Maximum queued bytes per recording",
                 "type": "integer",
                 "minimum": 1048576,
                 "maximum": 67108864,
                 "description": "Maximum per-recording buffered data."
               },
               "maxConcurrentRecordings": {
+                "title": "Maximum simultaneous recordings",
                 "type": "integer",
                 "minimum": 1,
                 "maximum": 4,
@@ -129,12 +145,12 @@
       "forceRefreshRingPushCredentials": {
         "title": "Force Ring Push Credential Refresh",
         "type": "boolean",
-        "description": "Advanced recovery option: forces a fresh Ring push notification registration on next startup. Enable only when Ring motion/button events are not arriving live, restart Homebridge, then disable after the updated refresh token is saved."
+        "description": "Advanced recovery option: forces a fresh Ring push notification registration on next startup. Enable only when Ring motion/button events are not arriving live, restart Homebridge, then disable after the updated refresh token is saved. Each refresh adds a registration with Ring, and repeated refreshes can make Ring stop delivering notifications to the plugin; if that happens, remove the plugin from Authorized Client Devices in the Ring app's Control Center and sign in again with a new refresh token."
       },
       "forceRefreshRingApiSession": {
         "title": "Force Ring API Session Refresh",
         "type": "boolean",
-        "description": "Advanced recovery option: rotates the Ring API hardware/session identity and forces fresh push credentials on next startup. Try this when refreshing only Ring push credentials still leaves motion/button events delayed or missing. The option clears itself after the updated refresh token is saved."
+        "description": "Advanced recovery option: rotates the Ring API hardware/session identity and forces fresh push credentials on next startup. Try this when refreshing only Ring push credentials still leaves motion/button events delayed or missing. The option clears itself after the updated refresh token is saved. The identity is stored in .ring.json in the Homebridge storage folder, which other Ring plugins in the same Homebridge (such as homebridge-ring) also use, so rotating it can affect their sign-in."
       },
       "enableCameraMotionHistory": {
         "title": "Enable Camera Motion History Fallback",
@@ -167,7 +183,8 @@
         "type": "integer",
         "minimum": 0,
         "maximum": 300,
-        "description": "Optional safety cap for a single HKSV recording stream duration. Set 0 to disable the cap."
+        "placeholder": 180,
+        "description": "Optional safety cap for a single HKSV recording stream duration (default 180). Set 0 to disable the cap."
       },
       "hksvPerformanceMode": {
         "title": "HKSV Performance Mode",

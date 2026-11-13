@@ -11,6 +11,35 @@
   scripts are removed, so every npm version goes through those checks.
 - Without a configuration block the plugin now logs "No configuration found" and stays idle,
   instead of crashing on start (it read a setting before checking that the block exists).
+- CI checks that the Homebridge settings form and JSON editor can use `config.schema.json`
+  (it compiles, every setting has a title and type, the form layout only names existing
+  settings) and that every JSON example in the README is valid configuration. The media
+  recording settings get the titles they were missing.
+- Fix Ring push notifications being dropped ("could not be decrypted"), so motion and doorbell
+  events arrive instantly instead of only through the slower event-history check.
+  ring-client-api 14.3.0 pins `@eneris/push-receiver` 4.3.0, which can't parse the header format
+  Google now sends; the plugin ships 4.3.1 and uses its decrypt function for that copy.
+- Plugin updates no longer force a fresh Ring push registration and API session on the next
+  start. Each forced refresh adds a registration with Ring (repeated ones can stop Ring delivering
+  notifications) and rotates the identity in `.ring.json`, which other Ring plugins in the same
+  Homebridge share. The two "Force Ring ... Refresh" settings remain for manual recovery, and
+  their descriptions now explain these effects. `lastKnownPluginVersion` is no longer written.
+  If either setting is still on from an earlier version, turn it off.
+- Recordings with the Raspberry Pi's hardware encoder (`h264_v4l2m2m`, which `auto` picks when
+  FFmpeg has it) no longer fail at start: it gets the numeric profile ID it requires. Recordings
+  also write their init segment together with the first fragment (`delay_moov`), so it carries
+  the SPS/PPS of encoders that send them late. A complete HomeKit clip from the Pi's hardware
+  encoder still needs fixes that follow.
+- Recordings use the frame rate and audio format HomeKit asks for: mono AAC-LC at HomeKit's
+  sample rate and bitrate, or no audio track when Record Audio is off in the Home app. Before,
+  the audio was FFmpeg's default AAC (often stereo at the source rate) whatever HomeKit chose.
+  The log shows the chosen format at the start of each recording.
+- A recording now starts with the first fragment that begins with a keyframe. Encoders that
+  send their SPS/PPS as a separate first sample (the Raspberry Pi's hardware encoder) made FFmpeg
+  write a first fragment without one, and HomeKit discards a recording that starts that way.
+- The default recording safety cap (`media.recording.maxDurationSeconds`) is 180 seconds instead
+  of 60. HomeKit ends a recording itself when motion stops; at 60 seconds the plugin cut off
+  normal visits mid-way. Set it explicitly to keep the old value.
 
 ## Earlier releases (as homebridge-ring-hksv)
 

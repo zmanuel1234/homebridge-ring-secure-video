@@ -21,6 +21,8 @@ jobs:
       - run: npm test
       - name: Homebridge plugin rules
         run: node .github/scripts/check-homebridge.mjs
+      - name: Settings schema and README examples
+        run: node .github/scripts/check-config-schema.mjs
       - run: npm pack --dry-run
       - name: Release tag check script works
         run: .github/scripts/check-release-tag.sh "v$(node -p "require('./package.json').version")"

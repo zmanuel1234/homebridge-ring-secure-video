@@ -31,7 +31,7 @@ Big thanks to Dustin, trinityhades and all upstream contributors. This plugin re
 | `disableHksvOnBattery` | Disables HKSV on battery cameras to reduce battery/network usage |
 | `hksvPrebufferLengthMs` | HKSV prebuffer duration (minimum 4000ms) |
 | `hksvFragmentLengthMs` | HKSV fragment duration target |
-| `hksvMaxRecordingSeconds` | Optional safety cap for a recording session |
+| `hksvMaxRecordingSeconds` | Optional safety cap for a recording session (default 180 s; 0 disables) |
 | `hksvPerformanceMode` | HKSV tuning profile (`balanced`, `rpi`, or `quality`) |
 | `hksvMaxConcurrentRecordings` / `hksvMaxQueuedBytes` | HKSV safeguards for small systems under load |
 | `hksvVideoBitrateKbps` / `hksvVideoMaxBitrateKbps` / `hksvVideoBufferSizeKbps` | HKSV recording bitrate controls for improving fast-motion quality |
@@ -52,7 +52,8 @@ each live-view and recording FFmpeg process. Configure `media.profile` as
 `adaptive` (default), `lowPower`, or `quality`. Advanced overrides live in
 `media.recording`; they are strictly validated and take precedence over legacy
 `hksv*` fields, which remain compatibility aliases during migration. Set
-`media.recording.maxDurationSeconds` to `0` to disable its safety cap.
+`media.recording.maxDurationSeconds` to change its safety cap (default 180 seconds; HomeKit
+normally ends a recording itself when motion stops), or to `0` to disable it.
 
 ## Installation
 
@@ -74,6 +75,11 @@ If running from source:
 npm install
 npm run build
 ```
+
+Before a change is merged, CI runs `npm run lint`, `npm run build` and `npm test`, plus
+`node .github/scripts/check-homebridge.mjs` (Homebridge plugin rules) and
+`node .github/scripts/check-config-schema.mjs` (the settings schema, and every JSON example in
+this README). Run them locally the same way.
 
 Releases are published by GitHub Actions when a GitHub release is created: the tag must be
 `v<version>` from `package.json`, the release needs notes, `CHANGELOG.md` needs a section for the
@@ -111,6 +117,9 @@ HKSV support is experimental and actively evolving. Behavior may vary by camera 
 I currently am able to run 3 cameras with HKSV enabled on a Homebridge instance ran on a M4 Mac Mini 32GB of RAM.
 Please report your experience and setup details to help improve support.
 
+Recordings follow the frame rate and audio format HomeKit asks for, and include audio only when
+**Record Audio** is on in the camera's settings in the Home app.
+
 For fast-motion pixelation or stuttering in HKSV recordings, try increasing
 `hksvVideoBitrateKbps` first if you are transcoding. On Apple Silicon Macs,
 `cameraVideoCodec: "h264_videotoolbox"` can reduce CPU load by using hardware
@@ -145,6 +154,17 @@ For support and debugging:
 - This repository issues: <https://github.com/zmanuel1234/homebridge-ring-secure-video/issues>
 
 - Upstream Ring wiki (token/auth/camera references): <https://github.com/dgreif/ring/wiki>
+
+If motion and doorbell events arrive late (the log shows "Detected Motion from Ring event history
+fallback" rather than right away), Ring's instant notifications aren't reaching the plugin. With debug
+logging on, the log says at start whether the push decryption fix for `@eneris/push-receiver` was
+applied. See also the upstream [notification troubleshooting](https://github.com/dgreif/ring/wiki/Notification-Troubleshooting).
+
+Use the "Force Ring Push Credential Refresh" and "Force Ring API Session Refresh" settings only as a
+last resort, once. Each refresh adds a registration with Ring, and repeated ones can make Ring stop
+sending notifications to the plugin. If that happens, remove `homebridge-ring-secure-video` from
+Authorized Client Devices in the Ring app's Control Center, create a new refresh token, and paste it
+into the plugin's settings.
 
 ## Disclaimer
 
