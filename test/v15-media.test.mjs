@@ -487,3 +487,83 @@ test('records in the frame rate and audio format HomeKit chose', () => {
   )
   assert.deepEqual(at48.audio.slice(-4), ['-ar', '48000', '-b:a', '32k'])
 })
+
+test('starts a recording with the first fragment that begins with a keyframe', () => {
+  const container = (type, ...children) => {
+    const body = Buffer.concat(children)
+    const header = Buffer.alloc(8)
+    header.writeUInt32BE(8 + body.length, 0)
+    header.write(type, 4, 4, 'ascii')
+    return Buffer.concat([header, body])
+  }
+  const fullBox = (type, flags, fields) => {
+    const body = Buffer.alloc(4 + fields.length * 4)
+    body.writeUInt32BE(flags, 0) // version 0 + flags
+    fields.forEach((value, i) => body.writeUInt32BE(value >>> 0, 4 + i * 4))
+    return container(type, body)
+  }
+  const NON_SYNC = 0x10000
+  // trun with first_sample_flags (0x4) and data_offset (0x1): sample_count, data_offset, flags
+  const fragmentWithFirstSampleFlags = (sampleFlags) => [
+    container('moof', container('traf',
+      fullBox('tfhd', 0x20000, [1]),
+      fullBox('trun', 0x1 | 0x4, [1, 0, sampleFlags]))),
+    box('mdat', 16),
+  ]
+  // trun without first-sample flags: tfhd default_sample_flags (0x20) decide
+  const fragmentWithDefaultFlags = (sampleFlags) => [
+    container('moof', container('traf',
+      fullBox('tfhd', 0x20, [1, sampleFlags]),
+      fullBox('trun', 0x1, [1, 0]))),
+    box('mdat', 16),
+  ]
+  const types = (packets) => packets.map((p) => p.data.subarray(4, 8).toString('ascii'))
+
+  const parser = new FragmentedMp4Parser()
+  const packets = parser.append(Buffer.concat([
+    box('ftyp'), box('moov'),
+    ...fragmentWithFirstSampleFlags(NON_SYNC), // SPS/PPS-only fragment, no keyframe: dropped
+    ...fragmentWithDefaultFlags(NON_SYNC), // still no keyframe: dropped
+    ...fragmentWithFirstSampleFlags(0), // keyframe: the recording starts here
+    ...fragmentWithDefaultFlags(NON_SYNC), // later fragments are kept as they are
+  ]))
+  assert.deepEqual(types(packets), ['ftyp', 'moof', 'moof'])
+
+  // per-sample flags (0x400) after duration (0x100) and size (0x200)
+  const perSampleFragment = (sampleFlags) => [
+    container('moof', container('traf',
+      fullBox('tfhd', 0, [1]),
+      fullBox('trun', 0x1 | 0x100 | 0x200 | 0x400, [1, 0, 3000, 100, sampleFlags]))),
+    box('mdat', 16),
+  ]
+  const perSample = new FragmentedMp4Parser().append(Buffer.concat([
+    box('ftyp'), box('moov'), ...perSampleFragment(NON_SYNC), ...perSampleFragment(0),
+  ]))
+  assert.equal(perSample.length, 2, 'per-sample sync flag is read: the first fragment is dropped')
+
+  // Audio as track 1 and video as track 2: the video track's flags decide.
+  const trak = (trackId, handler) => container('trak',
+    fullBox('tkhd', 0, [0, 0, trackId]),
+    container('mdia', container('hdlr', Buffer.concat([
+      Buffer.alloc(8), Buffer.from(handler, 'ascii'), Buffer.alloc(12),
+    ]))))
+  const twoTrackFragment = (videoFlags) => [
+    container('moof',
+      container('traf', fullBox('tfhd', 0x20, [1, 0]), fullBox('trun', 0x1, [1, 0])),
+      container('traf', fullBox('tfhd', 0x20, [2, videoFlags]), fullBox('trun', 0x1, [1, 0]))),
+    box('mdat', 16),
+  ]
+  const twoTracks = new FragmentedMp4Parser().append(Buffer.concat([
+    box('ftyp'), container('moov', trak(1, 'soun'), trak(2, 'vide')),
+    ...twoTrackFragment(NON_SYNC), ...twoTrackFragment(0),
+  ]))
+  assert.equal(twoTracks.length, 2, 'an audio keyframe before the video keyframe does not start the recording')
+
+  // A truncated trun can't be read: treated as a keyframe rather than throwing.
+  const truncated = new FragmentedMp4Parser().append(Buffer.concat([
+    box('ftyp'), box('moov'),
+    container('moof', container('traf', fullBox('tfhd', 0, [1]), fullBox('trun', 0x1 | 0x4, [1, 0]))),
+    box('mdat', 16),
+  ]))
+  assert.equal(truncated.length, 2)
+})

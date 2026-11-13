@@ -34,6 +34,9 @@
   sample rate and bitrate, or no audio track when Record Audio is off in the Home app. Before,
   the audio was FFmpeg's default AAC (often stereo at the source rate) whatever HomeKit chose.
   The log shows the chosen format at the start of each recording.
+- A recording now starts with the first fragment that begins with a keyframe. Encoders that
+  send their SPS/PPS as a separate first sample (the Raspberry Pi's hardware encoder) made FFmpeg
+  write a first fragment without one, and HomeKit discards a recording that starts that way.
 
 ## Earlier releases (as homebridge-ring-hksv)
 
