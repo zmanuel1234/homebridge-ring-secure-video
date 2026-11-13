@@ -1,6 +1,6 @@
 import { hap } from './hap.ts'
 import type { RingPlatformConfig } from './config.ts'
-import type { RingCamera } from 'ring-client-api'
+import { PushNotificationAction, type RingCamera } from 'ring-client-api'
 import { BaseDataAccessory } from './base-data-accessory.ts'
 import {
   catchError,
@@ -16,10 +16,51 @@ import { CameraSource } from './camera-source.ts'
 import type { PlatformAccessory } from 'homebridge'
 import { TargetValueTimer } from './target-value-timer.ts'
 import { delay, logError, logInfo } from 'ring-client-api/util'
-import { EMPTY, firstValueFrom, from, merge, of, timer } from 'rxjs'
+import { defer, EMPTY, firstValueFrom, from, merge, of, timer } from 'rxjs'
 import type { Observable } from 'rxjs'
 
 export const MOTION_WATCHDOG_MS = 30_000
+
+/**
+ * Motion from Ring's push notifications, as HomeKit needs it: true for every new motion alert.
+ *
+ * ring-client-api's onMotionDetected is true while any motion alert is active (each lasts 65 s)
+ * and only reports changes, so a new alert while an earlier one is still active gives nothing.
+ * The watchdog below turns motion off after 30 s, so a second visit 30-65 s after the first
+ * would never turn it on again: no recording and no notification. So every new motion
+ * notification gives a true (restarting the watchdog), and onMotionDetected only adds its
+ * false once all alerts have expired. A notification repeating an alert seen in the last two
+ * minutes (Ring sends a second one with the snapshot; a reconnect can resend) is not a new visit.
+ */
+export const REPEATED_ALERT_WINDOW_MS = 120_000
+
+export function getPushMotionEvents(
+  camera: Pick<RingCamera, 'onMotionDetected' | 'onNewNotification'>,
+): Observable<boolean> {
+  return defer(() => {
+    const seenAt = new Map<string, number>()
+    return merge(
+      camera.onMotionDetected.pipe(filter((motion) => !motion)),
+      camera.onNewNotification.pipe(
+        filter((notification) => {
+          if (notification.android_config?.category !== PushNotificationAction.Motion) {
+            return false
+          }
+          const now = Date.now(),
+            id = notification.data?.event?.ding?.id
+          for (const [seenId, at] of seenAt) {
+            if (now - at > REPEATED_ALERT_WINDOW_MS) seenAt.delete(seenId)
+          }
+          if (id === undefined) return true
+          if (seenAt.has(String(id))) return false
+          seenAt.set(String(id), now)
+          return true
+        }),
+        map(() => true),
+      ),
+    )
+  })
+}
 
 export function addMotionWatchdog(
   motionEvents: Observable<boolean>,
@@ -256,7 +297,7 @@ export class Camera extends BaseDataAccessory<RingCamera> {
     const pollSeconds = Math.max(this.config.cameraStatusPollingSeconds ?? 20, 10),
       startedAt = Date.now() - 5000,
       seenEventIds = new Set<string>(),
-      pushMotionEvents = this.device.onMotionDetected,
+      pushMotionEvents = getPushMotionEvents(this.device),
       enableMotionHistoryFallback =
         this.config.enableCameraMotionHistory !== false
     let historyFailureCount = 0
@@ -317,16 +358,10 @@ export class Camera extends BaseDataAccessory<RingCamera> {
             }),
           )
         }),
-        // The false timer below has a second subscriber. Sharing keeps one
-        // history request per poll instead of duplicating Ring API traffic.
-        share(),
       ),
-      polledMotionEvents = merge(
-        polledNewMotionEvents,
-        polledNewMotionEvents.pipe(
-          switchMap(() => timer(65000).pipe(map(() => false))),
-        ),
-      )
+      // No separate "motion off" for these: the watchdog below turns motion off 30 s after the
+      // last event, and a 65 s one from here could cut a later push-started visit short.
+      polledMotionEvents = polledNewMotionEvents
 
     if (enableMotionHistoryFallback) {
       this.device.onNewNotification.subscribe((notification) => {
