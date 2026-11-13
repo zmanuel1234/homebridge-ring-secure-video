@@ -92,8 +92,20 @@ const recordingKeys = new Set<keyof MediaRecordingConfigInput>([
   'maxConcurrentRecordings',
 ])
 
+/** A media setting that can't be used; path is where it is, e.g. "media.recording.crf". */
+export class MediaConfigError extends Error {
+  readonly path: string
+  readonly expectation: string
+
+  constructor(path: string, expectation: string) {
+    super(`Invalid media configuration at ${path}: expected ${expectation}`)
+    this.path = path
+    this.expectation = expectation
+  }
+}
+
 function invalid(path: string, expectation: string): never {
-  throw new Error(`Invalid media configuration at ${path}: expected ${expectation}`)
+  throw new MediaConfigError(path, expectation)
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -255,8 +267,8 @@ export function normalizeMediaConfig(config: RingPlatformConfig): NormalizedMedi
   const input = media.recording
   const lowPower = profile === 'lowPower'
   const bitrateKbps = preferInteger(input.bitrateKbps, config.hksvVideoBitrateKbps, 'media.recording.bitrateKbps', lowPower ? 1000 : profile === 'quality' ? 5000 : 3000, 256, 12000)
-  const maxBitrateKbps = preferInteger(input.maxBitrateKbps, config.hksvVideoMaxBitrateKbps, 'media.recording.maxBitrateKbps', bitrateKbps * 2, bitrateKbps, 20000)
-  const bufferSizeKbps = preferInteger(input.bufferSizeKbps, config.hksvVideoBufferSizeKbps, 'media.recording.bufferSizeKbps', maxBitrateKbps * 2, maxBitrateKbps, 40000)
+  const maxBitrateKbps = preferInteger(input.maxBitrateKbps, config.hksvVideoMaxBitrateKbps, 'media.recording.maxBitrateKbps', Math.min(bitrateKbps * 2, 20000), bitrateKbps, 20000)
+  const bufferSizeKbps = preferInteger(input.bufferSizeKbps, config.hksvVideoBufferSizeKbps, 'media.recording.bufferSizeKbps', Math.min(maxBitrateKbps * 2, 40000), maxBitrateKbps, 40000)
 
   return {
     profile,
@@ -276,6 +288,52 @@ export function normalizeMediaConfig(config: RingPlatformConfig): NormalizedMedi
       maxConcurrentRecordings: preferInteger(input.maxConcurrentRecordings, config.hksvMaxConcurrentRecordings, 'media.recording.maxConcurrentRecordings', lowPower ? 1 : 2, 1, 4),
     },
   }
+}
+
+// Error paths are "media", "media.<key>", "media.recording" or "media.recording.<key>", where
+// <key> is the user's own key and may itself contain dots.
+function removeSetting(config: Record<string, unknown>, path: string) {
+  const media = config.media
+  const recordingKey = path.slice('media.recording.'.length)
+  if (
+    path.startsWith('media.recording.') &&
+    isRecord(media) &&
+    isRecord(media.recording) &&
+    Object.hasOwn(media.recording, recordingKey)
+  ) {
+    delete media.recording[recordingKey]
+  } else if (path.startsWith('media.') && isRecord(media)) {
+    delete media[path.slice('media.'.length)]
+  } else {
+    delete config.media
+  }
+}
+
+/**
+ * Like normalizeMediaConfig, but never throws: each media setting that can't be used is taken out
+ * of config (in memory only, so every later normalizeMediaConfig call agrees) and reported, and the
+ * older flat setting or the default is used instead. A bad value, for example a maximum bitrate below the bitrate, would
+ * otherwise stop the plugin from starting and take everything on its bridge down with it.
+ */
+export function sanitizeMediaConfig(config: RingPlatformConfig): {
+  media: NormalizedMediaConfig
+  ignored: MediaConfigError[]
+} {
+  const ignored: MediaConfigError[] = []
+  // Each round removes one setting. After 64 (only possible with many unknown keys), all media
+  // settings are dropped below.
+  for (let round = 0; round < 64; round++) {
+    try {
+      return { media: normalizeMediaConfig(config), ignored }
+    } catch (e) {
+      if (!(e instanceof MediaConfigError)) throw e
+      ignored.push(e)
+      removeSetting(config as unknown as Record<string, unknown>, e.path)
+    }
+  }
+  delete (config as { media?: unknown }).media
+  ignored.push(new MediaConfigError('media', 'fewer than 64 unusable settings, so all of them are ignored'))
+  return { media: normalizeMediaConfig(config), ignored }
 }
 
 /** Maps v15 profiles to the legacy names used by existing camera code. */
