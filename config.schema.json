@@ -350,6 +350,11 @@
         "title": "Hide Camera Motion Sensors",
         "type": "boolean"
       },
+      "cameraMotionNotificationSensor": {
+        "title": "Separate Motion Sensor for Notifications",
+        "type": "boolean",
+        "description": "Adds a \"<camera> Motion\" sensor for each camera, driven by the same motion events but not tied to the camera. With HomeKit Secure Video recording on, the Home app only notifies about the camera's own motion after analysing the clip; turn on notifications for this sensor instead to be told at once. It appears on this plugin's bridge."
+      },
       "hideCameraSirenSwitch": {
         "title": "Hide Camera Siren Switch",
         "type": "boolean"
@@ -507,6 +512,7 @@
             "hideDoorbellSwitch",
             "hideCameraLight",
             "hideCameraMotionSensor",
+            "cameraMotionNotificationSensor",
             "hideCameraSirenSwitch",
             "hideInHomeDoorbellSwitch",
             "hideAlarmSirenSwitch",

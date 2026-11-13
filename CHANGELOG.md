@@ -46,6 +46,10 @@
   ("reason=6" in the log). Each fragment is now held until the next one arrives, so the last real
   fragment carries the end marker. When HomeKit ends a recording itself, the held fragment (up to
   one fragment, about 4 s) is not sent.
+- New setting `cameraMotionNotificationSensor` (off by default): a separate "<camera> Motion"
+  sensor per camera, driven by the same motion events, for motion notifications as soon as Ring
+  reports motion. With recording on, the camera's own notifications wait for the hub's clip
+  analysis.
 
 ## Earlier releases (as homebridge-ring-hksv)
 

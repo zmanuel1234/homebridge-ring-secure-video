@@ -46,6 +46,7 @@ export class Camera extends BaseDataAccessory<RingCamera> {
   public readonly device
   public readonly accessory
   public readonly config
+  public readonly motionDetected?: Observable<boolean>
 
   constructor(
     device: RingCamera,
@@ -83,11 +84,17 @@ export class Camera extends BaseDataAccessory<RingCamera> {
       getValue: () => false,
     })
 
-    if (!config.hideCameraMotionSensor) {
+    // One motion source, shared by the camera's motion sensor and the optional
+    // notification sensor, so Ring's event history isn't polled twice.
+    if (!config.hideCameraMotionSensor || config.cameraMotionNotificationSensor) {
+      this.motionDetected = this.getMotionDetectedObservable().pipe(share())
+    }
+
+    if (!config.hideCameraMotionSensor && this.motionDetected) {
       this.registerObservableCharacteristic({
         characteristicType: Characteristic.MotionDetected,
         serviceType: Service.MotionSensor,
-        onValue: this.getMotionDetectedObservable().pipe(
+        onValue: this.motionDetected.pipe(
           switchMap((motion) => {
             if (!motion) {
               return Promise.resolve(false)
