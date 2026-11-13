@@ -4,6 +4,8 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Subject } from 'rxjs'
+import * as hapNodejs from '@homebridge/hap-nodejs'
+import { setHap } from '../lib/hap.js'
 import { intervalProvider } from 'rxjs/internal/scheduler/intervalProvider'
 import { getHistoryMotionEvents } from '../lib/camera.js'
 import {
@@ -12,6 +14,8 @@ import {
   readPushRecoveryState,
 } from '../lib/push-health.js'
 import { getSavedPlatformConfig, RingPlatform } from '../lib/ring-platform.js'
+
+setHap(hapNodejs)
 
 const minutes = (n) => n * 60_000
 const day = minutes(24 * 60)
@@ -119,11 +123,35 @@ test('a push drops a refresh still waiting for a restart', (t) => {
   })
 })
 
-test('a refresh saved with a clock that was ahead does not hold up the next', (t) => {
+test('pushes coming back mid-run drop the refresh asked for in this run', (t) => {
+  const { dir, refreshes, clock, health } = monitor(t)
+
+  health.recordPush(true)
+  health.recordMissed(2)
+  clock.now += minutes(30)
+  health.recordMissed(1)
+  assert.equal(refreshes.length, 1)
+  assert.equal(readPushRecoveryState(dir).refreshPending, true)
+  health.recordPush(true)
+  assert.equal(readPushRecoveryState(dir).refreshPending, false)
+})
+
+test("a push does not drop this run's refresh before its token is saved", (t) => {
+  const { dir, health } = monitor(t, { refreshPending: true })
+
+  health.setHoldPending(true)
+  health.recordPush(true)
+  assert.equal(readPushRecoveryState(dir).refreshPending, true)
+})
+
+test('a refresh saved with a clock that was ahead waits at most a day from now', (t) => {
   const { refreshes, clock, health } = monitor(t, { lastRefreshAt: 20 * day })
 
   health.recordMissed(2)
   clock.now += minutes(30)
+  health.recordMissed(1)
+  assert.equal(refreshes.length, 0)
+  clock.now += day
   health.recordMissed(1)
   assert.equal(refreshes.length, 1)
 })
@@ -176,19 +204,26 @@ test('the history check reports pushes and unpushed motion events', async (t) =>
   camera.onNewNotification.next({ android_config: { category: 'com.ring.pn.live-event.ding' } })
   assert.deepEqual(reported, ['missed 1', 'push'])
 
-  // Not counted: an event Ring saw no person in, and anything while motion is snoozed.
-  events.push({
-    ding_id: 2,
-    ding_id_str: '2',
+  const noPerson = (id) => ({
+    ding_id: id,
+    ding_id_str: String(id),
     kind: 'motion',
     created_at: new Date().toISOString(),
     cv_properties: { person_detected: false },
   })
+  // Counted: Ring alerts for all motion, so one without a person should have come too.
+  events.push(noPerson(2))
   await at(240)
-  camera.data = { motion_snooze: { scheduled: false } }
-  events.push({ ding_id: 3, ding_id_str: '3', kind: 'motion', created_at: new Date().toISOString() })
+  assert.deepEqual(reported, ['missed 1', 'push', 'missed 1'])
+
+  // Not counted: no person while Ring alerts for people only, and anything while snoozed.
+  camera.data = { settings: { advanced_motion_detection_human_only_mode: true } }
+  events.push(noPerson(3))
   await at(360)
-  assert.deepEqual(reported, ['missed 1', 'push'])
+  camera.data = { motion_snooze: { scheduled: false } }
+  events.push({ ding_id: 4, ding_id_str: '4', kind: 'motion', created_at: new Date().toISOString() })
+  await at(480)
+  assert.deepEqual(reported, ['missed 1', 'push', 'missed 1'])
 })
 
 function platform(t, { config = {}, state, savedToken = 'T0', bridge, saved = {} } = {}) {
@@ -209,9 +244,25 @@ function platform(t, { config = {}, state, savedToken = 'T0', bridge, saved = {}
     JSON.stringify({ platforms: [{ platform: 'Ring', refreshToken: 'other' }, block] }),
   )
   const events = {},
+    registered = [],
     api = {
       on: (event, handler) => (events[event] = handler),
       user: { configPath: () => join(dir, 'config.json'), storagePath: () => dir },
+      platformAccessory: class {
+        constructor(displayName, UUID) {
+          this.displayName = displayName
+          this.UUID = UUID
+          this.hap = new hapNodejs.Accessory(displayName, UUID)
+        }
+        getService(service) {
+          return this.hap.getService(service)
+        }
+        addService(...args) {
+          return this.hap.addService(...args)
+        }
+      },
+      registerPlatformAccessories: (_p, _n, accessories) => registered.push(...accessories),
+      unregisterPlatformAccessories() {},
     }
   class TestPlatform extends RingPlatform {
     createRingApi(options) {
@@ -237,6 +288,7 @@ function platform(t, { config = {}, state, savedToken = 'T0', bridge, saved = {}
     warnings,
     restarts,
     events,
+    registered,
     config: fullConfig,
     platform: new TestPlatform(log, fullConfig, api),
   }
@@ -250,14 +302,15 @@ test('a pending automatic refresh gives a new Ring identity, cleared once the to
   await p.connectToApi()
   assert.notEqual(created[0].options.systemId, 'old-system-id')
   created[0].onRefreshTokenUpdated.next({ oldRefreshToken: 'T0', newRefreshToken: 'T1' })
-  assert.deepEqual(readPushRecoveryState(dir), {
-    refreshPending: false,
-    lastRefreshAt: 5,
-    refreshesWithoutPush: 1,
-  })
+  const { refreshDoneAt, ...rest } = readPushRecoveryState(dir)
+  assert.equal(typeof refreshDoneAt, 'number')
+  assert.deepEqual(rest, { refreshPending: false, lastRefreshAt: 5, refreshesWithoutPush: 1 })
   assert.equal(JSON.parse(readFileSync(join(dir, 'config.json'))).platforms[1].refreshToken, 'T1')
   assert.equal(config.refreshToken, 'T1')
   assert.match(warnings.at(-1), /Remove the older entry/)
+  created[0].onRefreshTokenUpdated.next({ oldRefreshToken: 'T1', newRefreshToken: 'T2' })
+  assert.equal(warnings.filter((w) => /Remove the older entry/.test(w)).length, 1, 'once')
+  assert.ok(readPushRecoveryState(dir).refreshDoneAt > 0)
 
   await p.connectToApi()
   assert.equal(created[1].options.systemId, created[0].options.systemId, 'only once')
@@ -352,4 +405,57 @@ test("only this bridge's own block gives the saved token", (t) => {
   )
   rmSync(join(dir, 'config.json'))
   assert.equal(getSavedPlatformConfig(api, child), undefined, 'no config.json')
+})
+
+test('the session refresh sensor opens a minute after a refresh, and closes a day later', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 100 * day })
+  const { dir, created, registered, platform: p } = platform(t, {
+    config: { sessionRefreshSensor: true },
+    state: { refreshPending: true },
+  })
+  const state = () =>
+    registered[0]
+      .getService(hapNodejs.Service.ContactSensor)
+      .getCharacteristic(hapNodejs.Characteristic.ContactSensorState).value
+  const { CONTACT_DETECTED: closed, CONTACT_NOT_DETECTED: open } =
+    hapNodejs.Characteristic.ContactSensorState
+
+  await p.connectToApi()
+  assert.deepEqual(registered.map((a) => a.displayName), ['Ring Session Refreshed'])
+  assert.equal(state(), closed)
+
+  // The new token is saved (here after the set-up; usually before it).
+  created[0].onRefreshTokenUpdated.next({ oldRefreshToken: 'T0', newRefreshToken: 'T1' })
+  t.mock.timers.tick(59_000)
+  assert.equal(state(), closed, 'not before the Home app has seen the bridge again')
+  t.mock.timers.tick(1_000)
+  assert.equal(state(), open)
+  t.mock.timers.tick(day - minutes(1))
+  assert.equal(state(), closed)
+  assert.equal(readPushRecoveryState(dir).refreshPending, false)
+})
+
+test('after a restart within the day the sensor opens again; without the setting there is none', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 100 * day })
+  const recent = platform(t, {
+      config: { sessionRefreshSensor: true },
+      state: { refreshDoneAt: 100 * day - minutes(60) },
+    }),
+    old = platform(t, {
+      config: { sessionRefreshSensor: true },
+      state: { refreshDoneAt: 99 * day },
+    }),
+    none = platform(t, { state: { refreshDoneAt: 100 * day - minutes(60) } })
+  await recent.platform.connectToApi()
+  await old.platform.connectToApi()
+  await none.platform.connectToApi()
+  t.mock.timers.tick(60_000)
+
+  const value = (accessory) =>
+    accessory
+      .getService(hapNodejs.Service.ContactSensor)
+      .getCharacteristic(hapNodejs.Characteristic.ContactSensorState).value
+  assert.equal(value(recent.registered[0]), 1)
+  assert.equal(value(old.registered[0]), 0)
+  assert.equal(none.registered.length, 0)
 })

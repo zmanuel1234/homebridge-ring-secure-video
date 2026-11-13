@@ -156,11 +156,16 @@ export function getHistoryMotionEvents(
             }
 
             if (missed.length) {
-              // Ring sends no alert while motion is snoozed, nor (with Smart Alerts) for motion
-              // without a person: those say nothing about whether its pushes reach the plugin.
-              const unexplained = device.data?.motion_snooze
-                ? []
-                : missed.filter((event) => event.cv_properties?.person_detected !== false)
+              // Ring sends no alert while motion is snoozed, nor, when set to alert for people
+              // only, for motion it saw no person in: those say nothing about whether its
+              // pushes reach the plugin.
+              const peopleOnly =
+                  device.data?.settings?.advanced_motion_detection_human_only_mode === true,
+                unexplained = device.data?.motion_snooze
+                  ? []
+                  : missed.filter(
+                    (event) => !peopleOnly || event.cv_properties?.person_detected !== false,
+                  )
               if (unexplained.length) pushHealth?.recordMissed(unexplained.length)
               matchedInARow = 0
               if (pushWorks) {

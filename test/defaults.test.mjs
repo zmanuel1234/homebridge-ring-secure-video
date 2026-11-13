@@ -63,6 +63,7 @@ test('HKSV is on unless turned off, except for cameras running on battery', () =
 const checkedElsewhere = {
   enableCameraMotionHistory: 'camera.ts: unset counts as on (!== false), like the default true',
   automaticSessionRefresh: 'ring-platform.ts: unset counts as on (!== false), like the default true',
+  sessionRefreshSensor: 'ring-platform.ts: unset counts as off (truthy check), like the default false',
 }
 test('every form default is checked', () => {
   const covered = new Set(['enableHksv', 'disableHksvOnBattery', 'hksvPerformanceMode', 'hksvVideoKeyframeInterval', 'media'])

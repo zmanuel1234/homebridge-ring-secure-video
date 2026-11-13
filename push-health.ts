@@ -18,6 +18,8 @@ export interface PushRecoveryState {
   /** A session refresh is to be done at the next start (cleared once the new token is saved). */
   refreshPending?: boolean
   lastRefreshAt?: number
+  /** When the last automatic refresh was done (its new token saved). */
+  refreshDoneAt?: number
   /** Automatic refreshes since the last push notification. */
   refreshesWithoutPush?: number
 }
@@ -60,6 +62,10 @@ export class PushHealthMonitor implements PushHealthReporter {
   private missTimes: number[] = []
   private pushSeen = false
   private motionPushSeen = false
+  /** A refresh was asked for in this run, and no push has arrived since. */
+  private requested = false
+  /** This run's refresh has not saved its new token yet: it must stay pending. */
+  private holdPending = false
   private done = false
   private loggedWaitUntil = 0
   private readonly storagePath
@@ -84,18 +90,26 @@ export class PushHealthMonitor implements PushHealthReporter {
     this.elapsed = elapsed
   }
 
+  /** Set while this run's own refresh has not saved its new token (see connectToApi). */
+  setHoldPending(hold: boolean) {
+    this.holdPending = hold
+  }
+
   /** Any push shows they reach the plugin; only a motion push ends the refresh count. */
   recordPush(isMotion: boolean) {
     this.missTimes = []
-    const firstPush = !this.pushSeen,
+    const checkPending = !this.pushSeen || this.requested,
       firstMotionPush = isMotion && !this.motionPushSeen
     this.pushSeen = true
+    this.requested = false
     this.motionPushSeen ||= isMotion
-    if (!firstPush && !firstMotionPush) return
+    if (!checkPending && !firstMotionPush) return
     const state = readPushRecoveryState(this.storagePath),
       update: PushRecoveryState = {}
     // A refresh still waiting for a restart (main bridge) is no longer needed.
-    if (firstPush && state.refreshPending) update.refreshPending = false
+    if (checkPending && state.refreshPending && !this.holdPending) {
+      update.refreshPending = false
+    }
     if (firstMotionPush && state.refreshesWithoutPush) update.refreshesWithoutPush = 0
     if (!Object.keys(update).length) return
     writePushRecoveryState(this.storagePath, { ...state, ...update })
@@ -125,9 +139,13 @@ export class PushHealthMonitor implements PushHealthReporter {
       )
       return
     }
-    // A refresh saved by a clock that was ahead (before NTP set it) doesn't hold up the next.
-    const lastRefreshAt = (state.lastRefreshAt ?? 0) > now ? 0 : (state.lastRefreshAt ?? 0),
-      nextAllowedAt = lastRefreshAt + REFRESH_INTERVAL_MS
+    // A refresh saved later than now (one of the clocks was wrong) counts as done now, so the
+    // next one waits at most a day.
+    if ((state.lastRefreshAt ?? 0) > now) {
+      state.lastRefreshAt = now
+      writePushRecoveryState(this.storagePath, state)
+    }
+    const nextAllowedAt = (state.lastRefreshAt ?? 0) + REFRESH_INTERVAL_MS
     if (now < nextAllowedAt) {
       if (this.loggedWaitUntil !== nextAllowedAt) {
         this.loggedWaitUntil = nextAllowedAt
@@ -146,6 +164,7 @@ export class PushHealthMonitor implements PushHealthReporter {
         refreshesWithoutPush: refreshes + 1,
       })
     ) {
+      this.requested = true
       this.refresh()
     }
   }
