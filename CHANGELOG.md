@@ -7,6 +7,8 @@
   is used, with no second copy.
 - Remove the root `public/` folder and root `index.html` left over from the fork, unused copies
   of the settings page in `homebridge-ui/public/` (which is the one the plugin ships).
+- Remove `.swcrc`, an unused swc compiler config inherited from homebridge-ring (the plugin is
+  built with `tsc`, and the file described CommonJS output while the package is ESM).
 
 ## 1.0.0-beta.1 (2026-11-13)
 
