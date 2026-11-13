@@ -10,8 +10,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 24
       - name: Check the tag and the pre-release box match package.json
@@ -45,7 +47,7 @@ jobs:
         run: node .github/scripts/check-config-schema.mjs
       - name: Pack
         run: npm pack --ignore-scripts && mv homebridge-ring-secure-video-*.tgz package.tgz
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: package
           path: package.tgz
@@ -57,13 +59,13 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
-      - name: Use an npm with trusted publishing (11.5.1 or later; pinned to major version 11)
-        run: npm install -g npm@11
-      - uses: actions/download-artifact@v4
+      - name: Use an npm with trusted publishing (11.5.1 or later), at an exact version
+        run: npm install -g npm@11.21.2
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: package
       # Trusted publishing: npm checks this workflow's GitHub OIDC identity, so no token is

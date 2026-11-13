@@ -36,7 +36,7 @@
           "profile": {
             "title": "Media profile",
             "type": "string",
-            "default": "adaptive",
+            "description": "Defaults to the HKSV Performance Mode (rpi gives lowPower, quality gives quality), otherwise adaptive.",
             "oneOf": [
               { "title": "adaptive", "enum": ["adaptive"] },
               { "title": "lowPower", "enum": ["lowPower"] },
@@ -161,7 +161,7 @@
       "disableHksvOnBattery": {
         "title": "Disable HKSV On Battery Cameras",
         "type": "boolean",
-        "description": "If enabled, HKSV is disabled on battery-powered cameras to reduce battery and network impact.",
+        "description": "If enabled, HKSV is disabled on cameras running on battery, to reduce battery and network impact. Battery models that are wired (power mode wired in the Ring app) keep HKSV.",
         "default": true
       },
       "hksvPrebufferLengthMs": {
@@ -189,7 +189,7 @@
       "hksvPerformanceMode": {
         "title": "HKSV Performance Mode",
         "type": "string",
-        "description": "High-level HKSV tuning profile. Use rpi for Raspberry Pi and other small computers; it favors remuxing, lower advertised recording tiers, and conservative concurrency.",
+        "description": "High-level HKSV tuning profile. Use rpi for Raspberry Pi and other small computers: lower advertised recording tiers, one recording at a time, and remuxing (copy) unless a codec other than auto is set. Verified on a Pi 4 with the codec set to libx264.",
         "default": "balanced",
         "oneOf": [
           {
@@ -225,8 +225,7 @@
         "type": "integer",
         "minimum": 256,
         "maximum": 12000,
-        "default": 3000,
-        "description": "Target video bitrate for HKSV recording transcodes. Increase this first if fast motion becomes blocky or pixelated. 4000-6000 is a good starting range for wired cameras."
+        "description": "Target video bitrate for HKSV recording transcodes. Defaults to the media profile's (1000 lowPower, 3000 adaptive, 5000 quality). Increase this first if fast motion becomes blocky or pixelated. 4000-6000 is a good starting range for wired cameras."
       },
       "hksvVideoMaxBitrateKbps": {
         "title": "HKSV Max Video Bitrate (kbps)",
@@ -308,7 +307,7 @@
       "cameraVideoCodec": {
         "title": "Camera Video Codec",
         "type": "string",
-        "description": "Preferred FFmpeg H.264 handling for HKSV recordings. auto chooses the lowest-cost option for the configured performance mode; copy remuxes Ring video without re-encoding.",
+        "description": "Preferred FFmpeg H.264 handling for HKSV recordings. auto chooses the lowest-cost option for the configured performance mode; copy remuxes Ring video without re-encoding. Complete clips are verified with libx264; copy and h264_v4l2m2m are not verified yet.",
         "oneOf": [
           {
             "title": "auto",

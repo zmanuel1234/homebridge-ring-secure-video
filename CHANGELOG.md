@@ -1,5 +1,28 @@
 # homebridge-ring-secure-video
 
+## 1.0.0-beta.3 (2026-11-13)
+
+Fixes from a full independent review of 1.0.0-beta.2.
+
+- A second visit 30–65 s after the first now turns HomeKit motion on again, so it is recorded and
+  notified. Ring keeps a motion alert active for 65 s and only reports changes, while the plugin
+  turns motion off after 30 s; a new alert in between gave nothing. A repeat of the same alert
+  (Ring's follow-up with the snapshot, a resend) is not a new visit, and the event-history
+  fallback no longer adds its own "no motion" after 65 s, which could cut a later visit short.
+- A media setting the plugin can't use (for example a maximum bitrate below the bitrate, which
+  the settings form allows, or a stray key) no longer stops the plugin's bridge from starting
+  (which took the alarm down with it). It is ignored with a warning naming it, and the older
+  setting or the default is used. Default maximum bitrate and buffer size derived from a high
+  bitrate stay within their limits.
+- After a forced Ring refresh ("Force Ring Push Credential Refresh" or "Force Ring API Session
+  Refresh"), every new Ring token is saved, not only the first; before, the next start
+  registered with Ring again. The force settings are cleared once, and a token that can't be
+  saved is logged.
+- config.json and .ring.json are written to a temporary file and then renamed into place, so a
+  power cut or a full disk during a token renewal can't leave them cut short (Homebridge would not
+  start). Permissions, group and symlinks are kept; where that can't work (a bind-mounted file,
+  a file owned by another user, ...) they are written in place as before.
+
 ## 1.0.0-beta.2 (2026-11-13)
 
 - The Homebridge UI shows the plugin as "Ring Secure Video" (was "Homebridge Ring Secure Video"),
