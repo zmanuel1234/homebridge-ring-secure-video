@@ -156,12 +156,59 @@ sensor on this plugin's bridge. If the bridge isn't in the Home app yet, add it 
 code, then turn on notifications in the sensor's settings (and, if you like, turn off the
 camera's own Activity Notifications to avoid two alerts).
 
-For fast-motion pixelation or stuttering in HKSV recordings, try increasing
-`hksvVideoBitrateKbps` first if you are transcoding. On Apple Silicon Macs,
-`cameraVideoCodec: "h264_videotoolbox"` can reduce CPU load by using hardware
-encoding.
+For fast-motion pixelation or stuttering in HKSV recordings with an encoder (not `copy`), try
+increasing `media.recording.bitrateKbps` first. On Apple Silicon Macs, `"codec":
+"h264_videotoolbox"` should reduce CPU load by using the hardware encoder (not verified in this
+fork).
 
-For Raspberry Pi 4/5 and other small computers, start with the `lowPower` profile:
+### Recording codecs
+
+Only HKSV recordings are encoded; live view passes Ring's video through. `media.recording.codec`
+(or the older `cameraVideoCodec`) chooses how:
+
+| Codec | What it does | CPU |
+| --- | --- | --- |
+| `copy` | Records Ring's H.264 as received, without re-encoding (Ring's own picture) | Least |
+| `h264_v4l2m2m` | Raspberry Pi 4 hardware encoder (the Pi 5 has none) | Low to medium: Ring's video is still decoded and scaled in software |
+| `h264_videotoolbox` | Mac hardware encoder (not verified in this fork) | Low |
+| `libx264` | Software encoder, with the most control over quality | Most |
+| `auto` | Picks one of the above, see below | |
+
+`copy` works when Ring's stream meets HomeKit's recording requirements, as it does for the
+Doorbell 3 Plus; if clips from another camera don't appear or don't play, choose an encoder.
+`bitrateKbps`, `maxBitrateKbps`, `bufferSizeKbps`, `rateControl` and `keyframeInterval` apply to
+all encoders; `preset` and `crf` (the latter only with `vbr`) apply only to `libx264`. `copy`
+ignores all of them. The Pi's hardware encoder uses `bitrateKbps` and `keyframeInterval`;
+`rateControl` likely makes little difference there.
+
+#### What `auto` picks
+
+`auto` is the default, except in the `lowPower` profile, whose default is `copy`.
+
+| Profile (`media.profile`) | `auto` picks |
+| --- | --- |
+| `lowPower` (also `"hksvPerformanceMode": "rpi"`) | `copy` |
+| `adaptive` (default) or `quality` | `h264_v4l2m2m` if FFmpeg has it (Raspberry Pi 4), else `h264_videotoolbox` if FFmpeg has it (Mac), else `libx264` |
+
+"FFmpeg has it" means the encoder is built into FFmpeg, not that the hardware is there: on a
+Raspberry Pi 5 (no hardware encoder), set `codec` to `copy` or `libx264` rather than relying on
+`auto` in the `adaptive` and `quality` profiles. A valid legacy `cameraVideoCodec` in the config
+counts as the codec when `media.recording.codec` isn't set. The log shows the choice for each recording: `Starting HKSV recording pipeline ...
+video=<codec>`.
+
+#### Settings verified on a Raspberry Pi 4
+
+Raspberry Pi 4, Ring Video Doorbell 3 Plus (wired), Homebridge 2.5, Node 22, FFmpeg from
+ffmpeg-for-homebridge. HomeKit asked for 1280x720 at 30 fps with 4-second fragments; every
+setting below gave complete clips that play fully in the Home app.
+
+| Codec | `media` settings | Notes |
+| --- | --- | --- |
+| `copy` | `{ "profile": "lowPower", "recording": { "codec": "copy" } }` | Least CPU, most natural picture; the recommended start on a Pi |
+| `h264_v4l2m2m` | `{ "profile": "lowPower", "recording": { "codec": "h264_v4l2m2m", "bitrateKbps": 1500, "keyframeInterval": 30 } }` | FFmpeg used about 75% of one of the Pi's four cores while recording |
+| `libx264` | `{ "profile": "lowPower", "recording": { "codec": "libx264", "bitrateKbps": 800, "keyframeInterval": 112 } }` | The `lowPower` preset is `ultrafast` |
+
+For a Raspberry Pi, start with:
 
 ```json
 {
@@ -171,17 +218,6 @@ For Raspberry Pi 4/5 and other small computers, start with the `lowPower` profil
   }
 }
 ```
-
-The `lowPower` profile (also chosen by `"hksvPerformanceMode": "rpi"`) records one clip at a
-time with conservative settings, and uses `copy` by default (and with `"codec": "auto"`, unless a
-legacy `cameraVideoCodec` is set): Ring's H.264 is
-recorded as received, without re-encoding, so it costs the least CPU and keeps Ring's picture.
-That works when Ring's stream meets HomeKit's recording requirements, as it does for the
-Doorbell 3 Plus. If clips from another camera don't appear or don't play, set
-`media.recording.codec` to `h264_v4l2m2m` (the Pi 4's hardware encoder, when FFmpeg has it; the
-Pi 5 has none, so use `libx264` there; it is also the default for `auto` in the other profiles)
-or `libx264` (software, the most CPU). All three gave
-complete clips on a Pi 4 with a Doorbell 3 Plus.
 
 ### Minimum specifications for HKSV: 
 [TBD - will be added as more users test and report their setups]
