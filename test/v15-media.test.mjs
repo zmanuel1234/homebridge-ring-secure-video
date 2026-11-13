@@ -635,3 +635,37 @@ test('marks the last fragment of a recording as the end of the stream', async ()
   )
   assert.equal((await within(generator.next(), 1_000)).done, true)
 })
+
+test('drives the separate notification motion sensor from the camera motion events', async () => {
+  const hapNodejs = await import('@homebridge/hap-nodejs')
+  const { setHap } = await import('../lib/hap.js')
+  const { getMotionNotificationSensorUuid, setUpMotionNotificationSensor } = await import(
+    '../lib/motion-notification-sensor.js'
+  )
+  setHap(hapNodejs)
+  const { Accessory, Characteristic, Service, uuid } = hapNodejs
+
+  const sensorUuid = getMotionNotificationSensorUuid('12345camera-hksv')
+  assert.equal(sensorUuid, uuid.generate('12345camera-hksv-zmnotify'), 'stable identity')
+
+  const accessory = new Accessory('Front Door Motion', sensorUuid)
+  const motion = new Subject()
+  const subscription = setUpMotionNotificationSensor(accessory, 'Front Door Motion', '12345-motion', motion)
+  const detected = () =>
+    accessory.getService(Service.MotionSensor).getCharacteristic(Characteristic.MotionDetected).value
+
+  assert.equal(detected(), false)
+  motion.next(true)
+  assert.equal(detected(), true)
+  motion.next(false)
+  assert.equal(detected(), false)
+  assert.equal(
+    accessory.getService(Service.AccessoryInformation).getCharacteristic(Characteristic.Model).value,
+    'Motion notification sensor',
+  )
+
+  // Set up again on the cached accessory: no second motion service.
+  setUpMotionNotificationSensor(accessory, 'Front Door Motion', '12345-motion', motion).unsubscribe()
+  assert.equal(accessory.services.filter((s) => s.UUID === Service.MotionSensor.UUID).length, 1)
+  subscription.unsubscribe()
+})

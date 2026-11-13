@@ -55,6 +55,10 @@ import { Valve } from './valve.ts'
 import { normalizeMediaConfig } from './media-config.ts'
 import { configureHksvResourceGovernor } from './hksv-work-queue.ts'
 import { applyPushReceiverDecryptFix } from './push-receiver-fix.ts'
+import {
+  getMotionNotificationSensorUuid,
+  setUpMotionNotificationSensor,
+} from './motion-notification-sensor.ts'
 
 type WrappedRefreshToken = {
   rt?: string
@@ -539,6 +543,35 @@ export class RingPlatform implements DynamicPlatformPlugin {
 
             this.homebridgeAccessories[uuid] = homebridgeAccessory
             activeAccessoryIds.push(uuid)
+
+            if (
+              config.cameraMotionNotificationSensor &&
+              accessory instanceof Camera &&
+              accessory.motionDetected
+            ) {
+              const sensorUuid = getMotionNotificationSensorUuid(debugPrefix + id),
+                sensorName = `${displayName} Motion`
+              let sensorAccessory = this.homebridgeAccessories[sensorUuid]
+
+              if (!sensorAccessory) {
+                sensorAccessory = new api.platformAccessory(
+                  sensorName,
+                  sensorUuid,
+                  hap.Categories.SENSOR,
+                )
+                logInfo(`Adding motion notification sensor ${sensorUuid} ${sensorName}`)
+                platformAccessories.push(sensorAccessory)
+              }
+
+              setUpMotionNotificationSensor(
+                sensorAccessory,
+                sensorName,
+                `${device.id}-motion`,
+                accessory.motionDetected,
+              )
+              this.homebridgeAccessories[sensorUuid] = sensorAccessory
+              activeAccessoryIds.push(sensorUuid)
+            }
           },
         )
       }),

@@ -40,6 +40,7 @@ Big thanks to Dustin, trinityhades and all upstream contributors. This plugin re
 | `homeKitAccessoryTag` | Appends a tag to accessory names and HomeKit IDs so the same Ring device can be exposed as a distinct HomeKit accessory for debugging/testing |
 | `cameraVideoCodec` | Preferred H.264 handling (`auto`, `copy`, `h264_v4l2m2m`, `h264_videotoolbox`, or `libx264`) |
 | `hideDoorbellSwitch` / `hideCameraMotionSensor` / `hideCameraSirenSwitch` | Hides specific HomeKit-exposed services |
+| `cameraMotionNotificationSensor` | Adds a separate "<camera> Motion" sensor per camera for instant motion notifications (see below) |
 | `showPanicButtons` | Adds panic switches (use with caution) |
 | `ffmpegPath` | Override FFmpeg binary path |
 | `debug` | Enables additional logging |
@@ -119,6 +120,13 @@ Please report your experience and setup details to help improve support.
 
 Recordings follow the frame rate and audio format HomeKit asks for, and include audio only when
 **Record Audio** is on in the camera's settings in the Home app.
+
+With recording on, the Home app notifies about a camera's motion only after its home hub has
+analysed the clip, which can be late or never. For a notification as soon as Ring reports
+motion, turn on `cameraMotionNotificationSensor`: each camera gets a separate "<camera> Motion"
+sensor on this plugin's bridge. If the bridge isn't in the Home app yet, add it with its pairing
+code, then turn on notifications in the sensor's settings (and, if you like, turn off the
+camera's own Activity Notifications to avoid two alerts).
 
 For fast-motion pixelation or stuttering in HKSV recordings, try increasing
 `hksvVideoBitrateKbps` first if you are transcoding. On Apple Silicon Macs,
