@@ -52,6 +52,9 @@
   analysis.
 - The package no longer lists the upstream author's donation links as its own `funding`; the
   README credits homebridge-ring and homebridge-ring-hksv.
+- `homebridge-config-ui-x` (the Homebridge UI) moves from `dependencies` to
+  `devDependencies`: the plugin doesn't use it at runtime, so installing the plugin no longer
+  pulls in a second copy of the whole UI.
 
 ## Earlier releases (as homebridge-ring-hksv)
 
