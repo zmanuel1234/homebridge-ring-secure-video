@@ -50,6 +50,8 @@
   sensor per camera, driven by the same motion events, for motion notifications as soon as Ring
   reports motion. With recording on, the camera's own notifications wait for the hub's clip
   analysis.
+- The package no longer lists the upstream author's donation links as its own `funding`; the
+  README credits homebridge-ring and homebridge-ring-hksv.
 
 ## Earlier releases (as homebridge-ring-hksv)
 
