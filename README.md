@@ -163,16 +163,32 @@ For support and debugging:
 
 - Upstream Ring wiki (token/auth/camera references): <https://github.com/dgreif/ring/wiki>
 
-If motion and doorbell events arrive late (the log shows "Detected Motion from Ring event history
-fallback" rather than right away), Ring's instant notifications aren't reaching the plugin. At start the
-log says which `@eneris/push-receiver` the Ring push client uses ("Ring push notifications: ..."), or
-warns "Could not fix Ring push notifications" if the plugin couldn't give it the fixed 4.3.1. See also the upstream [notification troubleshooting](https://github.com/dgreif/ring/wiki/Notification-Troubleshooting).
+### Motion arrives late or doorbell presses are missed
 
-Use the "Force Ring Push Credential Refresh" and "Force Ring API Session Refresh" settings only as a
-last resort, once. Each refresh adds a registration with Ring, and repeated ones can make Ring stop
-sending notifications to the plugin. If that happens, remove `homebridge-ring-secure-video` from
-Authorized Client Devices in the Ring app's Control Center, create a new refresh token, and paste it
-into the plugin's settings.
+If motion arrives 20–30 seconds late with "Detected Motion from Ring event history fallback" in the
+log (or "Ring event history shows motion no push notification reported"), and doorbell presses don't
+reach HomeKit at all, Ring's instant push notifications aren't reaching the plugin. Once they do, the
+"...from Ring event history fallback" lines stop, and (with the motion history fallback on, the
+default) the log says "Ring push notifications are arriving".
+
+1. Check that the Homebridge machine can reach Google's push service: `mtalk.google.com` must
+   resolve to a real address (not `0.0.0.0`; DNS ad blockers such as AdGuard or Pi-hole can block it)
+   and TCP port 5228 must be open. See the upstream
+   [notification troubleshooting](https://github.com/dgreif/ring/wiki/Notification-Troubleshooting).
+2. If the connection is fine, Ring may have stopped sending to the plugin's device identity, even
+   though the Ring app on your phone still gets alerts. Removing the plugin from Authorized Client
+   Devices and signing in again keeps the same identity (it is stored in `.ring.json`), so it may not
+   help. What does: turn on **Force Ring API Session Refresh** in the plugin's settings once, and
+   restart. The log then shows "Forcing Ring API session refresh" (and usually "Session hardware_id
+   not found" as Ring meets the new identity), and the setting turns itself off once the new sign-in
+   is saved. Then, in
+   the Ring app's Control Center, remove the older `homebridge-ring-secure-video` entry from
+   Authorized Client Devices.
+
+Use the "Force Ring ..." settings only for this, and only once. Each API session refresh adds an
+entry to Authorized Client Devices, and many entries can themselves make Ring stop sending
+notifications. It also changes the identity that other Ring plugins in the same Homebridge (such as
+homebridge-ring) will use the next time they sign in from scratch, since they share `.ring.json`.
 
 ## Disclaimer
 
