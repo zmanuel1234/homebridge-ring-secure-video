@@ -92,8 +92,9 @@ function startManagedNodeChild({ ignoreTerm, stopGraceMs }) {
     ffmpegArgs: [
       '-e',
       [
-        "process.stdout.write('ready\\n')",
+        // Install the SIGTERM handler before announcing readiness, so a stop can't arrive in between.
         ignoreTerm ? "process.on('SIGTERM', () => {})" : '',
+        "process.stdout.write('ready\\n')",
         'setInterval(() => {}, 1000)',
       ].filter(Boolean).join(';'),
     ],
