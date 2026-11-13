@@ -271,6 +271,48 @@ export function createRefreshTokenSaver(
   }
 }
 
+/** An error as a short text; ring-client-api's HTTP errors have no message, only a status. */
+export function describeError(error: unknown) {
+  if (error instanceof Error && error.message) return error.message
+  const status = (error as { response?: { status?: number } } | undefined)?.response?.status
+  if (status) return `Ring returned HTTP ${status}`
+  return error instanceof Error ? error.name : String(error)
+}
+
+/**
+ * A Ring error that retrying can't fix. Only an outdated Node.js: ring-client-api reports a Ring
+ * sign-in server outage (5xx, 429) as "Refresh token is not valid", the same as a revoked token,
+ * so that is retried (every 10 minutes at most, a single request each time).
+ */
+export function isPermanentRingError(error: unknown) {
+  return describeError(error).includes('too old to support')
+}
+
+/**
+ * Keeps an accessory that couldn't be set up in HomeKit (its room, name and automations stay)
+ * but makes it show "No Response", rather than old values and controls that silently do nothing
+ * (an alarm that seems to arm).
+ */
+function markNotResponding(accessory: PlatformAccessory) {
+  const failure = () => {
+    throw new hap.HapStatusError(hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE)
+  }
+  for (const service of accessory.services) {
+    if (service.UUID === hap.Service.AccessoryInformation.UUID) continue
+    for (const characteristic of service.characteristics) {
+      characteristic.onGet(failure)
+      if (characteristic.props.perms.includes(hap.Perms.PAIRED_WRITE)) {
+        characteristic.onSet(failure)
+      }
+    }
+  }
+}
+
+/** 30 s, 1 min, 2 min, ... up to 10 min between attempts to reach Ring at startup. */
+export function getRetryDelayMs(attempt: number) {
+  return Math.min(30_000 * 2 ** attempt, 600_000)
+}
+
 export class RingPlatform implements DynamicPlatformPlugin {
   private readonly homebridgeAccessories: {
     [uuid: string]: PlatformAccessory
@@ -332,19 +374,59 @@ export class RingPlatform implements DynamicPlatformPlugin {
       `Media profile ${media.profile}: recordingConcurrency=${media.recording.maxConcurrentRecordings}, codec=${media.recording.codec}`,
     )
 
+    this.api.on('shutdown', () => {
+      this.shuttingDown = true
+      clearTimeout(this.retryTimer)
+    })
+
     this.api.on('didFinishLaunching', () => {
       this.log.debug('didFinishLaunching')
       if (config.refreshToken) {
-        this.connectToApi().catch((e) => {
-          this.log.error('Error connecting to API')
-          this.log.error(e)
-        })
+        void this.connectWithRetry()
       } else {
         this.log.warn(
           'Plugin is not configured. See the README of homebridge-ring-secure-video for setup instructions.',
         )
       }
     })
+  }
+
+  private retryTimer?: ReturnType<typeof setTimeout>
+  private shuttingDown = false
+  private devicesSetUp = false
+
+  /**
+   * Connects to Ring, retrying later if Ring can't be reached when Homebridge starts (an outage,
+   * a server error), with a fresh connection each time: until then the alarm and every other
+   * accessory would stay unconnected. Not retried: an outdated Node.js, a failure once devices
+   * were being set up (which would set them up twice), and anything after shutdown.
+   */
+  async connectWithRetry(attempt = 0): Promise<void> {
+    try {
+      await this.connectToApi()
+    } catch (e) {
+      const message = describeError(e)
+      if (this.shuttingDown || this.devicesSetUp || isPermanentRingError(e)) {
+        this.log.error(`Error connecting to Ring: ${message}`)
+        return
+      }
+      const delay = getRetryDelayMs(attempt)
+      this.log.error(
+        `Could not connect to Ring (${message}). Trying again in ${Math.round(delay / 1000)} s.${
+          message.includes('Refresh token is not valid')
+            ? ' If this keeps happening, sign in again in the plugin settings.'
+            : ''
+        }`,
+      )
+      this.retryTimer = setTimeout(() => {
+        void this.connectWithRetry(attempt + 1)
+      }, delay)
+    }
+  }
+
+  // A separate method so tests can stand in for Ring.
+  protected createRingApi(options: ConstructorParameters<typeof RingApi>[0]) {
+    return new RingApi(options)
   }
 
   configureAccessory(accessory: PlatformAccessory) {
@@ -391,7 +473,7 @@ export class RingPlatform implements DynamicPlatformPlugin {
       )
     }
 
-    const ringApi = new RingApi({
+    const ringApi = this.createRingApi({
         controlCenterDisplayName,
         ...config,
         ...(refreshTokenWithoutPushCredentials
@@ -407,9 +489,40 @@ export class RingPlatform implements DynamicPlatformPlugin {
         Boolean(refreshTokenWithoutPushCredentials),
       ),
     )
+    // A retry must sign in with the newest token (Ring may have replaced the old one) and must
+    // not force a new identity or push registration again.
+    ringApi.onRefreshTokenUpdated.subscribe(({ newRefreshToken }) => {
+      config.refreshToken = newRefreshToken
+      config.forceRefreshRingPushCredentials = false
+      config.forceRefreshRingApiSession = false
+    })
 
-    const locations = await ringApi.getLocations(),
-      cachedAccessoryIds = Object.keys(this.homebridgeAccessories),
+    let locations, loadedDevices
+    try {
+      locations = await ringApi.getLocations()
+      // Load the devices of every location now: if none can be loaded (a Ring error while
+      // connecting to the alarm, say), a retry with a new connection may do better, and nothing
+      // has been set up yet. A location that fails while others work is reported below.
+      // Loaded once: after a failed connection, ring-client-api's getDevices() waits forever.
+      loadedDevices = await Promise.allSettled(
+        locations.map((location) => location.getDevices()),
+      )
+      const firstFailure = loadedDevices.find((result) => result.status === 'rejected')
+      if (firstFailure && loadedDevices.every((result) => result.status === 'rejected')) {
+        throw firstFailure.reason
+      }
+    } catch (e) {
+      // A retry starts over with a new connection.
+      ringApi.disconnect()
+      throw e
+    }
+    if (this.shuttingDown) {
+      ringApi.disconnect()
+      return
+    }
+    this.devicesSetUp = true
+
+    const cachedAccessoryIds = Object.keys(this.homebridgeAccessories),
       platformAccessories: PlatformAccessory[] = [],
       externalAccessories: PlatformAccessory[] = [],
       activeAccessoryIds: string[] = []
@@ -420,9 +533,13 @@ export class RingPlatform implements DynamicPlatformPlugin {
       logInfo(`  locationId: ${location.id} - ${location.name}`)
     })
 
-    await Promise.all(
-      locations.map(async (location) => {
-        const devices = await location.getDevices(),
+    // One location (or device) that fails to set up must not stop the others, the alarm
+    // included; its cached accessories are kept rather than removed as stale.
+    const locationResults = await Promise.allSettled(
+      locations.map(async (location, locationIndex) => {
+        const loaded = loadedDevices[locationIndex]
+        if (loaded.status === 'rejected') throw loaded.reason
+        const devices = loaded.value,
           { cameras, chimes, intercoms } = location,
           allDevices = [...devices, ...cameras, ...chimes, ...intercoms],
           securityPanel = devices.find(
@@ -488,7 +605,7 @@ export class RingPlatform implements DynamicPlatformPlugin {
 
         if (
           config.locationModePollingSeconds &&
-          (await location.supportsLocationModeSwitching())
+          (await location.supportsLocationModeSwitching().catch(() => false))
         ) {
           hapDevices.push({
             deviceType: 'location.mode',
@@ -516,107 +633,137 @@ export class RingPlatform implements DynamicPlatformPlugin {
           }) => {
             const uuid = hap.uuid.generate(debugPrefix + id),
               displayName = debugPrefix + name
+            try {
 
-            if (
-              !AccessoryClass ||
-              (config.hideLightGroups &&
-                deviceType === RingDeviceType.BeamsLightGroupSwitch) ||
-              hideDeviceIds.includes(uuid) ||
-              (onlyDeviceTypes && !onlyDeviceTypes.includes(deviceType))
-            ) {
-              if (!ignoreHiddenDeviceTypes.includes(deviceType)) {
-                logInfo(`Hidden accessory ${uuid} ${deviceType} ${displayName}`)
+              if (
+                !AccessoryClass ||
+                (config.hideLightGroups &&
+                  deviceType === RingDeviceType.BeamsLightGroupSwitch) ||
+                hideDeviceIds.includes(uuid) ||
+                (onlyDeviceTypes && !onlyDeviceTypes.includes(deviceType))
+              ) {
+                if (!ignoreHiddenDeviceTypes.includes(deviceType)) {
+                  logInfo(`Hidden accessory ${uuid} ${deviceType} ${displayName}`)
+                }
+                return
               }
-              return
-            }
 
-            if (isCamera && this.homebridgeAccessories[uuid]) {
-              // Camera was previously bridged.  Remove it from the platform so that it can be added as an external accessory
-              this.log.warn(
-                `Camera ${displayName} was previously bridged. You will need to manually pair it as a new accessory.`,
-              )
-              this.api.unregisterPlatformAccessories(pluginName, platformName, [
-                this.homebridgeAccessories[uuid],
-              ])
-              delete this.homebridgeAccessories[uuid]
-            }
-
-            const createHomebridgeAccessory = () => {
-                const category = isCamera
-                  ? hap.Categories.CAMERA
-                  : isIntercomVideo
-                    ? hap.Categories.VIDEO_DOORBELL
-                    : hap.Categories.SECURITY_SYSTEM
-
-                const accessory = new api.platformAccessory(
-                  displayName,
-                  uuid,
-                  category,
+              if (isCamera && this.homebridgeAccessories[uuid]) {
+                // Camera was previously bridged.  Remove it from the platform so that it can be added as an external accessory
+                this.log.warn(
+                  `Camera ${displayName} was previously bridged. You will need to manually pair it as a new accessory.`,
                 )
+                this.api.unregisterPlatformAccessories(pluginName, platformName, [
+                  this.homebridgeAccessories[uuid],
+                ])
+                delete this.homebridgeAccessories[uuid]
+              }
 
-                if (isCamera) {
-                  logInfo(
-                    `Configured camera ${uuid} ${deviceType} ${displayName}`,
+              let addTo: PlatformAccessory[] | undefined
+              const createHomebridgeAccessory = () => {
+                  const category = isCamera
+                    ? hap.Categories.CAMERA
+                    : isIntercomVideo
+                      ? hap.Categories.VIDEO_DOORBELL
+                      : hap.Categories.SECURITY_SYSTEM
+
+                  const accessory = new api.platformAccessory(
+                    displayName,
+                    uuid,
+                    category,
                   )
-                  externalAccessories.push(accessory)
-                } else if (isIntercomVideo) {
-                  logInfo(
-                    `Configured Ring Intercom Video ${uuid} ${deviceType} ${displayName}`,
+
+                  if (isCamera) {
+                    logInfo(
+                      `Configured camera ${uuid} ${deviceType} ${displayName}`,
+                    )
+                    addTo = externalAccessories
+                  } else if (isIntercomVideo) {
+                    logInfo(
+                      `Configured Ring Intercom Video ${uuid} ${deviceType} ${displayName}`,
+                    )
+                    addTo = externalAccessories
+                  } else {
+                    logInfo(
+                      `Adding new accessory ${uuid} ${deviceType} ${displayName}`,
+                    )
+                    addTo = platformAccessories
+                  }
+
+                  return accessory
+                },
+                homebridgeAccessory =
+                  this.homebridgeAccessories[uuid] || createHomebridgeAccessory(),
+                accessory = new AccessoryClass(
+                  device as any,
+                  homebridgeAccessory,
+                  config,
+                )
+              accessory.initBase()
+
+              // Registered only once set up: a half-built accessory isn't added to HomeKit.
+              addTo?.push(homebridgeAccessory)
+              this.homebridgeAccessories[uuid] = homebridgeAccessory
+              activeAccessoryIds.push(uuid)
+
+              if (
+                config.cameraMotionNotificationSensor &&
+                accessory instanceof Camera &&
+                accessory.motionDetected
+              ) {
+                const sensorUuid = getMotionNotificationSensorUuid(debugPrefix + id),
+                  sensorName = `${displayName} Motion`
+                let sensorAccessory = this.homebridgeAccessories[sensorUuid]
+
+                if (!sensorAccessory) {
+                  sensorAccessory = new api.platformAccessory(
+                    sensorName,
+                    sensorUuid,
+                    hap.Categories.SENSOR,
                   )
-                  externalAccessories.push(accessory)
-                } else {
-                  logInfo(
-                    `Adding new accessory ${uuid} ${deviceType} ${displayName}`,
-                  )
-                  platformAccessories.push(accessory)
+                  logInfo(`Adding motion notification sensor ${sensorUuid} ${sensorName}`)
                 }
 
-                return accessory
-              },
-              homebridgeAccessory =
-                this.homebridgeAccessories[uuid] || createHomebridgeAccessory(),
-              accessory = new AccessoryClass(
-                device as any,
-                homebridgeAccessory,
-                config,
-              )
-            accessory.initBase()
-
-            this.homebridgeAccessories[uuid] = homebridgeAccessory
-            activeAccessoryIds.push(uuid)
-
-            if (
-              config.cameraMotionNotificationSensor &&
-              accessory instanceof Camera &&
-              accessory.motionDetected
-            ) {
-              const sensorUuid = getMotionNotificationSensorUuid(debugPrefix + id),
-                sensorName = `${displayName} Motion`
-              let sensorAccessory = this.homebridgeAccessories[sensorUuid]
-
-              if (!sensorAccessory) {
-                sensorAccessory = new api.platformAccessory(
+                setUpMotionNotificationSensor(
+                  sensorAccessory,
                   sensorName,
-                  sensorUuid,
-                  hap.Categories.SENSOR,
+                  `${device.id}-motion`,
+                  accessory.motionDetected,
                 )
-                logInfo(`Adding motion notification sensor ${sensorUuid} ${sensorName}`)
-                platformAccessories.push(sensorAccessory)
+                if (!this.homebridgeAccessories[sensorUuid]) {
+                  platformAccessories.push(sensorAccessory)
+                }
+                this.homebridgeAccessories[sensorUuid] = sensorAccessory
+                activeAccessoryIds.push(sensorUuid)
               }
-
-              setUpMotionNotificationSensor(
-                sensorAccessory,
-                sensorName,
-                `${device.id}-motion`,
-                accessory.motionDetected,
+            } catch (e) {
+              this.log.error(
+                `Could not set up ${displayName} (${deviceType}): ${describeError(e)}. The other accessories are unaffected; restart Homebridge to try again.`,
               )
-              this.homebridgeAccessories[sensorUuid] = sensorAccessory
-              activeAccessoryIds.push(sensorUuid)
+              const cached = this.homebridgeAccessories[uuid]
+              if (cached) markNotResponding(cached)
+              // Keep it (and a motion sensor it had) in HomeKit rather than removing it as stale.
+              activeAccessoryIds.push(
+                uuid,
+                getMotionNotificationSensorUuid(debugPrefix + id),
+              )
             }
           },
         )
       }),
     )
+
+    const failedLocations = locations.filter(
+      (_, i) => locationResults[i].status === 'rejected',
+    )
+    locationResults.forEach((result, i) => {
+      if (result.status === 'rejected') {
+        const reason: unknown = result.reason
+        this.log.error(
+          `Could not set up the devices of location "${locations[i].name}": ${describeError(reason)}. Restart Homebridge to try again.`,
+        )
+      }
+    })
 
     if (platformAccessories.length) {
       api.registerPlatformAccessories(
@@ -630,9 +777,18 @@ export class RingPlatform implements DynamicPlatformPlugin {
       api.publishExternalAccessories(pluginName, externalAccessories)
     }
 
-    const staleAccessories = cachedAccessoryIds
-      .filter((cachedId) => !activeAccessoryIds.includes(cachedId))
-      .map((id) => this.homebridgeAccessories[id])
+    // With a location that failed, which cached accessories belong to it is unknown: keep all,
+    // showing "No Response" until a restart sets them up.
+    if (failedLocations.length) {
+      cachedAccessoryIds
+        .filter((cachedId) => !activeAccessoryIds.includes(cachedId))
+        .forEach((id) => markNotResponding(this.homebridgeAccessories[id]))
+    }
+    const staleAccessories = failedLocations.length
+      ? []
+      : cachedAccessoryIds
+          .filter((cachedId) => !activeAccessoryIds.includes(cachedId))
+          .map((id) => this.homebridgeAccessories[id])
 
     staleAccessories.forEach((staleAccessory) => {
       logInfo(
