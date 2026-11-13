@@ -5,6 +5,8 @@
 - `rxjs` is now a declared dependency. The plugin imports it directly, but it was only installed
   because ring-client-api and @homebridge/camera-utils depend on it. The same version (7.8.2)
   is used, with no second copy.
+- Remove the root `public/` folder and root `index.html` left over from the fork, unused copies
+  of the settings page in `homebridge-ui/public/` (which is the one the plugin ships).
 
 ## 1.0.0-beta.1 (2026-11-13)
 

@@ -5,7 +5,7 @@ import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
   {
-    ignores: ['release-*', 'lib', 'public', 'build', 'json-data', '.turbo'],
+    ignores: ['release-*', 'lib', 'build', 'json-data', '.turbo'],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
