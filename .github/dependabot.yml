@@ -6,9 +6,16 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    ignore:
+      # The plugin passes werift's RTP packets into ring-client-api's live-view code, so werift
+      # must stay at the exact version ring-client-api pins. Updated together with ring-client-api.
+      - dependency-name: werift
     groups:
       minor-and-patch:
         update-types: [minor, patch]
+        # Their own pull requests: push-receiver carries the push fix and is tested on its own;
+        # ring-client-api decides werift's version, which has to be moved with it by hand.
+        exclude-patterns: ['@eneris/push-receiver', 'ring-client-api']
   - package-ecosystem: github-actions
     directory: /
     schedule:
