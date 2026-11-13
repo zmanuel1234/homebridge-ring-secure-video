@@ -31,7 +31,7 @@ if (!/github\.com/.test(pkg.repository?.url ?? '')) fail('repository must point 
 if (!/github\.com\/.+\/issues/.test(pkg.bugs?.url ?? '')) fail('bugs.url must point at the GitHub issues page')
 
 // Supported environments: Homebridge 2 and every Node LTS Homebridge supports (22, 24).
-// Accepts ranges written as "^22", ">=22", "^20 || ^22 || ^24" and the like.
+// Accepts ranges written as "^22", ">=22", "^22 || ^24" and the like.
 const covers = (range, major) =>
   range.split('||').some((alt) => {
     if (alt.includes('<')) return false // an upper bound could exclude this major; keep ranges simple

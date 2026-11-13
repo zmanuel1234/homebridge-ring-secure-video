@@ -11,6 +11,30 @@
 locks, lights, cameras and doorbells), with HomeKit Secure Video (HKSV) recording for Ring cameras.
 It is meant to replace `homebridge-ring` on its own: one plugin, one Ring sign-in.
 
+## What it adds to homebridge-ring
+
+Everything `homebridge-ring` exposes is here too (it is not a drop-in swap, though: the plugin and
+platform names differ, so its accessories are new to HomeKit and are set up again), plus:
+
+- **HomeKit Secure Video recording** for Ring cameras and doorbells, with media profiles for small
+  machines such as a Raspberry Pi (`media`, `hksvPerformanceMode`).
+- **Instant motion notifications** with HKSV on: an optional separate motion sensor per camera
+  (`cameraMotionNotificationSensor`), so the Home app notifies without waiting for clip analysis.
+- **Motion when Ring's push notifications fail**: motion from Ring's event history
+  (`enableCameraMotionHistory`), checked often only until push is seen to work.
+- **Automatic recovery when Ring stops sending push notifications** (`automaticSessionRefresh`),
+  with an optional "Ring Session Refreshed" sensor (`sessionRefreshSensor`) to tell you.
+- **A fix for dropped push notifications**: the push library ring-client-api ships (4.3.0) can drop
+  them; 4.3.1 is used instead.
+- **A second visit is not missed**: a new Ring motion alert while the last one is still active
+  (ring-client-api keeps each active for 65 s) is reported to HomeKit as new motion, so it is
+  recorded and notified.
+- **Ring Intercom Video** as a video doorbell camera, and `homeKitAccessoryTag` to expose the same
+  Ring device as a separate HomeKit accessory for testing.
+- **Robustness**: one device or location that fails to set up doesn't stop the others; starting
+  while Ring can't be reached is retried; a restarted child bridge uses the newest Ring token;
+  config.json and the Ring identity are written so a power cut can't cut them short.
+
 ## Origin and Attribution
 
 This project is based on Dusty Greif's original Ring Homebridge ecosystem:
@@ -28,7 +52,7 @@ Big thanks to Dusty, trinityhades and all upstream contributors. This plugin reu
 | --- | --- |
 | `enableHksv` | Enables experimental HKSV support for eligible cameras; on by default, set `false` to turn it off |
 | `enableCameraMotionHistory` | Allows camera motion to fall back to recent Ring event history if push notifications don't arrive. The history is checked every `cameraStatusPollingSeconds` until motion events turn out to come by push too, then every 5 minutes as a safety net (and frequently again once a push is missed, so motion can go unreported for up to 5 minutes after push stops working); disable to only trust push-triggered motion |
-| `automaticSessionRefresh` | When Ring's event history shows motion that Ring sent no push notification for (3 events over at least 30 minutes, none pushed), refreshes the Ring API session by itself, as **Force Ring API Session Refresh** does (see Troubleshooting): a child bridge restarts for it, the main bridge does it at the next Homebridge restart. At most once a day, and no more after 2 refreshes that brought no push notification. Needs `enableCameraMotionHistory`. On by default; set `false` to turn it off, for example if Ring is set to send no motion alerts in some Modes or on a schedule |
+| `automaticSessionRefresh` | When Ring's event history shows motion that Ring sent no push notification for (3 events over at least 30 minutes, none pushed), refreshes the Ring API session by itself, as **Force Ring API Session Refresh** does (see Troubleshooting): a child bridge restarts for it, the main bridge does it at the next Homebridge restart. Events while motion is snoozed are not counted, nor, when the camera alerts for people only, events without a person. At most once a day, and no more after 2 refreshes that brought no motion push notification. Needs `enableCameraMotionHistory`. On by default; set `false` to turn it off, for example if Ring is set to send no motion alerts in some Modes or on a schedule |
 | `sessionRefreshSensor` | Adds a "Ring Session Refreshed" contact sensor that opens after an automatic session refresh (10 s after the Home app is connected to it, within 3 minutes) and stays open for a day, also across restarts (which don't notify again). Turn on its notifications in the Home app (needs a home hub) to be told when to remove the older `homebridge-ring-secure-video` entry from Authorized Client Devices. Needs `automaticSessionRefresh`. Off by default |
 | `disableHksvOnBattery` | Disables HKSV on cameras running on battery to reduce battery/network usage; wired battery models keep it. On by default |
 | `hksvPrebufferLengthMs` | HKSV prebuffer duration (minimum 4000ms) |
@@ -60,7 +84,8 @@ normally ends a recording itself when motion stops), or to `0` to disable it.
 
 ## Installation
 
-If Homebridge is installed globally:
+Requires Node.js 22 or 24 and Homebridge 1.8 or later (2.x recommended). If Homebridge is installed
+globally:
 
 ```bash
 npm i -g homebridge-ring-secure-video
