@@ -11,8 +11,6 @@
     "lint": "eslint .",
     "test": "npm run build && node --test test/v15-media.test.mjs",
     "prepack": "npm run build",
-    "publish:beta": "node ./scripts/publish-channel.mjs beta",
-    "publish:nightly": "node ./scripts/publish-channel.mjs nightly",
     "dev": "concurrently -c yellow,blue --kill-others \"npm:dev:build\" \"npm:dev:run\" ",
     "dev:build": "tsc --watch --preserveWatchOutput",
     "dev:run": "RING_DEBUG=true node --watch ./node_modules/.bin/homebridge -U ./.homebridge -P ./node_modules"

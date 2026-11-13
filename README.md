@@ -62,14 +62,11 @@ If Homebridge is installed globally:
 npm i -g --unsafe-perm homebridge-ring-secure-video
 ```
 
-If you want an opt-in prerelease channel from npm, install one of the dist-tags instead:
+To try a beta, install the `beta` tag instead:
 
 ```bash
 npm i -g --unsafe-perm homebridge-ring-secure-video@beta
-npm i -g --unsafe-perm homebridge-ring-secure-video@nightly
 ```
-
-The `latest` tag remains the stable release line. `beta` is intended for hand-picked prerelease builds, and `nightly` is intended for newer automated or near-mainline snapshots.
 
 If running from source:
 
@@ -78,14 +75,9 @@ npm install
 npm run build
 ```
 
-To publish an opt-in prerelease channel to npm:
-
-```bash
-npm run publish:beta
-npm run publish:nightly
-```
-
-Both commands create a prerelease semver version and publish it under the matching npm dist-tag, so users can install `homebridge-ring-secure-video@beta` or `homebridge-ring-secure-video@nightly` without affecting `latest`. Add `-- --dry-run` to preview the computed version without changing files or publishing.
+Releases are published by GitHub Actions when a GitHub release is created: the tag must be
+`v<version>` from `package.json`, the release needs notes, `CHANGELOG.md` needs a section for the
+version, and "Set as a pre-release" (for a `-beta` version) publishes to the `beta` tag.
 
 ## Basic Configuration
 

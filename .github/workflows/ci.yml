@@ -1,0 +1,40 @@
+name: CI
+on:
+  push:
+  pull_request:
+# CI only reads the repository.
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          # Same npm setup as the publish workflow, so its warnings show up here first.
+          registry-url: https://registry.npmjs.org
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+      - run: npm test
+      - name: Homebridge plugin rules
+        run: node .github/scripts/check-homebridge.mjs
+      - run: npm pack --dry-run
+      - name: Release tag check script works
+        run: .github/scripts/check-release-tag.sh "v$(node -p "require('./package.json').version")"
+  # Every Node version the plugin supports (Homebridge requires its LTS versions, 22 and 24).
+  node-versions:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [20, 22, 24]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+      - run: npm ci
+      - run: npm run build
+      - run: npm test

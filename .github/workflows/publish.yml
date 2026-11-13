@@ -1,0 +1,70 @@
+name: Publish to npm
+on:
+  release:
+    types: [published]
+permissions:
+  contents: read
+jobs:
+  # Checks and builds the package without access to npm publishing, so no dependency
+  # code runs while a publish credential is available.
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - name: Check the tag and the pre-release box match package.json
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+          PRERELEASE: ${{ github.event.release.prerelease }}
+        run: .github/scripts/check-release-tag.sh "$TAG" "$PRERELEASE"
+      - name: Release notes are required (Homebridge rule)
+        env:
+          NOTES: ${{ github.event.release.body }}
+        run: |
+          if [ -z "$(printf '%s' "$NOTES" | tr -d '[:space:]')" ]; then
+            echo "::error::The GitHub release has no release notes. Edit the release, add notes (the CHANGELOG section for this version), and publish again."
+            exit 1
+          fi
+      - name: GitHub issues must be enabled (Homebridge rule)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$(gh api "repos/$GITHUB_REPOSITORY" --jq .has_issues)" != "true" ]; then
+            echo "::error::Issues are disabled on this repository. Enable them in the repository settings."
+            exit 1
+          fi
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+      - run: npm test
+      - name: Homebridge plugin rules (release)
+        run: node .github/scripts/check-homebridge.mjs --release
+      - name: Pack
+        run: npm pack --ignore-scripts && mv homebridge-ring-secure-video-*.tgz package.tgz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package
+          path: package.tgz
+          if-no-files-found: error
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - name: Use an npm with trusted publishing (11.5.1 or later; pinned to major version 11)
+        run: npm install -g npm@11
+      - uses: actions/download-artifact@v4
+        with:
+          name: package
+      # Trusted publishing: npm checks this workflow's GitHub OIDC identity, so no token is
+      # stored anywhere, and adds provenance. Publishes the tarball built and checked above.
+      - name: Publish (pre-releases go to the beta tag)
+        run: npm publish package.tgz --access public --tag ${{ github.event.release.prerelease && 'beta' || 'latest' }}

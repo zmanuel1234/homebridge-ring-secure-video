@@ -5,6 +5,10 @@
 - New package name `homebridge-ring-secure-video`, platform `Ring Secure Video`, continuing
   trinityhades/homebridge-ring-hksv 15.0.2. Ring's Authorized Client Devices list shows the
   plugin as `homebridge-ring-secure-video`.
+- CI on every push (lint, build, tests on Node 20, 22 and 24, Homebridge plugin rules, package
+  contents) and npm publishing from GitHub releases, which requires release notes, a matching tag
+  and a CHANGELOG section for the version. The token-based `publish:beta` and `publish:nightly`
+  scripts are removed, so every npm version goes through those checks.
 
 ## Earlier releases (as homebridge-ring-hksv)
 
