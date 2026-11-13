@@ -55,6 +55,7 @@ import { Intercom } from './intercom.ts'
 import { Valve } from './valve.ts'
 import { normalizeMediaConfig } from './media-config.ts'
 import { configureHksvResourceGovernor } from './hksv-work-queue.ts'
+import { applyPushReceiverDecryptFix } from './push-receiver-fix.ts'
 
 type WrappedRefreshToken = {
   rt?: string
@@ -296,6 +297,15 @@ export class RingPlatform implements DynamicPlatformPlugin {
           log.error(message)
         },
       })
+    }
+
+    const pushFix = applyPushReceiverDecryptFix()
+    if (pushFix.result === 'failed') {
+      this.log.warn(
+        `Could not fix Ring push decryption (${pushFix.detail}); instant motion and doorbell events may not arrive`,
+      )
+    } else {
+      this.log.debug(`Ring push decryption: ${pushFix.detail}`)
     }
 
     config.cameraStatusPollingSeconds = config.cameraStatusPollingSeconds ?? 20

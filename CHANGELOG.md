@@ -15,6 +15,10 @@
   (it compiles, every setting has a title and type, the form layout only names existing
   settings) and that every JSON example in the README is valid configuration. The media
   recording settings get the titles they were missing.
+- Fix Ring push notifications being dropped ("could not be decrypted"), so motion and doorbell
+  events arrive instantly instead of only through the slower event-history check.
+  ring-client-api 14.3.0 pins `@eneris/push-receiver` 4.3.0, which can't parse the header format
+  Google now sends; the plugin ships 4.3.1 and uses its decrypt function for that copy.
 
 ## Earlier releases (as homebridge-ring-hksv)
 

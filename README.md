@@ -151,6 +151,11 @@ For support and debugging:
 
 - Upstream Ring wiki (token/auth/camera references): <https://github.com/dgreif/ring/wiki>
 
+If motion and doorbell events arrive late (the log shows "Detected Motion from Ring event history
+fallback" rather than right away), Ring's instant notifications aren't reaching the plugin. With debug
+logging on, the log says at start whether the push decryption fix for `@eneris/push-receiver` was
+applied. See also the upstream [notification troubleshooting](https://github.com/dgreif/ring/wiki/Notification-Troubleshooting).
+
 ## Disclaimer
 
 This plugin is not affiliated with Ring or Amazon.

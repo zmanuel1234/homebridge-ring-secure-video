@@ -16,6 +16,7 @@
     "dev:run": "RING_DEBUG=true node --watch ./node_modules/.bin/homebridge -U ./.homebridge -P ./node_modules"
   },
   "dependencies": {
+    "@eneris/push-receiver": "4.3.1",
     "@homebridge/camera-utils": "^3.0.0",
     "@homebridge/plugin-ui-utils": "^2.1.2",
     "homebridge-config-ui-x": "^5.24.0",
