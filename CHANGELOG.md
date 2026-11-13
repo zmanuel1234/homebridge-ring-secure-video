@@ -1,5 +1,51 @@
 # homebridge-ring-secure-video
 
+## 1.0.0-beta.5 (2026-11-13)
+
+**Changes in behaviour to check after updating:**
+
+- Automatic Ring session refresh is on by default. When it runs, a child bridge restarts itself,
+  a new `homebridge-ring-secure-video` entry appears in Authorized Client Devices in the Ring app
+  (remove the older one), and the identity in `.ring.json` changes, which other Ring plugins in
+  the same Homebridge (such as homebridge-ring) also use the next time they sign in from scratch.
+  If Ring is set to send no motion alerts in some Modes or on a schedule, set
+  `"automaticSessionRefresh": false`.
+
+**New:**
+
+- **Automatic Ring session refresh** (`automaticSessionRefresh`, on by default). Ring can stop
+  sending push notifications to the plugin's device identity while the connection to Google's
+  push service stays healthy: motion then only arrives late from the event history, and doorbell
+  presses not at all. When Ring's event history shows 3 motion events over at least 30 minutes
+  that Ring sent no push notification for, and no push notification of any kind arrived in
+  between, the plugin does what "Force Ring API Session Refresh" does: a new device identity and
+  push registration. A child bridge restarts itself for it; on the main bridge it happens at the
+  next Homebridge restart (dropped if a push notification arrives first). At most once a day,
+  and no more after 2 refreshes that brought no motion push. Not counted:
+  motion while snoozed, and motion without a person when the camera alerts for people only.
+  Needs the motion history fallback (on by default). After a refresh the log says "Automatic Ring
+  session refresh done", naming the Authorized Client Devices entry to remove.
+- **"Ring Session Refreshed" sensor** (`sessionRefreshSensor`, off by default): a contact sensor
+  that opens after an automatic session refresh and closes a day later, so the Home app can
+  notify you (turn on its notifications; needs a home hub). Needs Automatic Ring Session Refresh.
+
+**Fixes:**
+
+- A child bridge that Homebridge restarted on its own (after a crash, or for the automatic
+  refresh) signed in with the Ring token from when Homebridge started, and couldn't save the
+  next one; a "Force Ring ..." setting cleared since was on again. It now takes the token and
+  the force settings from its block in config.json.
+- New Ring tokens are also saved when the platform block in config.json is named
+  `"homebridge-ring-secure-video.Ring Secure Video"`; before, they weren't, and the next start
+  signed in with an old token.
+- README: what to do when Ring's push notifications stop arriving (Troubleshooting).
+
+**Maintenance:** dependency updates (`@homebridge/plugin-ui-utils` 2.3, ajv, globals,
+typescript-eslint, concurrently 10), Homebridge 2.5 for development, and newer GitHub Actions for
+CI and publishing. `@eneris/push-receiver` stays at 4.3.1 and ring-client-api at 14.3.0;
+Dependabot no longer bundles them with other updates. werift stays at 0.22.4 (the version
+ring-client-api pins), and Dependabot now ignores it.
+
 ## 1.0.0-beta.4 (2026-11-13)
 
 More fixes from the full independent review of 1.0.0-beta.2.
