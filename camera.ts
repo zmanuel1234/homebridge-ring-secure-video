@@ -50,7 +50,8 @@ const ID_MEMORY_MS = 60 * 60_000
  * would only record an empty doorway.
  */
 export function getHistoryMotionEvents(
-  device: Pick<RingCamera, 'name' | 'getEvents' | 'onNewNotification'>,
+  device: Pick<RingCamera, 'name' | 'getEvents' | 'onNewNotification'> &
+    Partial<Pick<RingCamera, 'data'>>,
   pollSeconds: number,
   pushHealth?: PushHealthReporter,
 ): Observable<boolean> {
@@ -77,7 +78,9 @@ export function getHistoryMotionEvents(
       nextCheckAt = 0
 
     const notifications = device.onNewNotification.subscribe((notification) => {
-      pushHealth?.recordPush()
+      pushHealth?.recordPush(
+        notification.android_config?.category === PushNotificationAction.Motion,
+      )
       if (notification.android_config?.category !== PushNotificationAction.Motion) return
       const id = notification.data?.event?.ding?.id,
         now = Date.now()
@@ -153,7 +156,12 @@ export function getHistoryMotionEvents(
             }
 
             if (missed.length) {
-              pushHealth?.recordMissed(missed.length)
+              // Ring sends no alert while motion is snoozed, nor (with Smart Alerts) for motion
+              // without a person: those say nothing about whether its pushes reach the plugin.
+              const unexplained = device.data?.motion_snooze
+                ? []
+                : missed.filter((event) => event.cv_properties?.person_detected !== false)
+              if (unexplained.length) pushHealth?.recordMissed(unexplained.length)
               matchedInARow = 0
               if (pushWorks) {
                 pushWorks = false

@@ -1,4 +1,5 @@
 import { readFileSync } from 'fs'
+import { performance } from 'perf_hooks'
 import { join } from 'path'
 import { logError, logInfo } from 'ring-client-api/util'
 import { writeFileAtomic } from './config.ts'
@@ -43,7 +44,7 @@ export function writePushRecoveryState(storagePath: string, state: PushRecoveryS
 
 /** What a camera reports: every Ring push notification, and history motion that had none. */
 export interface PushHealthReporter {
-  recordPush(): void
+  recordPush(isMotion: boolean): void
   recordMissed(count: number): void
 }
 
@@ -58,39 +59,62 @@ export interface PushHealthReporter {
 export class PushHealthMonitor implements PushHealthReporter {
   private missTimes: number[] = []
   private pushSeen = false
+  private motionPushSeen = false
   private done = false
   private loggedWaitUntil = 0
   private readonly storagePath
   private readonly refresh
   private readonly now
+  private readonly elapsed
 
-  constructor(storagePath: string, refresh: () => void, now: () => number = Date.now) {
+  /**
+   * now: the clock saved with a refresh (it must survive restarts); elapsed: the clock the
+   * misses are timed with, which a clock set by NTP after a boot (a Pi has no clock of its own)
+   * can't make jump.
+   */
+  constructor(
+    storagePath: string,
+    refresh: () => void,
+    now: () => number = Date.now,
+    elapsed: () => number = () => performance.now(),
+  ) {
     this.storagePath = storagePath
     this.refresh = refresh
     this.now = now
+    this.elapsed = elapsed
   }
 
-  recordPush() {
+  /** Any push shows they reach the plugin; only a motion push ends the refresh count. */
+  recordPush(isMotion: boolean) {
     this.missTimes = []
-    if (this.pushSeen) return
+    const firstPush = !this.pushSeen,
+      firstMotionPush = isMotion && !this.motionPushSeen
     this.pushSeen = true
-    const state = readPushRecoveryState(this.storagePath)
-    if (state.refreshesWithoutPush) {
-      writePushRecoveryState(this.storagePath, { ...state, refreshesWithoutPush: 0 })
+    this.motionPushSeen ||= isMotion
+    if (!firstPush && !firstMotionPush) return
+    const state = readPushRecoveryState(this.storagePath),
+      update: PushRecoveryState = {}
+    // A refresh still waiting for a restart (main bridge) is no longer needed.
+    if (firstPush && state.refreshPending) update.refreshPending = false
+    if (firstMotionPush && state.refreshesWithoutPush) update.refreshesWithoutPush = 0
+    if (!Object.keys(update).length) return
+    writePushRecoveryState(this.storagePath, { ...state, ...update })
+    if (update.refreshesWithoutPush === 0) {
       logInfo('Ring push notifications arrive again after the automatic Ring session refresh')
     }
   }
 
   recordMissed(count: number) {
     if (this.done || count < 1) return
-    const now = this.now()
-    for (let i = 0; i < count; i++) this.missTimes.push(now)
+    const at = this.elapsed()
+    for (let i = 0; i < count; i++) this.missTimes.push(at)
     if (
       this.missTimes.length < MISSES_BEFORE_REFRESH ||
-      now - this.missTimes[0] < MISS_SPAN_BEFORE_REFRESH_MS
+      at - this.missTimes[0] < MISS_SPAN_BEFORE_REFRESH_MS
     ) {
       return
     }
+    const now = this.now()
 
     const state = readPushRecoveryState(this.storagePath),
       refreshes = state.refreshesWithoutPush ?? 0
@@ -101,7 +125,9 @@ export class PushHealthMonitor implements PushHealthReporter {
       )
       return
     }
-    const nextAllowedAt = (state.lastRefreshAt ?? 0) + REFRESH_INTERVAL_MS
+    // A refresh saved by a clock that was ahead (before NTP set it) doesn't hold up the next.
+    const lastRefreshAt = (state.lastRefreshAt ?? 0) > now ? 0 : (state.lastRefreshAt ?? 0),
+      nextAllowedAt = lastRefreshAt + REFRESH_INTERVAL_MS
     if (now < nextAllowedAt) {
       if (this.loggedWaitUntil !== nextAllowedAt) {
         this.loggedWaitUntil = nextAllowedAt

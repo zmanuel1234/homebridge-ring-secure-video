@@ -228,22 +228,31 @@ function updateRefreshTokenInConfig(
 }
 
 /**
- * The Ring token saved in config.json for this platform block, if one block matches.
+ * This platform's block as saved in config.json now, if exactly one block matches and it has a
+ * Ring token.
  *
  * Homebridge restarts a child bridge with the config it read when it started, not the one in
- * config.json now, so after a renewal the token it hands over is out of date (and replacing it in
- * config.json would then fail). The block is this child bridge's, or the one on the main bridge.
+ * config.json now: after a renewal the token it hands over is out of date (and replacing it in
+ * config.json would then fail), and a force setting cleared since would be on again. The block is
+ * this child bridge's, or the one on the main bridge.
  */
-export function getSavedRefreshToken(api: API, config: PlatformConfig) {
+export function getSavedPlatformConfig(
+  api: API,
+  config: PlatformConfig,
+): (PlatformConfig & RingPlatformConfig & { refreshToken: string }) | undefined {
   try {
-    const username = config._bridge?.username,
+    // Homebridge upper-cases the username it hands over; config.json may have it either way.
+    const username = config._bridge?.username?.toUpperCase(),
       blocks = (JSON.parse(readFileSync(api.user.configPath()).toString()).platforms ?? []).filter(
         (block: PlatformConfig) =>
-          block.platform === platformName &&
-          (username ? block._bridge?.username === username : !block._bridge),
+          (block.platform === platformName ||
+            block.platform === `${pluginName}.${platformName}`) &&
+          (username
+            ? String(block._bridge?.username ?? '').toUpperCase() === username
+            : !block._bridge),
       )
-    const token = blocks.length === 1 ? blocks[0].refreshToken : undefined
-    return typeof token === 'string' && token ? token : undefined
+    const block = blocks.length === 1 ? blocks[0] : undefined
+    return typeof block?.refreshToken === 'string' && block.refreshToken ? block : undefined
   } catch {
     return undefined
   }
@@ -257,10 +266,18 @@ export function getSavedRefreshToken(api: API, config: PlatformConfig) {
  * was never written to config.json, and following its old token would save only the first new
  * token and none after it (so the next start would register with Ring again).
  */
+function clearRefreshPending(storagePath: string) {
+  const state = readPushRecoveryState(storagePath)
+  if (state.refreshPending) {
+    writePushRecoveryState(storagePath, { ...state, refreshPending: false })
+  }
+}
+
 export function createRefreshTokenSaver(
   api: API,
   tokenInConfig: string | undefined,
   clearRefreshFlags: boolean,
+  onSaved?: () => void,
 ) {
   let current = tokenInConfig,
     // Only with the first save: turning a force setting back on later must survive renewals.
@@ -289,6 +306,7 @@ export function createRefreshTokenSaver(
     if (saved) {
       current = newRefreshToken
       clearFlags = false
+      onSaved?.()
     } else if (!warned) {
       // Once per run: after a new sign-in while running, every renewal would end up here.
       warned = true
@@ -415,10 +433,14 @@ export class RingPlatform implements DynamicPlatformPlugin {
 
     this.api.on('didFinishLaunching', () => {
       this.log.debug('didFinishLaunching')
-      const savedRefreshToken = config.refreshToken && getSavedRefreshToken(api, config)
-      if (savedRefreshToken && savedRefreshToken !== config.refreshToken) {
-        this.log.info('Using the newer Ring token saved in config.json')
-        config.refreshToken = savedRefreshToken
+      const saved = config.refreshToken ? getSavedPlatformConfig(api, config) : undefined
+      if (saved) {
+        if (saved.refreshToken !== config.refreshToken) {
+          this.log.info('Using the newer Ring token saved in config.json')
+          config.refreshToken = saved.refreshToken
+        }
+        config.forceRefreshRingPushCredentials = Boolean(saved.forceRefreshRingPushCredentials)
+        config.forceRefreshRingApiSession = Boolean(saved.forceRefreshRingApiSession)
       }
       if (config.refreshToken) {
         void this.connectWithRetry()
@@ -434,6 +456,7 @@ export class RingPlatform implements DynamicPlatformPlugin {
   private shuttingDown = false
   private devicesSetUp = false
   private pushHealth?: PushHealthMonitor
+  private gotNewToken = false
 
   /**
    * Ring has stopped sending push notifications: the session is refreshed at the next start (see
@@ -442,7 +465,7 @@ export class RingPlatform implements DynamicPlatformPlugin {
   private refreshSessionAutomatically() {
     if (this.shuttingDown) return
     const reason =
-      'Ring event history shows motion but Ring has sent no push notifications for it for over 30 minutes'
+      'Ring event history shows motion that Ring sent no push notification for (3 events over at least 30 minutes, none pushed)'
     if (this.config._bridge && typeof process.send === 'function') {
       this.log.warn(
         `${reason}; restarting this child bridge to refresh the Ring API session (turn off "Automatic Ring Session Refresh" to stop this)`,
@@ -505,17 +528,17 @@ export class RingPlatform implements DynamicPlatformPlugin {
 
   async connectToApi() {
     const { api, config } = this,
+      storagePath = api.user.storagePath(),
       // Asked for by the push check (refreshSessionAutomatically) before the last restart.
-      refreshPendingInState = Boolean(
-        readPushRecoveryState(api.user.storagePath()).refreshPending,
-      ),
+      refreshPendingInState = Boolean(readPushRecoveryState(storagePath).refreshPending),
+      // Like the force settings, not again on a retry once Ring has given a new token.
       automaticRefresh =
-        Boolean(this.pushHealth) && refreshPendingInState && !config.forceRefreshRingApiSession,
+        Boolean(this.pushHealth) && refreshPendingInState && !this.gotNewToken,
       shouldRotateRingApiSession =
         (config.forceRefreshRingApiSession || automaticRefresh) && config.refreshToken,
       systemId = shouldRotateRingApiSession
-        ? rotateSystemId(api.user.storagePath())
-        : getSystemId(api.user.storagePath()),
+        ? rotateSystemId(storagePath)
+        : getSystemId(storagePath),
       configuredHomeKitAccessoryTag = config.homeKitAccessoryTag?.trim(),
       accessoryIdSuffix = configuredHomeKitAccessoryTag
         ? `-${configuredHomeKitAccessoryTag}`
@@ -535,10 +558,15 @@ export class RingPlatform implements DynamicPlatformPlugin {
 
     if (shouldRotateRingApiSession) {
       logInfo(
-        automaticRefresh
+        automaticRefresh && !config.forceRefreshRingApiSession
           ? 'Forcing Ring API session refresh because Ring stopped sending push notifications (automatic session refresh)'
           : 'Forcing Ring API session refresh because forceRefreshRingApiSession is enabled',
       )
+    }
+
+    // Asked for while the setting was on: not done later on old evidence once it is back on.
+    if (refreshPendingInState && !this.pushHealth) {
+      clearRefreshPending(storagePath)
     }
 
     if (refreshTokenWithoutPushCredentials) {
@@ -561,24 +589,25 @@ export class RingPlatform implements DynamicPlatformPlugin {
         this.api,
         config.refreshToken,
         Boolean(refreshTokenWithoutPushCredentials),
+        // Cleared once the new identity's token is saved: until then the next start would
+        // sign in with the old one.
+        automaticRefresh
+          ? () => {
+            clearRefreshPending(storagePath)
+            this.log.warn(
+              'Automatic Ring session refresh done: in the Ring app, Control Center > Authorized Client Devices now lists homebridge-ring-secure-video twice. Remove the older entry (keep the newest).',
+            )
+          }
+          : undefined,
       ),
     )
     // A retry must sign in with the newest token (Ring may have replaced the old one) and must
     // not force a new identity or push registration again.
-    // Cleared with the first new token, as the force settings are (even if one of them did it).
-    let refreshPending = refreshPendingInState
     ringApi.onRefreshTokenUpdated.subscribe(({ newRefreshToken }) => {
       config.refreshToken = newRefreshToken
       config.forceRefreshRingPushCredentials = false
       config.forceRefreshRingApiSession = false
-      if (refreshPending) {
-        refreshPending = false
-        const storagePath = api.user.storagePath()
-        writePushRecoveryState(storagePath, {
-          ...readPushRecoveryState(storagePath),
-          refreshPending: false,
-        })
-      }
+      this.gotNewToken = true
     })
 
     let locations, loadedDevices

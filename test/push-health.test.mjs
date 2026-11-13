@@ -11,7 +11,7 @@ import {
   PushHealthMonitor,
   readPushRecoveryState,
 } from '../lib/push-health.js'
-import { getSavedRefreshToken, RingPlatform } from '../lib/ring-platform.js'
+import { getSavedPlatformConfig, RingPlatform } from '../lib/ring-platform.js'
 
 const minutes = (n) => n * 60_000
 const day = minutes(24 * 60)
@@ -29,7 +29,12 @@ function monitor(t, state) {
     clock = { now: 10 * day },
     refreshes = []
   if (state) writeState(dir, state)
-  const health = new PushHealthMonitor(dir, () => refreshes.push(clock.now), () => clock.now)
+  const health = new PushHealthMonitor(
+    dir,
+    () => refreshes.push(clock.now),
+    () => clock.now,
+    () => clock.now,
+  )
   return { dir, clock, refreshes, health }
 }
 
@@ -61,7 +66,7 @@ test('misses close together, or with a push in between, do not', (t) => {
   health.recordMissed(1)
   assert.equal(refreshes.length, 0, 'one visit can make several events')
 
-  health.recordPush()
+  health.recordPush(true)
   clock.now += minutes(31)
   health.recordMissed(2)
   assert.equal(refreshes.length, 0, 'counted again from the push')
@@ -97,8 +102,30 @@ test(`no more after ${MAX_REFRESHES_WITHOUT_PUSH} refreshes that brought no push
   health.recordMissed(1)
   assert.equal(refreshes.length, 0)
 
-  health.recordPush()
+  health.recordPush(false)
+  assert.equal(readPushRecoveryState(dir).refreshesWithoutPush, 2, 'a doorbell push does not')
+  health.recordPush(true)
   assert.equal(readPushRecoveryState(dir).refreshesWithoutPush, 0)
+})
+
+test('a push drops a refresh still waiting for a restart', (t) => {
+  const { dir, health } = monitor(t, { refreshPending: true, lastRefreshAt: 5, refreshesWithoutPush: 1 })
+
+  health.recordPush(false)
+  assert.deepEqual(readPushRecoveryState(dir), {
+    refreshPending: false,
+    lastRefreshAt: 5,
+    refreshesWithoutPush: 1,
+  })
+})
+
+test('a refresh saved with a clock that was ahead does not hold up the next', (t) => {
+  const { refreshes, clock, health } = monitor(t, { lastRefreshAt: 20 * day })
+
+  health.recordMissed(2)
+  clock.now += minutes(30)
+  health.recordMissed(1)
+  assert.equal(refreshes.length, 1)
 })
 
 test('the history check reports pushes and unpushed motion events', async (t) => {
@@ -132,7 +159,7 @@ test('the history check reports pushes and unpushed motion events', async (t) =>
     },
     reported = []
   const subscription = getHistoryMotionEvents(camera, 20, {
-    recordPush: () => reported.push('push'),
+    recordPush: (isMotion) => reported.push(isMotion ? 'motion push' : 'push'),
     recordMissed: (count) => reported.push(`missed ${count}`),
   }).subscribe()
   t.after(() => subscription.unsubscribe())
@@ -148,9 +175,23 @@ test('the history check reports pushes and unpushed motion events', async (t) =>
   await at(120)
   camera.onNewNotification.next({ android_config: { category: 'com.ring.pn.live-event.ding' } })
   assert.deepEqual(reported, ['missed 1', 'push'])
+
+  // Not counted: an event Ring saw no person in, and anything while motion is snoozed.
+  events.push({
+    ding_id: 2,
+    ding_id_str: '2',
+    kind: 'motion',
+    created_at: new Date().toISOString(),
+    cv_properties: { person_detected: false },
+  })
+  await at(240)
+  camera.data = { motion_snooze: { scheduled: false } }
+  events.push({ ding_id: 3, ding_id_str: '3', kind: 'motion', created_at: new Date().toISOString() })
+  await at(360)
+  assert.deepEqual(reported, ['missed 1', 'push'])
 })
 
-function platform(t, { config = {}, state, savedToken = 'T0', bridge } = {}) {
+function platform(t, { config = {}, state, savedToken = 'T0', bridge, saved = {} } = {}) {
   const dir = storage(t),
     created = [],
     warnings = [],
@@ -161,6 +202,7 @@ function platform(t, { config = {}, state, savedToken = 'T0', bridge } = {}) {
     platform: 'Ring Secure Video',
     refreshToken: savedToken,
     ...(bridge ? { _bridge: bridge } : {}),
+    ...saved,
   }
   writeFileSync(
     join(dir, 'config.json'),
@@ -201,7 +243,7 @@ function platform(t, { config = {}, state, savedToken = 'T0', bridge } = {}) {
 }
 
 test('a pending automatic refresh gives a new Ring identity, cleared once the token is saved', async (t) => {
-  const { dir, created, platform: p, config } = platform(t, {
+  const { dir, created, platform: p, config, warnings } = platform(t, {
     state: { refreshPending: true, lastRefreshAt: 5, refreshesWithoutPush: 1 },
   })
 
@@ -215,13 +257,29 @@ test('a pending automatic refresh gives a new Ring identity, cleared once the to
   })
   assert.equal(JSON.parse(readFileSync(join(dir, 'config.json'))).platforms[1].refreshToken, 'T1')
   assert.equal(config.refreshToken, 'T1')
+  assert.match(warnings.at(-1), /Remove the older entry/)
 
   await p.connectToApi()
   assert.equal(created[1].options.systemId, created[0].options.systemId, 'only once')
 })
 
+test('a refresh whose token could not be saved stays pending, but a retry does not redo it', async (t) => {
+  // config.json holds another token, so the new one can't replace it.
+  const { dir, created, platform: p } = platform(t, {
+    state: { refreshPending: true },
+    savedToken: 'signed-in-again',
+  })
+
+  await p.connectToApi()
+  created[0].onRefreshTokenUpdated.next({ oldRefreshToken: 'T0', newRefreshToken: 'T1' })
+  assert.equal(readPushRecoveryState(dir).refreshPending, true, 'the next start does it again')
+
+  await p.connectToApi()
+  assert.equal(created[1].options.systemId, created[0].options.systemId)
+})
+
 test('with the setting off, a pending refresh is not done, and nothing is watched', async (t) => {
-  const { created, platform: p } = platform(t, {
+  const { dir, created, platform: p } = platform(t, {
     config: { automaticSessionRefresh: false },
     state: { refreshPending: true },
   })
@@ -229,6 +287,7 @@ test('with the setting off, a pending refresh is not done, and nothing is watche
   await p.connectToApi()
   assert.equal(created[0].options.systemId, 'old-system-id')
   assert.equal(p.pushHealth, undefined)
+  assert.equal(readPushRecoveryState(dir).refreshPending, false, 'not done later on old evidence')
 })
 
 test('a child bridge restarts itself for the refresh; the main bridge waits for a restart', (t) => {
@@ -249,15 +308,21 @@ test('a child bridge restarts itself for the refresh; the main bridge waits for 
   assert.equal(child.restarts.length, 1, 'not while shutting down')
 })
 
-test('a restarted child bridge uses the newer token saved in config.json', async (t) => {
+test('a restarted child bridge uses the token and force settings saved in config.json', async (t) => {
   const bridge = { username: '0E:C2:A3:65:0D:A2' },
-    { created, events, config } = platform(t, { bridge, savedToken: 'T5' })
+    { created, events, config } = platform(t, {
+      bridge,
+      savedToken: 'T5',
+      // Homebridge hands over the settings from its own start; the force setting cleared since.
+      config: { forceRefreshRingApiSession: true },
+      saved: { forceRefreshRingApiSession: false },
+    })
 
   events.didFinishLaunching()
   await new Promise((resolve) => setImmediate(resolve))
   assert.equal(config.refreshToken, 'T5')
   assert.equal(created[0].options.refreshToken, 'T5')
-
+  assert.equal(created[0].options.systemId, 'old-system-id', 'no forced refresh')
 })
 
 test("only this bridge's own block gives the saved token", (t) => {
@@ -270,7 +335,7 @@ test("only this bridge's own block gives the saved token", (t) => {
     }),
     saved = (platforms, config) => {
       writeFileSync(join(dir, 'config.json'), JSON.stringify({ platforms }))
-      return getSavedRefreshToken(api, config)
+      return getSavedPlatformConfig(api, config)?.refreshToken
     },
     child = { _bridge: { username: 'AA' } }
 
@@ -279,6 +344,12 @@ test("only this bridge's own block gives the saved token", (t) => {
   assert.equal(saved([block('B', 'BB')], child), undefined, "another bridge's")
   assert.equal(saved([block('A', 'AA'), block('A2', 'AA')], child), undefined, 'two blocks')
   assert.equal(saved([block('', 'AA')], child), undefined, 'signed out')
+  assert.equal(saved([block('a', 'aa')], child), 'a', 'username in lower case')
+  assert.equal(
+    saved([{ ...block('p', 'AA'), platform: 'homebridge-ring-secure-video.Ring Secure Video' }], child),
+    'p',
+    'platform named with the plugin',
+  )
   rmSync(join(dir, 'config.json'))
-  assert.equal(getSavedRefreshToken(api, child), undefined, 'no config.json')
+  assert.equal(getSavedPlatformConfig(api, child), undefined, 'no config.json')
 })
