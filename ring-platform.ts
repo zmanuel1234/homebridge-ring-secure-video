@@ -55,7 +55,7 @@ import { UnknownZWaveSwitchSwitch } from './unknown-zwave-switch.ts'
 import { generateMacAddress } from './util.ts'
 import { Intercom } from './intercom.ts'
 import { Valve } from './valve.ts'
-import { normalizeMediaConfig } from './media-config.ts'
+import { sanitizeMediaConfig } from './media-config.ts'
 import { configureHksvResourceGovernor } from './hksv-work-queue.ts'
 import {
   getMotionNotificationSensorUuid,
@@ -268,7 +268,12 @@ export class RingPlatform implements DynamicPlatformPlugin {
 
     // Media resources are platform-wide. Configure the singleton once before
     // cameras are constructed; individual cameras must never overwrite it.
-    const media = normalizeMediaConfig(config)
+    const { media, ignored } = sanitizeMediaConfig(config)
+    for (const setting of ignored) {
+      this.log.warn(
+        `Ignoring the media setting ${setting.path} (expected ${setting.expectation}); the older setting or the default is used instead. Correct it in the plugin settings.`,
+      )
+    }
     configureHksvResourceGovernor({
       recordingConcurrency: media.recording.maxConcurrentRecordings,
       queueTimeoutMs: 30_000,
