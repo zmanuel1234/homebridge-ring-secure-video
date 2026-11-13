@@ -36,7 +36,7 @@
           "profile": {
             "title": "Media profile",
             "type": "string",
-            "default": "adaptive",
+            "description": "Defaults to the HKSV Performance Mode (rpi gives lowPower, quality gives quality), otherwise adaptive.",
             "oneOf": [
               { "title": "adaptive", "enum": ["adaptive"] },
               { "title": "lowPower", "enum": ["lowPower"] },
@@ -161,7 +161,7 @@
       "disableHksvOnBattery": {
         "title": "Disable HKSV On Battery Cameras",
         "type": "boolean",
-        "description": "If enabled, HKSV is disabled on battery-powered cameras to reduce battery and network impact.",
+        "description": "If enabled, HKSV is disabled on cameras running on battery, to reduce battery and network impact. Battery models that are wired (power mode wired in the Ring app) keep HKSV.",
         "default": true
       },
       "hksvPrebufferLengthMs": {
@@ -225,8 +225,7 @@
         "type": "integer",
         "minimum": 256,
         "maximum": 12000,
-        "default": 3000,
-        "description": "Target video bitrate for HKSV recording transcodes. Increase this first if fast motion becomes blocky or pixelated. 4000-6000 is a good starting range for wired cameras."
+        "description": "Target video bitrate for HKSV recording transcodes. Defaults to the media profile's (1000 lowPower, 3000 adaptive, 5000 quality). Increase this first if fast motion becomes blocky or pixelated. 4000-6000 is a good starting range for wired cameras."
       },
       "hksvVideoMaxBitrateKbps": {
         "title": "HKSV Max Video Bitrate (kbps)",
