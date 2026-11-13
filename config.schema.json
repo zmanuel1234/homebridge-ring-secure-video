@@ -201,7 +201,7 @@
       "hksvPerformanceMode": {
         "title": "HKSV Performance Mode",
         "type": "string",
-        "description": "High-level HKSV tuning profile. Use rpi for Raspberry Pi and other small computers: lower advertised recording tiers, one recording at a time, and remuxing (copy) unless a codec other than auto is set. Verified on a Pi 4 with the codec set to libx264.",
+        "description": "High-level HKSV tuning profile. Use rpi for Raspberry Pi and other small computers: lower advertised recording tiers, one recording at a time, and remuxing (copy) unless a codec other than auto is set. Verified on a Pi 4 with copy, h264_v4l2m2m and libx264.",
         "default": "balanced",
         "oneOf": [
           {
@@ -319,7 +319,7 @@
       "cameraVideoCodec": {
         "title": "Camera Video Codec",
         "type": "string",
-        "description": "Preferred FFmpeg H.264 handling for HKSV recordings. auto chooses the lowest-cost option for the configured performance mode; copy remuxes Ring video without re-encoding. Complete clips are verified with libx264; copy and h264_v4l2m2m are not verified yet.",
+        "description": "Preferred FFmpeg H.264 handling for HKSV recordings. auto chooses the lowest-cost option for the configured performance mode; copy remuxes Ring video without re-encoding. Complete clips are verified on a Raspberry Pi 4 with a Ring Video Doorbell 3 Plus for copy, h264_v4l2m2m and libx264; if clips from another camera don't play with copy, try h264_v4l2m2m (Raspberry Pi 4; the Pi 5 has no hardware H.264 encoder) or libx264.",
         "oneOf": [
           {
             "title": "auto",
