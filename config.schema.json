@@ -189,7 +189,7 @@
       "hksvPerformanceMode": {
         "title": "HKSV Performance Mode",
         "type": "string",
-        "description": "High-level HKSV tuning profile. Use rpi for Raspberry Pi and other small computers; it favors remuxing, lower advertised recording tiers, and conservative concurrency.",
+        "description": "High-level HKSV tuning profile. Use rpi for Raspberry Pi and other small computers: lower advertised recording tiers, one recording at a time, and remuxing (copy) unless a codec other than auto is set. Verified on a Pi 4 with the codec set to libx264.",
         "default": "balanced",
         "oneOf": [
           {
@@ -307,7 +307,7 @@
       "cameraVideoCodec": {
         "title": "Camera Video Codec",
         "type": "string",
-        "description": "Preferred FFmpeg H.264 handling for HKSV recordings. auto chooses the lowest-cost option for the configured performance mode; copy remuxes Ring video without re-encoding.",
+        "description": "Preferred FFmpeg H.264 handling for HKSV recordings. auto chooses the lowest-cost option for the configured performance mode; copy remuxes Ring video without re-encoding. Complete clips are verified with libx264; copy and h264_v4l2m2m are not verified yet.",
         "oneOf": [
           {
             "title": "auto",

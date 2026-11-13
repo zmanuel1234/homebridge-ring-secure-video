@@ -13,14 +13,14 @@ It is meant to replace `homebridge-ring` on its own: one plugin, one Ring sign-i
 
 ## Origin and Attribution
 
-This project is based on Dustin Greif's original Ring Homebridge ecosystem:
+This project is based on Dusty Greif's original Ring Homebridge ecosystem:
 
-- Upstream plugin: [dgreif/homebridge-ring](https://github.com/dgreif/homebridge-ring)
-- Upstream API library: [dgreif/ring-client-api](https://github.com/dgreif/ring-client-api)
+- Upstream plugin and API library: [dgreif/ring](https://github.com/dgreif/ring)
+  (`homebridge-ring` and `ring-client-api`)
 
 - HKSV fork: [trinityhades/homebridge-ring-hksv](https://github.com/trinityhades/homebridge-ring-hksv), whose history this repository continues
 
-Big thanks to Dustin, trinityhades and all upstream contributors. This plugin reuses and extends that foundation.
+Big thanks to Dusty, trinityhades and all upstream contributors. This plugin reuses and extends that foundation.
 
 ## Important Plugin Options
 
@@ -61,13 +61,13 @@ normally ends a recording itself when motion stops), or to `0` to disable it.
 If Homebridge is installed globally:
 
 ```bash
-npm i -g --unsafe-perm homebridge-ring-secure-video
+npm i -g homebridge-ring-secure-video
 ```
 
 To try a beta, install the `beta` tag instead:
 
 ```bash
-npm i -g --unsafe-perm homebridge-ring-secure-video@beta
+npm i -g homebridge-ring-secure-video@beta
 ```
 
 If running from source:
@@ -115,7 +115,8 @@ Changing `homeKitAccessoryTag` updates both the exposed accessory name and the g
 
 HKSV support is experimental and actively evolving. Behavior may vary by camera model, wired vs battery power, Ring API changes, and FFmpeg environment.
 
-I currently am able to run 3 cameras with HKSV enabled on a Homebridge instance ran on a M4 Mac Mini 32GB of RAM.
+Verified so far: complete HomeKit clips from a Ring Video Doorbell 3 Plus on a Raspberry Pi 4
+(Node 22, Homebridge 2) with the settings below. The HKSV fork this continues reported 3 cameras on an M4 Mac mini.
 Please report your experience and setup details to help improve support.
 
 Recordings follow the frame rate and audio format HomeKit asks for, and include audio only when
@@ -133,24 +134,23 @@ For fast-motion pixelation or stuttering in HKSV recordings, try increasing
 `cameraVideoCodec: "h264_videotoolbox"` can reduce CPU load by using hardware
 encoding.
 
-For Raspberry Pi 4/5 and other small computers, start with:
+For Raspberry Pi 4/5 and other small computers, start with what has been verified on a Pi 4:
 
 ```json
 {
   "enableHksv": true,
-  "hksvPerformanceMode": "rpi",
-  "cameraVideoCodec": "auto",
-  "hksvMaxConcurrentRecordings": 1
+  "media": {
+    "profile": "lowPower",
+    "recording": { "codec": "libx264", "bitrateKbps": 800 }
+  }
 }
 ```
 
-The `rpi` profile favors remuxing Ring's H.264 video into HomeKit Secure Video
-fragmented MP4 instead of re-encoding it. This is much lighter than libx264, but
-it depends on Ring's current stream being compatible with HomeKit's H.264
-recording requirements. If recording fails in this mode, try
-`cameraVideoCodec: "h264_v4l2m2m"` when your FFmpeg build exposes that encoder,
-or fall back to `cameraVideoCodec: "libx264"` with `hksvVideoPreset:
-"ultrafast"`.
+The `lowPower` profile (also chosen by `"hksvPerformanceMode": "rpi"`) records one clip at a
+time with conservative settings. Lighter codecs exist but complete HomeKit clips with them are
+not verified yet: `copy` (the `lowPower` default for `auto`) remuxes Ring's H.264 without
+re-encoding, which only works when Ring's stream meets HomeKit's recording requirements, and
+`h264_v4l2m2m` uses the Pi's hardware encoder when FFmpeg has it.
 
 ### Minimum specifications for HKSV: 
 [TBD - will be added as more users test and report their setups]
