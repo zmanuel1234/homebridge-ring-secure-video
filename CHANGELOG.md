@@ -1,6 +1,13 @@
 # homebridge-ring-secure-video
 
-## Unreleased (homebridge-ring-secure-video)
+## 1.0.0-beta.1 (2026-11-13)
+
+First release as `homebridge-ring-secure-video`, continuing trinityhades/homebridge-ring-hksv
+15.0.2 (itself based on homebridge-ring 14.3.0 by Dusty Greif).
+
+Known in this beta: complete HomeKit clips have been verified on a Raspberry Pi 4 with
+`media.recording.codec` set to `libx264`; clips from the Pi's hardware encoder
+(`h264_v4l2m2m`, the `auto` choice there) are not verified yet.
 
 - New package name `homebridge-ring-secure-video`, platform `Ring Secure Video`, continuing
   trinityhades/homebridge-ring-hksv 15.0.2. Ring's Authorized Client Devices list shows the
@@ -66,7 +73,7 @@
 - Add new Ring media ingress and camera source handling to support the updated v15 recording and streaming flow.
 - Expand the plugin configuration and schema for the new media pipeline, and add regression coverage for the v15 media behavior.
 
-## Unreleased
+### Unreleased at the time (homebridge-ring-hksv)
 
 - Add an HKSV recording stall watchdog so motion-triggered FFmpeg processes are stopped if they stop producing fragmented MP4 packets.
 - Stop HKSV recording live calls immediately when HomeKit closes a recording stream, and cancel queued recording requests that are already closed before starting FFmpeg. This prevents stale HKSV FFmpeg processes from accumulating after abandoned recording sessions.
