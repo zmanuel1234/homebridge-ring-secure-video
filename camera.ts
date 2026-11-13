@@ -6,6 +6,7 @@ import {
   catchError,
   exhaustMap,
   filter,
+  finalize,
   map,
   mergeMap,
   share,
@@ -20,6 +21,189 @@ import { defer, EMPTY, firstValueFrom, from, merge, of, timer } from 'rxjs'
 import type { Observable } from 'rxjs'
 
 export const MOTION_WATCHDOG_MS = 30_000
+/** How often Ring's event history is checked once its push notifications are known to arrive. */
+export const HISTORY_CHECK_WHILE_PUSH_WORKS_MS = 5 * 60_000
+/** A push motion this close to a history event's time is taken as that event's notification. */
+export const PUSH_MATCH_WINDOW_MS = 90_000
+/** After a gap in checking, a history event older than this no longer gives motion. */
+export const HISTORY_MOTION_MAX_AGE_MS = 180_000
+/** A history event first seen less than this ago may still get its push; judged at a later check. */
+const PUSH_GRACE_MS = 30_000
+/** Checks in a row that found only pushed events (no misses in between) before push is trusted. */
+const MATCHES_TO_TRUST_PUSH = 2
+/**
+ * Ids no longer in the history are forgotten after this. Ids still in it are kept, however old:
+ * on a quiet camera the 10 newest events can be days old, and must not count as new again.
+ */
+const ID_MEMORY_MS = 60 * 60_000
+
+/**
+ * Motion from Ring's event history, for when its push notifications don't arrive.
+ *
+ * Checking every pollSeconds (20 s by default) costs some 4,300 Ring requests a day per camera,
+ * on the same session as everything else. So the history is checked that often only until motion
+ * events in it (two in a row) turn out to have come by push too; from then on push is trusted
+ * and the history is checked every 5 minutes as a safety net. A motion event no push reported
+ * switches back to frequent checks. While checking frequently every new event gives motion; after
+ * a gap (5-minute checks, a failure) only events from the last 3 minutes do, as one found later
+ * would only record an empty doorway.
+ */
+export function getHistoryMotionEvents(
+  device: Pick<RingCamera, 'name' | 'getEvents' | 'onNewNotification'>,
+  pollSeconds: number,
+): Observable<boolean> {
+  return defer(() => {
+    const startedAt = Date.now() - 5000,
+      historySeen = new Map<string, number>(),
+      // Events that already gave motion from here (a young one is judged again later).
+      shownAsMotion = new Map<string, number>(),
+      // When an event not judged yet was first seen in the history (by the Pi's clock).
+      firstSeen = new Map<string, number>(),
+      pushIds = new Map<string, number>(),
+      pushMotionTimes: number[] = [],
+      baseRetryMs = Math.max(pollSeconds * 1000, 30_000),
+      forget = (ids: Map<string, number>, now: number) => {
+        for (const [id, at] of ids) {
+          if (now - at > ID_MEMORY_MS) ids.delete(id)
+        }
+      }
+    let pushWorks = false,
+      matchedInARow = 0,
+      lastCheckAt = 0,
+      lastSuccessAt = 0,
+      failureCount = 0,
+      nextCheckAt = 0
+
+    const notifications = device.onNewNotification.subscribe((notification) => {
+      if (notification.android_config?.category !== PushNotificationAction.Motion) return
+      const id = notification.data?.event?.ding?.id,
+        now = Date.now()
+      if (id !== undefined) pushIds.set(String(id), now)
+      pushMotionTimes.push(now)
+      if (pushMotionTimes.length > 50) pushMotionTimes.shift()
+    })
+
+    return timer(pollSeconds * 1000, pollSeconds * 1000).pipe(
+      exhaustMap(() => {
+        const now = Date.now()
+        if (now < nextCheckAt) return EMPTY
+        if (pushWorks && now - lastCheckAt < HISTORY_CHECK_WHILE_PUSH_WORKS_MS) {
+          return EMPTY
+        }
+        lastCheckAt = now
+        // Checked recently and frequently: anything new is recent, whatever the clocks say
+        // (a Pi clock ahead of Ring's would otherwise make every event look too old).
+        const checkedJustBefore = !pushWorks && now - lastSuccessAt <= pollSeconds * 1000 + 30_000
+
+        return defer(() => device.getEvents({ limit: 10, kind: 'motion' })).pipe(
+          mergeMap(({ events }) => {
+            const checkedAt = Date.now()
+            failureCount = 0
+            nextCheckAt = 0
+            lastSuccessAt = checkedAt
+            // Still in the history: remembered as long as it stays there.
+            for (const event of events) {
+              const id = event.ding_id_str || String(event.ding_id)
+              for (const ids of [historySeen, shownAsMotion, firstSeen, pushIds]) {
+                if (ids.has(id) && ids !== firstSeen) ids.set(id, checkedAt)
+              }
+            }
+            forget(historySeen, checkedAt)
+            forget(shownAsMotion, checkedAt)
+            forget(firstSeen, checkedAt)
+            forget(pushIds, checkedAt)
+
+            const isPushed = (event: (typeof events)[number]) => {
+              const id = event.ding_id_str || String(event.ding_id),
+                at = Date.parse(event.created_at)
+              return (
+                pushIds.has(id) ||
+                pushMotionTimes.some((t) => Math.abs(t - at) <= PUSH_MATCH_WINDOW_MS)
+              )
+            }
+            const newEvents = events.filter((event) => {
+              const id = event.ding_id_str || String(event.ding_id)
+              return (
+                event.kind === 'motion' &&
+                Date.parse(event.created_at) >= startedAt &&
+                !historySeen.has(id)
+              )
+            })
+            // Too young to know whether its push is still coming: judged at a later check, but
+            // it can still give motion now (once). Young by when it was first seen here, so a
+            // Pi clock behind Ring's doesn't keep it young.
+            const young = (event: (typeof events)[number]) => {
+              const id = event.ding_id_str || String(event.ding_id)
+              if (!firstSeen.has(id)) firstSeen.set(id, checkedAt)
+              return !isPushed(event) && checkedAt - (firstSeen.get(id) ?? checkedAt) < PUSH_GRACE_MS
+            }
+            const judged = newEvents.filter((event) => !young(event)),
+              missed = judged.filter((event) => !isPushed(event))
+            judged.forEach((event) => {
+              const id = event.ding_id_str || String(event.ding_id)
+              historySeen.set(id, checkedAt)
+              firstSeen.delete(id)
+            })
+            if (pushWorks && judged.length < newEvents.length) {
+              // An event to judge soon: check again shortly rather than in 5 minutes.
+              lastCheckAt = checkedAt - HISTORY_CHECK_WHILE_PUSH_WORKS_MS + PUSH_GRACE_MS + 10_000
+            }
+
+            if (missed.length) {
+              matchedInARow = 0
+              if (pushWorks) {
+                pushWorks = false
+                logInfo(
+                  `${device.name}: Ring event history shows motion no push notification reported; checking it every ${pollSeconds} s again`,
+                )
+              }
+            } else if (judged.length) {
+              // One per check: a single push can match several events.
+              matchedInARow += 1
+              if (!pushWorks && matchedInARow >= MATCHES_TO_TRUST_PUSH) {
+                pushWorks = true
+                logInfo(
+                  `${device.name}: Ring push notifications are arriving; checking Ring event history every ${HISTORY_CHECK_WHILE_PUSH_WORKS_MS / 60_000} minutes instead of every ${pollSeconds} s`,
+                )
+              }
+            }
+
+            const unpushedNow = newEvents.filter((event) => !isPushed(event)),
+              givesMotion = unpushedNow.some(
+                (event) =>
+                  !shownAsMotion.has(event.ding_id_str || String(event.ding_id)) &&
+                  (checkedJustBefore ||
+                    checkedAt - Date.parse(event.created_at) <= HISTORY_MOTION_MAX_AGE_MS),
+              )
+            unpushedNow.forEach((event) =>
+              shownAsMotion.set(event.ding_id_str || String(event.ding_id), checkedAt),
+            )
+            if (!givesMotion) return EMPTY
+
+            logInfo(`${device.name} Detected Motion from Ring event history fallback`)
+            return of(true)
+          }),
+          catchError(() => {
+            failureCount++
+            const retryDelayMs = Math.min(
+              5 * 60 * 1000,
+              baseRetryMs * 2 ** Math.min(failureCount - 1, 4),
+            )
+            nextCheckAt = Date.now() + retryDelayMs
+            const nextInMs = pushWorks
+              ? Math.max(retryDelayMs, lastCheckAt + HISTORY_CHECK_WHILE_PUSH_WORKS_MS - Date.now())
+              : retryDelayMs
+            logError(
+              `${device.name} failed to poll Ring event history for motion fallback; retrying in ${Math.ceil(nextInMs / 1000)} seconds`,
+            )
+            return EMPTY
+          }),
+        )
+      }),
+      finalize(() => notifications.unsubscribe()),
+    )
+  })
+}
 
 /**
  * Motion from Ring's push notifications, as HomeKit needs it: true for every new motion alert.
@@ -294,89 +478,15 @@ export class Camera extends BaseDataAccessory<RingCamera> {
   }
 
   private getMotionDetectedObservable(): Observable<boolean> {
-    const pollSeconds = Math.max(this.config.cameraStatusPollingSeconds ?? 20, 10),
-      startedAt = Date.now() - 5000,
-      seenEventIds = new Set<string>(),
-      pushMotionEvents = getPushMotionEvents(this.device),
-      enableMotionHistoryFallback =
-        this.config.enableCameraMotionHistory !== false
-    let historyFailureCount = 0
-    let nextHistoryPollAt = 0
-    const baseHistoryRetryMs = Math.max(pollSeconds * 1000, 30_000),
-      polledNewMotionEvents = timer(pollSeconds * 1000, pollSeconds * 1000).pipe(
-        exhaustMap(() => {
-          if (Date.now() < nextHistoryPollAt) {
-            return EMPTY
-          }
+    const pushMotionEvents = getPushMotionEvents(this.device)
 
-          return from(
-            this.device.getEvents({
-              limit: 10,
-              kind: 'motion',
-            }),
-          ).pipe(
-            mergeMap(({ events }) => {
-              historyFailureCount = 0
-              nextHistoryPollAt = 0
-              const newMotionEvents = events
-                .filter((event) => {
-                  const eventId = event.ding_id_str || String(event.ding_id)
-
-                  return (
-                    event.kind === 'motion' &&
-                    Date.parse(event.created_at) >= startedAt &&
-                    !seenEventIds.has(eventId)
-                  )
-                })
-                .sort(
-                  (a, b) =>
-                    Date.parse(a.created_at) - Date.parse(b.created_at),
-                )
-
-              newMotionEvents.forEach((event) => {
-                seenEventIds.add(event.ding_id_str || String(event.ding_id))
-              })
-
-              if (!newMotionEvents.length) return EMPTY
-
-              logInfo(
-                `${this.device.name} Detected Motion from Ring event history fallback`,
-              )
-              return of(true)
-            }),
-            catchError(() => {
-              historyFailureCount++
-              const retryDelayMs = Math.min(
-                5 * 60 * 1000,
-                baseHistoryRetryMs * 2 ** Math.min(historyFailureCount - 1, 4),
-              )
-              nextHistoryPollAt = Date.now() + retryDelayMs
-              logError(
-                `${this.device.name} failed to poll Ring event history for motion fallback; retrying in ${Math.ceil(retryDelayMs / 1000)} seconds`,
-              )
-              return EMPTY
-            }),
-          )
-        }),
-      ),
-      // No separate "motion off" for these: the watchdog below turns motion off 30 s after the
-      // last event, and a 65 s one from here could cut a later push-started visit short.
-      polledMotionEvents = polledNewMotionEvents
-
-    if (enableMotionHistoryFallback) {
-      this.device.onNewNotification.subscribe((notification) => {
-        const dingId = notification.data?.event?.ding?.id
-
-        if (dingId) {
-          seenEventIds.add(String(dingId))
-        }
-      })
+    if (this.config.enableCameraMotionHistory === false) {
+      return addMotionWatchdog(pushMotionEvents)
     }
 
+    const pollSeconds = Math.max(this.config.cameraStatusPollingSeconds ?? 20, 10)
     return addMotionWatchdog(
-      enableMotionHistoryFallback
-        ? merge(pushMotionEvents, polledMotionEvents)
-        : pushMotionEvents,
+      merge(pushMotionEvents, getHistoryMotionEvents(this.device, pollSeconds)),
     )
   }
 

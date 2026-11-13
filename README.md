@@ -27,7 +27,7 @@ Big thanks to Dustin, trinityhades and all upstream contributors. This plugin re
 | Option | Purpose |
 | --- | --- |
 | `enableHksv` | Enables experimental HKSV support for eligible cameras |
-| `enableCameraMotionHistory` | Allows camera motion to fall back to recent Ring event history if live notifications are stale; disable to only trust push-triggered motion |
+| `enableCameraMotionHistory` | Allows camera motion to fall back to recent Ring event history if push notifications don't arrive. The history is checked every `cameraStatusPollingSeconds` until motion events turn out to come by push too, then every 5 minutes as a safety net (and frequently again once a push is missed, so motion can go unreported for up to 5 minutes after push stops working); disable to only trust push-triggered motion |
 | `disableHksvOnBattery` | Disables HKSV on battery cameras to reduce battery/network usage |
 | `hksvPrebufferLengthMs` | HKSV prebuffer duration (minimum 4000ms) |
 | `hksvFragmentLengthMs` | HKSV fragment duration target |

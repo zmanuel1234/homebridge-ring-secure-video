@@ -155,7 +155,7 @@
       "enableCameraMotionHistory": {
         "title": "Enable Camera Motion History Fallback",
         "type": "boolean",
-        "description": "If enabled, cameras can synthesize motion from recent Ring event history when live push notifications are missing or stale. Disable this if you only want motion triggered by Ring notifications.",
+        "description": "If enabled, cameras can synthesize motion from recent Ring event history when push notifications don't arrive. The history is checked frequently until push is seen to work, then every 5 minutes as a safety net. Disable this if you only want motion triggered by Ring notifications.",
         "default": true
       },
       "disableHksvOnBattery": {
