@@ -1,5 +1,10 @@
 # homebridge-ring-secure-video
 
+## Unreleased
+
+- The Homebridge UI shows the plugin as "Ring Secure Video" (was "Homebridge Ring Secure Video"),
+  matching its platform name in the settings and the log.
+
 ## 1.0.0-beta.1 (2026-11-13)
 
 First release as `homebridge-ring-secure-video`, continuing trinityhades/homebridge-ring-hksv
