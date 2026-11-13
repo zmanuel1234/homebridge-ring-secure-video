@@ -161,7 +161,7 @@
       "sessionRefreshSensor": {
         "title": "Session Refresh Sensor",
         "type": "boolean",
-        "description": "Adds a \"Ring Session Refreshed\" contact sensor that opens about a minute after an automatic Ring session refresh and stays open for a day, so the Home app can notify you (turn on its notifications): then remove the older homebridge-ring-secure-video entry from Authorized Client Devices in the Ring app.",
+        "description": "Adds a \"Ring Session Refreshed\" contact sensor that opens after an automatic Ring session refresh (once the Home app is connected again, within 3 minutes) and stays open for a day, so the Home app can notify you (turn on its notifications; needs a home hub): then remove the older homebridge-ring-secure-video entry from Authorized Client Devices in the Ring app. Needs Automatic Ring Session Refresh.",
         "default": false
       },
       "enableCameraMotionHistory": {

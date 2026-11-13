@@ -469,6 +469,7 @@ export class RingPlatform implements DynamicPlatformPlugin {
   private pushHealth?: PushHealthMonitor
   private gotNewToken = false
   private sessionRefreshSensor?: SessionRefreshSensor
+  private readonly startedAt = Date.now()
 
   /**
    * Ring has stopped sending push notifications: the session is refreshed at the next start (see
@@ -611,6 +612,8 @@ export class RingPlatform implements DynamicPlatformPlugin {
             const doneAt = Date.now()
             this.pushHealth?.setHoldPending(false)
             clearRefreshPending(storagePath, { refreshDoneAt: doneAt })
+            // Usually saved while connecting, before the sensor is set up (which then reads
+            // refreshDoneAt); this covers a save after that.
             this.sessionRefreshSensor?.show(doneAt)
             this.log.warn(
               'Automatic Ring session refresh done: in the Ring app, Control Center > Authorized Client Devices now lists homebridge-ring-secure-video twice. Remove the older entry (keep the newest).',
@@ -898,7 +901,11 @@ export class RingPlatform implements DynamicPlatformPlugin {
         platformAccessories.push(sensorAccessory)
         this.homebridgeAccessories[sensorUuid] = sensorAccessory
       }
-      this.sessionRefreshSensor = new SessionRefreshSensor(sensorAccessory, sensorName)
+      this.sessionRefreshSensor = new SessionRefreshSensor(
+        sensorAccessory,
+        sensorName,
+        this.startedAt,
+      )
       this.sessionRefreshSensor.show(readPushRecoveryState(storagePath).refreshDoneAt)
       activeAccessoryIds.push(sensorUuid)
     }

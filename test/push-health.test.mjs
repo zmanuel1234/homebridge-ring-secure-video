@@ -407,7 +407,7 @@ test("only this bridge's own block gives the saved token", (t) => {
   assert.equal(getSavedPlatformConfig(api, child), undefined, 'no config.json')
 })
 
-test('the session refresh sensor opens a minute after a refresh, and closes a day later', async (t) => {
+test('the session refresh sensor opens once the Home app is back after a refresh, and closes a day later', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 100 * day })
   const { dir, created, registered, platform: p } = platform(t, {
     config: { sessionRefreshSensor: true },
@@ -426,13 +426,33 @@ test('the session refresh sensor opens a minute after a refresh, and closes a da
 
   // The new token is saved (here after the set-up; usually before it).
   created[0].onRefreshTokenUpdated.next({ oldRefreshToken: 'T0', newRefreshToken: 'T1' })
-  t.mock.timers.tick(59_000)
+  t.mock.timers.tick(minutes(3) - 1)
   assert.equal(state(), closed, 'not before the Home app has seen the bridge again')
-  t.mock.timers.tick(1_000)
-  assert.equal(state(), open)
-  t.mock.timers.tick(day - minutes(1))
+  t.mock.timers.tick(1)
+  assert.equal(state(), open, 'at the latest after 3 minutes')
+  t.mock.timers.tick(day - minutes(3))
   assert.equal(state(), closed)
   assert.equal(readPushRecoveryState(dir).refreshPending, false)
+})
+
+test('the session refresh sensor opens 10 s after a home hub subscribes to it', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 100 * day })
+  const { registered, platform: p } = platform(t, {
+    config: { sessionRefreshSensor: true },
+    state: { refreshDoneAt: 100 * day + 1000 },
+  })
+  t.mock.timers.tick(2000)
+  await p.connectToApi()
+  const characteristic = registered[0]
+    .getService(hapNodejs.Service.ContactSensor)
+    .getCharacteristic(hapNodejs.Characteristic.ContactSensorState)
+
+  t.mock.timers.tick(30_000)
+  characteristic.emit(hapNodejs.CharacteristicEventTypes.SUBSCRIBE)
+  t.mock.timers.tick(9_999)
+  assert.equal(characteristic.value, 0)
+  t.mock.timers.tick(1)
+  assert.equal(characteristic.value, 1)
 })
 
 test('after a restart within the day the sensor opens again; without the setting there is none', async (t) => {
@@ -446,16 +466,21 @@ test('after a restart within the day the sensor opens again; without the setting
       state: { refreshDoneAt: 99 * day },
     }),
     none = platform(t, { state: { refreshDoneAt: 100 * day - minutes(60) } })
+  const future = platform(t, {
+    config: { sessionRefreshSensor: true },
+    state: { refreshDoneAt: 101 * day },
+  })
   await recent.platform.connectToApi()
   await old.platform.connectToApi()
   await none.platform.connectToApi()
-  t.mock.timers.tick(60_000)
+  await future.platform.connectToApi()
 
   const value = (accessory) =>
     accessory
       .getService(hapNodejs.Service.ContactSensor)
       .getCharacteristic(hapNodejs.Characteristic.ContactSensorState).value
-  assert.equal(value(recent.registered[0]), 1)
+  assert.equal(value(recent.registered[0]), 1, 'open at once: no second notification')
   assert.equal(value(old.registered[0]), 0)
+  assert.equal(value(future.registered[0]), 0)
   assert.equal(none.registered.length, 0)
 })
