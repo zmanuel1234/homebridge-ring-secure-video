@@ -164,9 +164,9 @@ For support and debugging:
 - Upstream Ring wiki (token/auth/camera references): <https://github.com/dgreif/ring/wiki>
 
 If motion and doorbell events arrive late (the log shows "Detected Motion from Ring event history
-fallback" rather than right away), Ring's instant notifications aren't reaching the plugin. With debug
-logging on, the log says at start whether the push decryption fix for `@eneris/push-receiver` was
-applied. See also the upstream [notification troubleshooting](https://github.com/dgreif/ring/wiki/Notification-Troubleshooting).
+fallback" rather than right away), Ring's instant notifications aren't reaching the plugin. At start the
+log says which `@eneris/push-receiver` the Ring push client uses ("Ring push notifications: ..."), or
+warns "Could not fix Ring push notifications" if the plugin couldn't give it the fixed 4.3.1. See also the upstream [notification troubleshooting](https://github.com/dgreif/ring/wiki/Notification-Troubleshooting).
 
 Use the "Force Ring Push Credential Refresh" and "Force Ring API Session Refresh" settings only as a
 last resort, once. Each refresh adds a registration with Ring, and repeated ones can make Ring stop

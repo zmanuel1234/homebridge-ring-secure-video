@@ -4,6 +4,11 @@
 
 - The Homebridge UI shows the plugin as "Ring Secure Video" (was "Homebridge Ring Secure Video"),
   matching its platform name in the settings and the log.
+- ring-client-api now runs on the whole of `@eneris/push-receiver` 4.3.1, not only its decrypt
+  function, so it also gets 4.3.1's other push client fixes. The plugin puts its 4.3.1 in place of
+  ring-client-api's pinned 4.3.0 before ring-client-api loads; if that copy was already loaded, it
+  falls back to swapping in 4.3.1's decrypt function as before. The log says at start which one
+  was applied, and warns if neither could be.
 
 ## 1.0.0-beta.1 (2026-11-13)
 

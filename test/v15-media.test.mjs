@@ -346,55 +346,43 @@ test('does not start, and does not crash, without a configuration block', async 
   assert.deepEqual(listeners, [], 'nothing is started')
 })
 
-test("decrypts Ring pushes with the current FCM header format through ring-client-api's push-receiver", async () => {
-  const { createECDH, randomBytes } = await import('node:crypto')
+test('ring-client-api loads the full @eneris/push-receiver 4.3.1 when the plugin starts', async () => {
+  const { execFileSync } = await import('node:child_process')
+  const { fileURLToPath } = await import('node:url')
+  // A fresh process that loads the plugin's entry the way Homebridge does.
+  const output = execFileSync(
+    process.execPath,
+    [fileURLToPath(new URL('./push-receiver-child.mjs', import.meta.url))],
+    { encoding: 'utf8' },
+  )
+  assert.deepEqual(JSON.parse(output.trim().split('\n').at(-1)), {
+    result: 'replaced',
+    sameClient: true,
+    loggerQuietened: true,
+    oldVersionFails: true,
+    decrypts: true,
+  })
+})
+
+test("falls back to 4.3.1's decrypt when ring-client-api's push-receiver is already loaded", async () => {
   const { createRequire } = await import('node:module')
   const { fileURLToPath } = await import('node:url')
-  const { applyPushReceiverDecryptFix } = await import('../lib/push-receiver-fix.js')
-  await import('ring-client-api') // loads push-receiver's client the way the plugin does
+  const { encryptedPush } = await import('./push-message.mjs')
+  await import('ring-client-api') // already loaded: too late to replace the package
+  const { applyPushReceiverFix } = await import('../lib/push-receiver-fix.js')
   const ringRequire = createRequire(fileURLToPath(import.meta.resolve('ring-client-api')))
-  const decryptModules = Object.keys(ringRequire.cache).filter((path) =>
-    path.endsWith('/@eneris/push-receiver/dist/utils/decrypt.js'),
-  )
-  assert.deepEqual(
-    decryptModules,
-    [ringRequire.resolve('@eneris/push-receiver/dist/utils/decrypt.js')],
-    "the decrypt module patched is the one ring-client-api's push client loaded",
-  )
-  const ece = ringRequire('http_ece')
-  const loadedDecrypt = ringRequire('@eneris/push-receiver/dist/utils/decrypt.js')
+  const loadedPath = ringRequire.resolve('@eneris/push-receiver/dist/utils/decrypt.js')
+  assert.ok(ringRequire.cache[loadedPath], "ring-client-api's push client loaded its 4.3.0 decrypt")
 
-  // A push encrypted the way FCM sends it today: "dh=...; p256ecdsa=..." and "salt=...".
-  const receiver = createECDH('prime256v1')
-  receiver.generateKeys()
-  const sender = createECDH('prime256v1')
-  sender.generateKeys()
-  const keys = {
-    privateKey: receiver.getPrivateKey('base64'),
-    authSecret: randomBytes(16).toString('base64'),
-  }
-  const salt = randomBytes(16).toString('base64url')
-  const payload = { android_config: { category: 'com.ring.pn.live-event.motion' } }
-  const rawData = ece.encrypt(Buffer.from(JSON.stringify(payload)), {
-    version: 'aesgcm',
-    dh: receiver.getPublicKey('base64url'),
-    privateKey: sender,
-    salt,
-    authSecret: keys.authSecret,
-  })
-  const message = {
-    rawData,
-    appData: [
-      { key: 'crypto-key', value: `dh=${sender.getPublicKey('base64url')}; p256ecdsa=BOgus` },
-      { key: 'encryption', value: `salt=${salt}` },
-    ],
-  }
-
-  assert.throws(() => loadedDecrypt.default(message, keys), 'push-receiver 4.3.0 fails on this format')
-  const fix = applyPushReceiverDecryptFix()
-  assert.equal(fix.result, 'applied', fix.detail)
-  assert.deepEqual(loadedDecrypt.default(message, keys), payload)
-  assert.equal(applyPushReceiverDecryptFix().result, 'applied', 'applying twice is harmless')
+  const fix = applyPushReceiverFix()
+  assert.equal(fix.result, 'decrypt-patched', fix.detail)
+  const { message, keys, payload } = encryptedPush(ringRequire('http_ece'))
+  assert.equal(
+    ringRequire.cache[loadedPath].exports,
+    ringRequire('@eneris/push-receiver/dist/utils/decrypt.js'),
+    'the module patched is the one in the cache',
+  )
+  assert.deepEqual(ringRequire.cache[loadedPath].exports.default(message, keys), payload)
 })
 
 test('a plugin update does not force a Ring push or session refresh', async () => {

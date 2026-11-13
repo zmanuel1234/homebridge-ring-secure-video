@@ -1,3 +1,6 @@
+// Already applied by index.ts before this module (and so ring-client-api) is loaded; read here
+// for the log line.
+import { pushReceiverFix } from './push-receiver-fix.ts'
 import {
   RingApi,
   RingCamera,
@@ -54,7 +57,6 @@ import { Intercom } from './intercom.ts'
 import { Valve } from './valve.ts'
 import { normalizeMediaConfig } from './media-config.ts'
 import { configureHksvResourceGovernor } from './hksv-work-queue.ts'
-import { applyPushReceiverDecryptFix } from './push-receiver-fix.ts'
 import {
   getMotionNotificationSensorUuid,
   setUpMotionNotificationSensor,
@@ -253,13 +255,12 @@ export class RingPlatform implements DynamicPlatformPlugin {
       })
     }
 
-    const pushFix = applyPushReceiverDecryptFix()
-    if (pushFix.result === 'failed') {
+    if (pushReceiverFix.result === 'failed') {
       this.log.warn(
-        `Could not fix Ring push decryption (${pushFix.detail}); instant motion and doorbell events may not arrive`,
+        `Could not fix Ring push notifications (${pushReceiverFix.detail}); instant motion and doorbell events may not arrive`,
       )
     } else {
-      this.log.debug(`Ring push decryption: ${pushFix.detail}`)
+      this.log.info(`Ring push notifications: ${pushReceiverFix.detail}`)
     }
 
     config.cameraStatusPollingSeconds = config.cameraStatusPollingSeconds ?? 20
