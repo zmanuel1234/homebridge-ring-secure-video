@@ -1,17 +1,15 @@
 <p align="center">
-  <a href="https://github.com/homebridge/verified/blob/master/verified-plugins.json"><img alt="Homebridge Verified" src="https://raw.githubusercontent.com/dgreif/ring/main/packages/homebridge-ring/branding/Homebridge_x_Ring.svg?sanitize=true" width="500px"></a>
+  <img alt="Homebridge x Ring" src="branding/Homebridge_x_Ring.svg" width="500px">
 </p>
 
-# homebridge-ring-hksv
+# homebridge-ring-secure-video
 
-[![npm](https://badgen.net/npm/v/homebridge-ring-hksv)](https://www.npmjs.com/package/homebridge-ring-hksv)
-[![npm](https://badgen.net/npm/dt/homebridge-ring-hksv)](https://www.npmjs.com/package/homebridge-ring-hksv)
-[![verified-by-homebridge](https://badgen.net/badge/homebridge/unverified)](https://github.com/homebridge/homebridge/wiki/Verified-Plugins)
-[![certified-hoobs-plugin](https://badgen.net/badge/HOOBS/Uncertified/yellow)](https://plugins.hoobs.org/plugin/homebridge-ring-hksv)
-[![Donate](https://badgen.net/badge/Donate/BuyMeACoffee/FFDD00)](https://buymeacoffee.com/trinityhades)
+[![npm](https://badgen.net/npm/v/homebridge-ring-secure-video)](https://www.npmjs.com/package/homebridge-ring-secure-video)
+[![npm](https://badgen.net/npm/dt/homebridge-ring-secure-video)](https://www.npmjs.com/package/homebridge-ring-secure-video)
 
-
-`homebridge-ring-hksv` is a Homebridge platform plugin for Ring devices, with HomeKit Secure Video (HKSV) support.
+`homebridge-ring-secure-video` is a Homebridge platform plugin for Ring devices (alarm, sensors,
+locks, lights, cameras and doorbells), with HomeKit Secure Video (HKSV) recording for Ring cameras.
+It is meant to replace `homebridge-ring` on its own: one plugin, one Ring sign-in.
 
 ## Origin and Attribution
 
@@ -20,7 +18,9 @@ This project is based on Dustin Greif's original Ring Homebridge ecosystem:
 - Upstream plugin: [dgreif/homebridge-ring](https://github.com/dgreif/homebridge-ring)
 - Upstream API library: [dgreif/ring-client-api](https://github.com/dgreif/ring-client-api)
 
-Big thanks to Dustin and all upstream contributors. This fork reuses and extends that foundation.
+- HKSV fork: [trinityhades/homebridge-ring-hksv](https://github.com/trinityhades/homebridge-ring-hksv), whose history this repository continues
+
+Big thanks to Dustin, trinityhades and all upstream contributors. This plugin reuses and extends that foundation.
 
 ## Important Plugin Options
 
@@ -59,17 +59,17 @@ each live-view and recording FFmpeg process. Configure `media.profile` as
 If Homebridge is installed globally:
 
 ```bash
-npm i -g --unsafe-perm homebridge-ring-hksv
+npm i -g --unsafe-perm homebridge-ring-secure-video
 ```
 
 If you want an opt-in prerelease channel from npm, install one of the dist-tags instead:
 
 ```bash
-npm i -g --unsafe-perm homebridge-ring-hksv@dev
-npm i -g --unsafe-perm homebridge-ring-hksv@nightly
+npm i -g --unsafe-perm homebridge-ring-secure-video@beta
+npm i -g --unsafe-perm homebridge-ring-secure-video@nightly
 ```
 
-The `latest` tag remains the stable release line. `dev` is intended for hand-picked prerelease builds, and `nightly` is intended for newer automated or near-mainline snapshots.
+The `latest` tag remains the stable release line. `beta` is intended for hand-picked prerelease builds, and `nightly` is intended for newer automated or near-mainline snapshots.
 
 If running from source:
 
@@ -85,7 +85,7 @@ npm run publish:beta
 npm run publish:nightly
 ```
 
-Both commands create a prerelease semver version and publish it under the matching npm dist-tag, so users can install `homebridge-ring-hksv@dev` or `homebridge-ring-hksv@nightly` without affecting `latest`. Add `-- --dry-run` to preview the computed version without changing files or publishing.
+Both commands create a prerelease semver version and publish it under the matching npm dist-tag, so users can install `homebridge-ring-secure-video@beta` or `homebridge-ring-secure-video@nightly` without affecting `latest`. Add `-- --dry-run` to preview the computed version without changing files or publishing.
 
 ## Basic Configuration
 
@@ -95,7 +95,7 @@ Add a platform block with your Ring refresh token:
 
 ```json
 {
-  "platform": "Homebridge Ring HKSV",
+  "platform": "Ring Secure Video",
   "refreshToken": "your-refresh-token"
 }
 ```
@@ -104,7 +104,7 @@ If you need Home app to treat the same physical Ring device as a different HomeK
 
 ```json
 {
-  "platform": "Homebridge Ring HKSV",
+  "platform": "Ring Secure Video",
   "refreshToken": "your-refresh-token",
   "homeKitAccessoryTag": "Debug Home A"
 }
@@ -150,7 +150,7 @@ or fall back to `cameraVideoCodec: "libx264"` with `hksvVideoPreset:
 
 For support and debugging:
 
-- This repository issues: <https://github.com/trinityhades/homebridge-ring-hksv/issues>
+- This repository issues: <https://github.com/zmanuel1234/homebridge-ring-secure-video/issues>
 
 - Upstream Ring wiki (token/auth/camera references): <https://github.com/dgreif/ring/wiki>
 

@@ -74,8 +74,8 @@ const ignoreHiddenDeviceTypes: string[] = [
   RingDeviceType.PanicButton,
 ]
 
-export const platformName = 'Homebridge Ring HKSV'
-export const pluginName = 'homebridge-ring-hksv'
+export const platformName = 'Ring Secure Video'
+export const pluginName = 'homebridge-ring-secure-video'
 
 function getAccessoryClass(
   device: RingDevice,
@@ -294,7 +294,7 @@ export class RingPlatform implements DynamicPlatformPlugin {
     }
 
     if (!config) {
-      logInfo('No configuration found for platform Homebridge Ring HKSV')
+      logInfo('No configuration found for platform Ring Secure Video')
       return
     }
 
@@ -327,7 +327,7 @@ export class RingPlatform implements DynamicPlatformPlugin {
         })
       } else {
         this.log.warn(
-          'Plugin is not configured. See the standalone README for homebridge-ring-hksv setup instructions.',
+          'Plugin is not configured. See the README of homebridge-ring-secure-video for setup instructions.',
         )
       }
     })

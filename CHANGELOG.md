@@ -1,4 +1,12 @@
-# homebridge-ring-hksv
+# homebridge-ring-secure-video
+
+## Unreleased (homebridge-ring-secure-video)
+
+- New package name `homebridge-ring-secure-video`, platform `Ring Secure Video`, continuing
+  trinityhades/homebridge-ring-hksv 15.0.2. Ring's Authorized Client Devices list shows the
+  plugin as `homebridge-ring-secure-video`.
+
+## Earlier releases (as homebridge-ring-hksv)
 
 ## 15.0.0
 

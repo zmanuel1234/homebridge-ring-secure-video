@@ -10,7 +10,7 @@ import type {
 } from './media-config.ts'
 
 const systemIdFileName = '.ring.json'
-export const controlCenterDisplayName = 'homebridge-ring-hksv'
+export const controlCenterDisplayName = 'homebridge-ring-secure-video'
 
 export interface RingPlatformConfig extends RingApiOptions {
   alarmOnEntryDelay?: boolean
