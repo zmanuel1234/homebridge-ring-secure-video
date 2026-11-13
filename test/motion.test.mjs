@@ -2,7 +2,36 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { Subject } from 'rxjs'
 import { RingCamera } from 'ring-client-api'
+import { intervalProvider } from 'rxjs/internal/scheduler/intervalProvider'
 import { addMotionWatchdog, getPushMotionEvents, MOTION_WATCHDOG_MS } from '../lib/camera.js'
+
+// rxjs times with setInterval; Node 20's mocked setInterval runs an interval once more after it
+// was cleared ("executing a cancelled action"). So rxjs gets intervals built from the mocked
+// setTimeout instead, for these tests only.
+function useMockFriendlyIntervals(t) {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] })
+  intervalProvider.delegate = {
+    setInterval(handler, timeout, ...args) {
+      const interval = { timer: undefined, cleared: false }
+      const schedule = () => {
+        interval.timer = setTimeout(() => {
+          if (interval.cleared) return
+          schedule()
+          handler(...args)
+        }, timeout)
+      }
+      schedule()
+      return interval
+    },
+    clearInterval(interval) {
+      interval.cleared = true
+      clearTimeout(interval.timer)
+    },
+  }
+  t.after(() => {
+    intervalProvider.delegate = undefined
+  })
+}
 
 function fakeCamera() {
   const restClient = { onSession: new Subject(), request: async () => ({}) }
@@ -23,7 +52,7 @@ function motionPush(id) {
 }
 
 test('a new motion alert while an earlier one is still active turns motion on again', (t) => {
-  t.mock.timers.enable({ apis: ['setTimeout', 'setInterval', 'Date'] })
+  useMockFriendlyIntervals(t)
   const camera = fakeCamera()
   const timeline = []
   // Seconds on the mocked clock, which starts at 0.
@@ -56,7 +85,7 @@ test('a new motion alert while an earlier one is still active turns motion on ag
 })
 
 test('the same alert again (snapshot follow-up or resend) is not a new visit', (t) => {
-  t.mock.timers.enable({ apis: ['setTimeout', 'setInterval', 'Date'] })
+  useMockFriendlyIntervals(t)
   const camera = fakeCamera()
   const timeline = []
   const subscription = addMotionWatchdog(getPushMotionEvents(camera)).subscribe((value) => {
@@ -86,7 +115,7 @@ test('the same alert again (snapshot follow-up or resend) is not a new visit', (
 })
 
 test('a doorbell press is not motion', (t) => {
-  t.mock.timers.enable({ apis: ['setTimeout', 'setInterval', 'Date'] })
+  useMockFriendlyIntervals(t)
   const camera = fakeCamera()
   const values = []
   const subscription = getPushMotionEvents(camera).subscribe((value) => values.push(value))
