@@ -33,6 +33,7 @@ export interface RingPlatformConfig extends RingApiOptions {
   enableHksv?: boolean
   forceRefreshRingPushCredentials?: boolean
   forceRefreshRingApiSession?: boolean
+  automaticSessionRefresh?: boolean
   enableCameraMotionHistory?: boolean
   disableHksvOnBattery?: boolean
   hksvPrebufferLengthMs?: number

@@ -19,6 +19,7 @@ import { TargetValueTimer } from './target-value-timer.ts'
 import { delay, logError, logInfo } from 'ring-client-api/util'
 import { defer, EMPTY, firstValueFrom, from, merge, of, timer } from 'rxjs'
 import type { Observable } from 'rxjs'
+import type { PushHealthReporter } from './push-health.ts'
 
 export const MOTION_WATCHDOG_MS = 30_000
 /** How often Ring's event history is checked once its push notifications are known to arrive. */
@@ -51,6 +52,7 @@ const ID_MEMORY_MS = 60 * 60_000
 export function getHistoryMotionEvents(
   device: Pick<RingCamera, 'name' | 'getEvents' | 'onNewNotification'>,
   pollSeconds: number,
+  pushHealth?: PushHealthReporter,
 ): Observable<boolean> {
   return defer(() => {
     const startedAt = Date.now() - 5000,
@@ -75,6 +77,7 @@ export function getHistoryMotionEvents(
       nextCheckAt = 0
 
     const notifications = device.onNewNotification.subscribe((notification) => {
+      pushHealth?.recordPush()
       if (notification.android_config?.category !== PushNotificationAction.Motion) return
       const id = notification.data?.event?.ding?.id,
         now = Date.now()
@@ -150,6 +153,7 @@ export function getHistoryMotionEvents(
             }
 
             if (missed.length) {
+              pushHealth?.recordMissed(missed.length)
               matchedInARow = 0
               if (pushWorks) {
                 pushWorks = false
@@ -272,17 +276,20 @@ export class Camera extends BaseDataAccessory<RingCamera> {
   public readonly accessory
   public readonly config
   public readonly motionDetected?: Observable<boolean>
+  private readonly pushHealth?: PushHealthReporter
 
   constructor(
     device: RingCamera,
     accessory: PlatformAccessory,
     config: RingPlatformConfig,
+    pushHealth?: PushHealthReporter,
   ) {
     super()
 
     this.device = device
     this.accessory = accessory
     this.config = config
+    this.pushHealth = pushHealth
     this.cameraSource = new CameraSource(this.device, this.config)
 
     if (!hap.CameraController) {
@@ -486,7 +493,7 @@ export class Camera extends BaseDataAccessory<RingCamera> {
 
     const pollSeconds = Math.max(this.config.cameraStatusPollingSeconds ?? 20, 10)
     return addMotionWatchdog(
-      merge(pushMotionEvents, getHistoryMotionEvents(this.device, pollSeconds)),
+      merge(pushMotionEvents, getHistoryMotionEvents(this.device, pollSeconds, this.pushHealth)),
     )
   }
 

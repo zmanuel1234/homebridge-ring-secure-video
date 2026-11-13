@@ -62,6 +62,7 @@ test('HKSV is on unless turned off, except for cameras running on battery', () =
 // treats it the same when unset; a new default fails until it is checked.
 const checkedElsewhere = {
   enableCameraMotionHistory: 'camera.ts: unset counts as on (!== false), like the default true',
+  automaticSessionRefresh: 'ring-platform.ts: unset counts as on (!== false), like the default true',
 }
 test('every form default is checked', () => {
   const covered = new Set(['enableHksv', 'disableHksvOnBattery', 'hksvPerformanceMode', 'hksvVideoKeyframeInterval', 'media'])

@@ -28,6 +28,7 @@ Big thanks to Dusty, trinityhades and all upstream contributors. This plugin reu
 | --- | --- |
 | `enableHksv` | Enables experimental HKSV support for eligible cameras; on by default, set `false` to turn it off |
 | `enableCameraMotionHistory` | Allows camera motion to fall back to recent Ring event history if push notifications don't arrive. The history is checked every `cameraStatusPollingSeconds` until motion events turn out to come by push too, then every 5 minutes as a safety net (and frequently again once a push is missed, so motion can go unreported for up to 5 minutes after push stops working); disable to only trust push-triggered motion |
+| `automaticSessionRefresh` | When Ring's event history shows motion that Ring sent no push notification for (3 events over at least 30 minutes, none pushed), refreshes the Ring API session by itself, as **Force Ring API Session Refresh** does (see Troubleshooting): a child bridge restarts for it, the main bridge does it at the next Homebridge restart. At most once a day, and no more after 2 refreshes that brought no push notification. Needs `enableCameraMotionHistory`. On by default; set `false` to turn it off |
 | `disableHksvOnBattery` | Disables HKSV on cameras running on battery to reduce battery/network usage; wired battery models keep it. On by default |
 | `hksvPrebufferLengthMs` | HKSV prebuffer duration (minimum 4000ms) |
 | `hksvFragmentLengthMs` | HKSV fragment duration target |
@@ -184,6 +185,15 @@ default) the log says "Ring push notifications are arriving".
    is saved. Then, in
    the Ring app's Control Center, remove the older `homebridge-ring-secure-video` entry from
    Authorized Client Devices.
+
+With **Automatic Ring Session Refresh** on (the default) and the motion history fallback on, the
+plugin does step 2 by itself once it sees 3 motion events over at least 30 minutes that Ring sent no
+push notification for. The log then says "Ring event history shows motion but Ring has sent no push
+notifications for it", and as a child bridge it restarts (on the main bridge, the refresh waits for
+the next Homebridge restart). It does this at most once a day, and stops after 2 refreshes that
+brought no push notification, logging "Ring still sends no push notifications after 2 automatic
+Ring session refreshes": then check step 1 and Authorized Client Devices. After each refresh, remove
+the older `homebridge-ring-secure-video` entry from Authorized Client Devices.
 
 Use the "Force Ring ..." settings only for this, and only once. Each API session refresh adds an
 entry to Authorized Client Devices, and many entries can themselves make Ring stop sending

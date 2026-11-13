@@ -152,6 +152,12 @@
         "type": "boolean",
         "description": "Advanced recovery option: rotates the Ring API hardware/session identity and forces fresh push credentials on next startup. Try this when refreshing only Ring push credentials still leaves motion/button events delayed or missing. The option clears itself after the updated refresh token is saved. The identity is stored in .ring.json in the Homebridge storage folder, which other Ring plugins in the same Homebridge (such as homebridge-ring) also use, so rotating it can affect their sign-in."
       },
+      "automaticSessionRefresh": {
+        "title": "Automatic Ring Session Refresh",
+        "type": "boolean",
+        "description": "When Ring's event history shows motion but Ring has sent the plugin no push notification for it (3 events over at least 30 minutes, none pushed), the plugin does a Ring API session refresh by itself, as Force Ring API Session Refresh does: as a child bridge it restarts, otherwise at the next restart of Homebridge. At most once a day, and no more after 2 that brought no push notification. Needs the camera motion history fallback. Each refresh adds an entry to Authorized Client Devices in the Ring app; remove the older homebridge-ring-secure-video entries.",
+        "default": true
+      },
       "enableCameraMotionHistory": {
         "title": "Enable Camera Motion History Fallback",
         "type": "boolean",
@@ -484,6 +490,7 @@
             "media",
             "forceRefreshRingPushCredentials",
             "forceRefreshRingApiSession",
+            "automaticSessionRefresh",
             "enableCameraMotionHistory",
             "disableHksvOnBattery",
             "hksvVideoPreset",
