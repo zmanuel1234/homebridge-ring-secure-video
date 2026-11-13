@@ -20,9 +20,9 @@ export function getSessionRefreshSensorUuid(id: string) {
  * be removed. It closes again a day later.
  *
  * The refresh happens right after a restart, and the Home app notifies for a change it sees, not
- * for a value it finds: so after a refresh in this run the sensor opens once a home hub has
- * subscribed to it again (or after 3 minutes). After a restart later that day it is simply
- * open, without a second notification.
+ * for a value it finds: so after a refresh in this run the sensor opens 10 s after a Home app
+ * or home hub is subscribed to it (or after 3 minutes). After a restart later that day it is
+ * simply open, without a second notification.
  */
 export class SessionRefreshSensor {
   private readonly characteristic
@@ -41,26 +41,36 @@ export class SessionRefreshSensor {
     const service =
       accessory.getService(Service.ContactSensor) ??
       accessory.addService(Service.ContactSensor, name)
+    // Its value is kept from the last run (Homebridge caches it) until show() decides: every
+    // update is sent to the Home app, so closing it here and opening it again in show() would
+    // notify a second time.
     this.characteristic = service.getCharacteristic(Characteristic.ContactSensorState)
-    this.characteristic.updateValue(Characteristic.ContactSensorState.CONTACT_DETECTED)
     this.runStartedAt = runStartedAt
   }
 
-  /** Shows a refresh done at refreshDoneAt (if it is less than a day ago). */
+  private set(value: number) {
+    if (this.characteristic.value !== value) this.characteristic.updateValue(value)
+  }
+
+  /** Shows a refresh done at refreshDoneAt (if it is less than a day ago); closed otherwise. */
   show(refreshDoneAt: number | undefined) {
-    const now = Date.now()
-    if (!refreshDoneAt || refreshDoneAt > now) return
-    const closeAt = refreshDoneAt + SESSION_REFRESH_SENSOR_OPEN_MS
-    if (closeAt <= now) return
-    const { ContactSensorState } = hap.Characteristic
+    const now = Date.now(),
+      { ContactSensorState } = hap.Characteristic,
+      closeAt = (refreshDoneAt ?? 0) + SESSION_REFRESH_SENSOR_OPEN_MS
     this.stop()
+    if (!refreshDoneAt || refreshDoneAt > now || closeAt <= now) {
+      this.set(ContactSensorState.CONTACT_DETECTED)
+      return
+    }
     const open = () => {
       this.stopWaiting()
-      this.characteristic.updateValue(ContactSensorState.CONTACT_NOT_DETECTED)
+      if (Date.now() < closeAt) this.set(ContactSensorState.CONTACT_NOT_DETECTED)
     }
     if (refreshDoneAt < this.runStartedAt) {
       open()
     } else {
+      // A refresh in this run: closed until the Home app can see it open.
+      this.set(ContactSensorState.CONTACT_DETECTED)
       this.openTimer = setTimeout(() => {
         open()
         logInfo('Ring Session Refreshed sensor opened (remove the older entry in Authorized Client Devices)')
@@ -74,11 +84,17 @@ export class SessionRefreshSensor {
         this.openTimer.unref?.()
         this.stopWaiting()
       }
-      this.characteristic.on(hap.CharacteristicEventTypes.SUBSCRIBE, this.onSubscribe)
       this.openTimer.unref?.()
+      // hap-nodejs only reports the first subscriber; a home hub that came back while the
+      // plugin was connecting to Ring has subscribed already (the count is private).
+      if ((this.characteristic as unknown as { subscriptions?: number }).subscriptions) {
+        this.onSubscribe()
+      } else {
+        this.characteristic.on(hap.CharacteristicEventTypes.SUBSCRIBE, this.onSubscribe)
+      }
     }
     this.closeTimer = setTimeout(() => {
-      this.characteristic.updateValue(ContactSensorState.CONTACT_DETECTED)
+      this.set(ContactSensorState.CONTACT_DETECTED)
     }, closeAt - now)
     this.closeTimer.unref?.()
   }

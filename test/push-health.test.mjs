@@ -14,6 +14,7 @@ import {
   readPushRecoveryState,
 } from '../lib/push-health.js'
 import { getSavedPlatformConfig, RingPlatform } from '../lib/ring-platform.js'
+import { SessionRefreshSensor } from '../lib/session-refresh-sensor.js'
 
 setHap(hapNodejs)
 
@@ -448,7 +449,7 @@ test('the session refresh sensor opens 10 s after a home hub subscribes to it', 
     .getCharacteristic(hapNodejs.Characteristic.ContactSensorState)
 
   t.mock.timers.tick(30_000)
-  characteristic.emit(hapNodejs.CharacteristicEventTypes.SUBSCRIBE)
+  characteristic.subscribe()
   t.mock.timers.tick(9_999)
   assert.equal(characteristic.value, 0)
   t.mock.timers.tick(1)
@@ -483,4 +484,53 @@ test('after a restart within the day the sensor opens again; without the setting
   assert.equal(value(old.registered[0]), 0)
   assert.equal(value(future.registered[0]), 0)
   assert.equal(none.registered.length, 0)
+})
+
+test('session refresh sensor: no needless updates, an already subscribed hub, and stop', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 100 * day })
+  const { CONTACT_DETECTED: closed, CONTACT_NOT_DETECTED: open } =
+    hapNodejs.Characteristic.ContactSensorState
+  const sensor = (cachedValue, subscribed) => {
+    const accessory = new hapNodejs.Accessory('Ring Session Refreshed', hapNodejs.uuid.generate(String(Math.random())))
+    const characteristic = accessory
+      .addService(hapNodejs.Service.ContactSensor, 'Ring Session Refreshed')
+      .getCharacteristic(hapNodejs.Characteristic.ContactSensorState)
+    characteristic.value = cachedValue
+    if (subscribed) characteristic.subscribe()
+    const changes = []
+    characteristic.on(hapNodejs.CharacteristicEventTypes.CHANGE, ({ newValue }) => changes.push(newValue))
+    return {
+      characteristic,
+      changes,
+      sensor: new SessionRefreshSensor(
+        { getService: (s) => accessory.getService(s), addService: (...a) => accessory.addService(...a) },
+        'Ring Session Refreshed',
+        100 * day - 1000, // this run started a second ago
+      ),
+    }
+  }
+
+  // Restarted later that day, cached open: stays open with no update at all.
+  const earlier = sensor(open)
+  earlier.sensor.show(100 * day - minutes(60))
+  assert.deepEqual(earlier.changes, [])
+
+  // A refresh in this run with a hub subscribed before: open 10 s later, once.
+  const subscribed = sensor(closed, true)
+  subscribed.sensor.show(100 * day)
+  subscribed.sensor.show(100 * day)
+  assert.equal(subscribed.characteristic.listenerCount('subscribe'), 0)
+  t.mock.timers.tick(10_000)
+  assert.deepEqual(subscribed.changes, [open])
+
+  // Waiting for a subscriber: show() twice leaves one listener; after stop() nothing opens.
+  const waiting = sensor(closed)
+  waiting.sensor.show(100 * day)
+  waiting.sensor.show(100 * day)
+  assert.equal(waiting.characteristic.listenerCount('subscribe'), 1)
+  waiting.sensor.stop()
+  assert.equal(waiting.characteristic.listenerCount('subscribe'), 0)
+  waiting.characteristic.subscribe()
+  t.mock.timers.tick(minutes(5))
+  assert.deepEqual(waiting.changes, [])
 })
