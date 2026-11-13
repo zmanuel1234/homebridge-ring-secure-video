@@ -31,7 +31,7 @@ Big thanks to Dustin, trinityhades and all upstream contributors. This plugin re
 | `disableHksvOnBattery` | Disables HKSV on battery cameras to reduce battery/network usage |
 | `hksvPrebufferLengthMs` | HKSV prebuffer duration (minimum 4000ms) |
 | `hksvFragmentLengthMs` | HKSV fragment duration target |
-| `hksvMaxRecordingSeconds` | Optional safety cap for a recording session |
+| `hksvMaxRecordingSeconds` | Optional safety cap for a recording session (default 180 s; 0 disables) |
 | `hksvPerformanceMode` | HKSV tuning profile (`balanced`, `rpi`, or `quality`) |
 | `hksvMaxConcurrentRecordings` / `hksvMaxQueuedBytes` | HKSV safeguards for small systems under load |
 | `hksvVideoBitrateKbps` / `hksvVideoMaxBitrateKbps` / `hksvVideoBufferSizeKbps` | HKSV recording bitrate controls for improving fast-motion quality |
@@ -52,7 +52,8 @@ each live-view and recording FFmpeg process. Configure `media.profile` as
 `adaptive` (default), `lowPower`, or `quality`. Advanced overrides live in
 `media.recording`; they are strictly validated and take precedence over legacy
 `hksv*` fields, which remain compatibility aliases during migration. Set
-`media.recording.maxDurationSeconds` to `0` to disable its safety cap.
+`media.recording.maxDurationSeconds` to change its safety cap (default 180 seconds; HomeKit
+normally ends a recording itself when motion stops), or to `0` to disable it.
 
 ## Installation
 

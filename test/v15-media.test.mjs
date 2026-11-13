@@ -5,6 +5,7 @@ import { ReplaySubject, Subject } from 'rxjs'
 import {
   CameraSource,
   getHksvRecordingFormatArguments,
+  getMaxRecordingSeconds,
   getReturnAudioPrepareStreamRequest,
   HKSV_RECORDING_MOVFLAGS,
 } from '../lib/camera-source.js'
@@ -566,4 +567,12 @@ test('starts a recording with the first fragment that begins with a keyframe', (
     box('mdat', 16),
   ]))
   assert.equal(truncated.length, 2)
+})
+
+test('caps recordings at 180 seconds unless configured otherwise', () => {
+  assert.equal(getMaxRecordingSeconds({}), 180)
+  assert.equal(getMaxRecordingSeconds({ media: { recording: { maxDurationSeconds: 90 } } }), 90)
+  assert.equal(getMaxRecordingSeconds({ media: { recording: { maxDurationSeconds: 0 } } }), 0, '0 disables the cap')
+  assert.equal(getMaxRecordingSeconds({ hksvMaxRecordingSeconds: 90 }), 90, 'legacy setting')
+  assert.equal(getMaxRecordingSeconds({ hksvMaxRecordingSeconds: 0 }), 0, 'legacy 0 disables the cap')
 })

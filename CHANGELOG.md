@@ -37,6 +37,9 @@
 - A recording now starts with the first fragment that begins with a keyframe. Encoders that
   send their SPS/PPS as a separate first sample (the Raspberry Pi's hardware encoder) made FFmpeg
   write a first fragment without one, and HomeKit discards a recording that starts that way.
+- The default recording safety cap (`media.recording.maxDurationSeconds`) is 180 seconds instead
+  of 60. HomeKit ends a recording itself when motion stops; at 60 seconds the plugin cut off
+  normal visits mid-way. Set it explicitly to keep the old value.
 
 ## Earlier releases (as homebridge-ring-hksv)
 
