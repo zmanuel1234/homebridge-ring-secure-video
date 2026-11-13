@@ -143,7 +143,7 @@ Changing `homeKitAccessoryTag` updates both the exposed accessory name and the g
 HKSV support is experimental and actively evolving. Behavior may vary by camera model, wired vs battery power, Ring API changes, and FFmpeg environment.
 
 Verified so far: complete HomeKit clips from a Ring Video Doorbell 3 Plus on a Raspberry Pi 4
-(Node 22, Homebridge 2) with the settings below. The HKSV fork this continues reported 3 cameras on an M4 Mac mini.
+(Node 22, Homebridge 2) with each of `copy`, `h264_v4l2m2m` and `libx264` (see below). The HKSV fork this continues reported 3 cameras on an M4 Mac mini.
 Please report your experience and setup details to help improve support.
 
 Recordings follow the frame rate and audio format HomeKit asks for, and include audio only when
@@ -161,23 +161,27 @@ For fast-motion pixelation or stuttering in HKSV recordings, try increasing
 `cameraVideoCodec: "h264_videotoolbox"` can reduce CPU load by using hardware
 encoding.
 
-For Raspberry Pi 4/5 and other small computers, start with what has been verified on a Pi 4:
+For Raspberry Pi 4/5 and other small computers, start with the `lowPower` profile:
 
 ```json
 {
   "enableHksv": true,
   "media": {
-    "profile": "lowPower",
-    "recording": { "codec": "libx264", "bitrateKbps": 800 }
+    "profile": "lowPower"
   }
 }
 ```
 
 The `lowPower` profile (also chosen by `"hksvPerformanceMode": "rpi"`) records one clip at a
-time with conservative settings. Lighter codecs exist but complete HomeKit clips with them are
-not verified yet: `copy` (the `lowPower` default for `auto`) remuxes Ring's H.264 without
-re-encoding, which only works when Ring's stream meets HomeKit's recording requirements, and
-`h264_v4l2m2m` uses the Pi's hardware encoder when FFmpeg has it.
+time with conservative settings, and uses `copy` by default (and with `"codec": "auto"`, unless a
+legacy `cameraVideoCodec` is set): Ring's H.264 is
+recorded as received, without re-encoding, so it costs the least CPU and keeps Ring's picture.
+That works when Ring's stream meets HomeKit's recording requirements, as it does for the
+Doorbell 3 Plus. If clips from another camera don't appear or don't play, set
+`media.recording.codec` to `h264_v4l2m2m` (the Pi 4's hardware encoder, when FFmpeg has it; the
+Pi 5 has none, so use `libx264` there; it is also the default for `auto` in the other profiles)
+or `libx264` (software, the most CPU). All three gave
+complete clips on a Pi 4 with a Doorbell 3 Plus.
 
 ### Minimum specifications for HKSV: 
 [TBD - will be added as more users test and report their setups]
