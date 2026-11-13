@@ -18,7 +18,6 @@ export interface RingPlatformConfig extends RingApiOptions {
   forceRefreshRingPushCredentials?: boolean
   forceRefreshRingApiSession?: boolean
   enableCameraMotionHistory?: boolean
-  lastKnownPluginVersion?: string
   disableHksvOnBattery?: boolean
   hksvPrebufferLengthMs?: number
   hksvFragmentLengthMs?: number
@@ -84,27 +83,6 @@ export function updateHomebridgeConfig(
   }
 
   return false
-}
-
-export function getPluginVersion() {
-  for (const packageJsonUrl of [
-    new URL('./package.json', import.meta.url),
-    new URL('../package.json', import.meta.url),
-  ]) {
-    try {
-      const packageJson = JSON.parse(
-        readFileSync(packageJsonUrl).toString(),
-      ) as { version?: string }
-
-      if (packageJson.version) {
-        return packageJson.version
-      }
-    } catch {
-      // keep trying candidate paths
-    }
-  }
-
-  return 'unknown'
 }
 
 function createSystemId() {

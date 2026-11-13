@@ -19,6 +19,12 @@
   events arrive instantly instead of only through the slower event-history check.
   ring-client-api 14.3.0 pins `@eneris/push-receiver` 4.3.0, which can't parse the header format
   Google now sends; the plugin ships 4.3.1 and uses its decrypt function for that copy.
+- Plugin updates no longer force a fresh Ring push registration and API session on the next
+  start. Each forced refresh adds a registration with Ring (repeated ones can stop Ring delivering
+  notifications) and rotates the identity in `.ring.json`, which other Ring plugins in the same
+  Homebridge share. The two "Force Ring ... Refresh" settings remain for manual recovery, and
+  their descriptions now explain these effects. `lastKnownPluginVersion` is no longer written.
+  If either setting is still on from an earlier version, turn it off.
 
 ## Earlier releases (as homebridge-ring-hksv)
 

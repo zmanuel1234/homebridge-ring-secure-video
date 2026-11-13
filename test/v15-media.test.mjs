@@ -393,3 +393,33 @@ test("decrypts Ring pushes with the current FCM header format through ring-clien
   assert.deepEqual(loadedDecrypt.default(message, keys), payload)
   assert.equal(applyPushReceiverDecryptFix().result, 'applied', 'applying twice is harmless')
 })
+
+test('a plugin update does not force a Ring push or session refresh', async () => {
+  const { mkdtemp, writeFile, readFile: read, rm } = await import('node:fs/promises')
+  const { tmpdir } = await import('node:os')
+  const { join } = await import('node:path')
+  const { RingPlatform } = await import('../lib/ring-platform.js')
+  const dir = await mkdtemp(join(tmpdir(), 'ring-update-'))
+  const configPath = join(dir, 'config.json')
+  const platformConfig = {
+    platform: 'Ring Secure Video',
+    refreshToken: 'token',
+    lastKnownPluginVersion: '0.0.1',
+  }
+  try {
+    const original = `${JSON.stringify({ platforms: [platformConfig] }, null, 4)}\n`
+    await writeFile(configPath, original)
+    const log = { info() {}, error() {}, warn() {}, debug() {} }
+    const api = { on() {}, user: { configPath: () => configPath, storagePath: () => dir } }
+
+    // disableLogs keeps this test from replacing the library's global logger.
+    const config = { ...platformConfig, disableLogs: true }
+    new RingPlatform(log, config, api)
+
+    assert.equal(config.forceRefreshRingPushCredentials, undefined)
+    assert.equal(config.forceRefreshRingApiSession, undefined)
+    assert.equal(await read(configPath, 'utf8'), original, 'config.json is not rewritten')
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+})

@@ -156,6 +156,12 @@ fallback" rather than right away), Ring's instant notifications aren't reaching 
 logging on, the log says at start whether the push decryption fix for `@eneris/push-receiver` was
 applied. See also the upstream [notification troubleshooting](https://github.com/dgreif/ring/wiki/Notification-Troubleshooting).
 
+Use the "Force Ring Push Credential Refresh" and "Force Ring API Session Refresh" settings only as a
+last resort, once. Each refresh adds a registration with Ring, and repeated ones can make Ring stop
+sending notifications to the plugin. If that happens, remove `homebridge-ring-secure-video` from
+Authorized Client Devices in the Ring app's Control Center, create a new refresh token, and paste it
+into the plugin's settings.
+
 ## Disclaimer
 
 This plugin is not affiliated with Ring or Amazon.

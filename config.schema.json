@@ -144,12 +144,12 @@
       "forceRefreshRingPushCredentials": {
         "title": "Force Ring Push Credential Refresh",
         "type": "boolean",
-        "description": "Advanced recovery option: forces a fresh Ring push notification registration on next startup. Enable only when Ring motion/button events are not arriving live, restart Homebridge, then disable after the updated refresh token is saved."
+        "description": "Advanced recovery option: forces a fresh Ring push notification registration on next startup. Enable only when Ring motion/button events are not arriving live, restart Homebridge, then disable after the updated refresh token is saved. Each refresh adds a registration with Ring, and repeated refreshes can make Ring stop delivering notifications to the plugin; if that happens, remove the plugin from Authorized Client Devices in the Ring app's Control Center and sign in again with a new refresh token."
       },
       "forceRefreshRingApiSession": {
         "title": "Force Ring API Session Refresh",
         "type": "boolean",
-        "description": "Advanced recovery option: rotates the Ring API hardware/session identity and forces fresh push credentials on next startup. Try this when refreshing only Ring push credentials still leaves motion/button events delayed or missing. The option clears itself after the updated refresh token is saved."
+        "description": "Advanced recovery option: rotates the Ring API hardware/session identity and forces fresh push credentials on next startup. Try this when refreshing only Ring push credentials still leaves motion/button events delayed or missing. The option clears itself after the updated refresh token is saved. The identity is stored in .ring.json in the Homebridge storage folder, which other Ring plugins in the same Homebridge (such as homebridge-ring) also use, so rotating it can affect their sign-in."
       },
       "enableCameraMotionHistory": {
         "title": "Enable Camera Motion History Fallback",
