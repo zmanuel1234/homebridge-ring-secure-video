@@ -1,3 +1,4 @@
+import type { ChildProcess } from 'node:child_process'
 import type { RingCamera } from 'ring-client-api'
 import { hap } from './hap.ts'
 import type { RingPlatformConfig } from './config.ts'
@@ -353,8 +354,22 @@ class StreamingSessionWrapper {
         }
 
         return null
-      }),
-      releaseReturnAudioFfmpeg = hksvRecordingQueue.trackFfmpegProcess(),
+      })
+    // Port first, so a failure here leaves nothing counted or open.
+    let returnAudioPort: number
+    try {
+      returnAudioPort = await returnAudioTranscodedSplitter.portPromise
+    } catch (e) {
+      returnAudioTranscodedSplitter.close()
+      throw e
+    }
+    if (this.stopped) {
+      returnAudioTranscodedSplitter.close()
+      throw getLiveStreamAbortError()
+    }
+    const releaseReturnAudioFfmpeg = hksvRecordingQueue.trackFfmpegProcess()
+    let returnAudioTranscoder: ReturnAudioTranscoder
+    try {
       returnAudioTranscoder = new ReturnAudioTranscoder({
         prepareStreamRequest: getReturnAudioPrepareStreamRequest(
           this.prepareStreamRequest,
@@ -383,7 +398,7 @@ class StreamingSessionWrapper {
           '2',
           '-f',
           'rtp',
-          `rtp://127.0.0.1:${await returnAudioTranscodedSplitter.portPromise}`,
+          `rtp://127.0.0.1:${returnAudioPort}`,
         ],
         ffmpegPath: getFfmpegPath(),
         exitCallback: () => {
@@ -397,6 +412,25 @@ class StreamingSessionWrapper {
         logLabel: `Return Audio (${this.ringCamera.name})`,
         returnAudioSplitter: this.audioSplitter,
       })
+    } catch (e) {
+      releaseReturnAudioFfmpeg()
+      returnAudioTranscodedSplitter.close()
+      throw e
+    }
+    // @homebridge/camera-utils' ffmpeg has no 'error' listener: a failed start (no ffmpeg, too
+    // many processes) would be an unhandled 'error' event and end the whole bridge, alarm
+    // included. Its spawn errors arrive on the next tick, so listening now is in time.
+    const returnAudioFfmpeg = (
+      returnAudioTranscoder as unknown as {
+        ffmpegProcess?: { ff?: ChildProcess }
+      }
+    ).ffmpegProcess?.ff
+    for (const emitter of [returnAudioFfmpeg, returnAudioFfmpeg?.stdout, returnAudioFfmpeg?.stderr]) {
+      emitter?.on('error', (error: Error) => {
+        logError(`Return Audio (${this.ringCamera.name}): ${error.message}`)
+        this.stop()
+      })
+    }
 
     this.streamingSession.onCallEnded.pipe(take(1)).subscribe(() => {
       returnAudioTranscoder.stop()
@@ -411,6 +445,8 @@ class StreamingSessionWrapper {
 
     this.listenForAudioPackets(request)
     await returnAudioTranscoder.start()
+    // A talk-back ffmpeg that failed to start stopped the stream meanwhile: report it to HomeKit.
+    if (this.stopped) throw getLiveStreamAbortError()
   }
 
   stop() {
@@ -489,6 +525,7 @@ export class CameraSource
   public controller
   private sessions: { [sessionKey: string]: StreamingSessionWrapper } = {}
   private cachedSnapshot?: Buffer
+  private cachedSnapshotAt = 0
   private ringCamera
   private config: RingPlatformConfig
   private mediaIngress
@@ -721,6 +758,7 @@ export class CameraSource
       const previousSnapshot = this.cachedSnapshot,
         newSnapshot = await this.ringCamera.getSnapshot({ uuid: imageUuid })
       this.cachedSnapshot = newSnapshot
+      this.cachedSnapshotAt = Date.now()
 
       logDebug(
         `Snapshot cached for ${this.ringCamera.name}${
@@ -766,7 +804,15 @@ export class CameraSource
       this.loadSnapshot().catch(logError)
     }
 
-    // may or may not have a snapshot cached
+    // May or may not have a snapshot cached. A failed load keeps the last one for a while, but
+    // not past Ring's snapshot lifetime plus 2 minutes (as upstream): an hours-old image would
+    // look current in the Home app.
+    if (
+      this.cachedSnapshot &&
+      Date.now() - this.cachedSnapshotAt > this.ringCamera.snapshotLifeTime + 2 * 60_000
+    ) {
+      return undefined
+    }
     return this.cachedSnapshot
   }
 
