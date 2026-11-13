@@ -1,5 +1,57 @@
 # homebridge-ring-secure-video
 
+## 1.0.0-beta.4 (2026-11-13)
+
+More fixes from the full independent review of 1.0.0-beta.2.
+
+**Changes in behaviour to check after updating:**
+
+- `enableHksv` now means on when it isn't set, as the settings form shows. Configs without it
+  (written by hand, or copied from homebridge-ring) now offer HKSV recording: live view allows
+  one viewer at a time, and recording starts once turned on for the camera in the Home app. Set
+  `"enableHksv": false` to keep the old behaviour.
+- `disableHksvOnBattery` now means on when it isn't set, and looks at whether a camera actually
+  runs on battery: battery models that are wired (power mode wired in the Ring app), like many
+  doorbells, keep HKSV; battery-only cameras don't get it. Configs without the setting therefore
+  lose HKSV on battery-only cameras; set `"disableHksvOnBattery": false` to keep it. Configs
+  saved by the old settings form have it set to true, so their wired battery doorbells now get
+  HKSV.
+- Values the old settings form saved stay until removed: a saved `"media": { "profile":
+  "adaptive" }` still overrides `"hksvPerformanceMode": "rpi"`, and a saved
+  `"hksvVideoBitrateKbps": 3000` still overrides the profile's bitrate. Remove them if you didn't
+  choose them.
+
+**Fixes:**
+
+- One device or location that fails to set up no longer stops the others, the alarm included.
+  A failed device keeps its HomeKit accessory (rooms and automations stay) but shows "No
+  Response"; a location whose devices can't be loaded is logged, and its accessories are kept and
+  show "No Response". If
+  Ring can't be reached when Homebridge starts (an outage, a server error, a sign-in server
+  outage), connecting is retried after 30 s, 1 min, 2 min, ... up to every 10 minutes, with the
+  newest sign-in token and without forcing a new Ring registration.
+- The motion fallback no longer asks Ring for each camera's event history every 20 s all day
+  (about 4,300 requests a day). Once motion events turn out to arrive by push too, it checks every
+  5 minutes as a safety net; a motion event no push reported switches back to frequent checks. A
+  history event counts as pushed if a motion push had its id or came within 90 s of it. If push
+  stops working, it is noticed at the next 5-minute check; a visit found then is only reported if
+  it is at most 3 minutes old, so it can be missed. Remembered events are forgotten an hour after
+  they leave Ring's history.
+- ffmpeg errors no longer end the whole bridge (alarm included): further errors on a process and
+  errors on its output are logged, and a talk-back ffmpeg that fails to start is logged and the
+  live view is reported to HomeKit as not started.
+- A snapshot that can't be refreshed is shown for at most Ring's snapshot lifetime plus 2
+  minutes, as in homebridge-ring, rather than indefinitely.
+- The settings form no longer fills in a bitrate or media profile that overrode the media
+  profile and the older HKSV performance mode.
+- README and settings text: the Raspberry Pi section shows the settings verified on a Pi 4
+  (`lowPower`, `libx264`, with a Ring Video Doorbell 3 Plus); `copy` and `h264_v4l2m2m` are
+  described as not yet verified. Upstream links point to dgreif/ring, and the install commands
+  no longer use `--unsafe-perm`.
+- Development: GitHub Actions and the publishing npm are pinned to exact versions, the GitHub
+  token is kept out of dependency installs, Dependabot is set up, and locked dependencies include
+  the available security fixes.
+
 ## 1.0.0-beta.3 (2026-11-13)
 
 Fixes from a full independent review of 1.0.0-beta.2.
