@@ -282,6 +282,11 @@ export class RingPlatform implements DynamicPlatformPlugin {
     this.config = config
     this.api = api
 
+    if (!config) {
+      log.info('No configuration found for platform Ring Secure Video')
+      return
+    }
+
     if (!config.disableLogs) {
       useLogger({
         logInfo(message) {
@@ -291,11 +296,6 @@ export class RingPlatform implements DynamicPlatformPlugin {
           log.error(message)
         },
       })
-    }
-
-    if (!config) {
-      logInfo('No configuration found for platform Ring Secure Video')
-      return
     }
 
     config.cameraStatusPollingSeconds = config.cameraStatusPollingSeconds ?? 20
@@ -331,8 +331,6 @@ export class RingPlatform implements DynamicPlatformPlugin {
         )
       }
     })
-
-    this.homebridgeAccessories = {}
   }
 
   configureAccessory(accessory: PlatformAccessory) {
