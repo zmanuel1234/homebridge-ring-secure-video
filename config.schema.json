@@ -121,7 +121,8 @@
                 "type": "integer",
                 "minimum": 0,
                 "maximum": 300,
-                "description": "Safety cap per recording stream; set 0 to disable the cap."
+                "placeholder": 180,
+                "description": "Safety cap per recording stream (default 180); HomeKit normally ends a recording when motion stops. Set 0 to disable the cap."
               },
               "maxQueuedBytes": {
                 "title": "Maximum queued bytes per recording",
@@ -182,7 +183,8 @@
         "type": "integer",
         "minimum": 0,
         "maximum": 300,
-        "description": "Optional safety cap for a single HKSV recording stream duration. Set 0 to disable the cap."
+        "placeholder": 180,
+        "description": "Optional safety cap for a single HKSV recording stream duration (default 180). Set 0 to disable the cap."
       },
       "hksvPerformanceMode": {
         "title": "HKSV Performance Mode",

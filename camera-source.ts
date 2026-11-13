@@ -428,6 +428,18 @@ class StreamingSessionWrapper {
   }
 }
 
+// HomeKit keeps a recording going while it sees motion and ends it itself; this cap only
+// stops a recording that never ends (for example a stuck motion sensor keeping a battery
+// doorbell's live call open). 60 s cut off normal visits mid-way in testing.
+export const DEFAULT_MAX_RECORDING_SECONDS = 180
+
+export function getMaxRecordingSeconds(config: RingPlatformConfig) {
+  return (
+    normalizeMediaConfig(config).recording.maxDurationSeconds ??
+    DEFAULT_MAX_RECORDING_SECONDS
+  )
+}
+
 // HomeKit tells the camera which frame rate and audio it wants recordings in (sample rates are
 // sent as an index). Recordings use that frame rate and mono AAC-LC at that sample rate and
 // bitrate, or no audio track when "Record Audio" is off in the Home app.
@@ -1054,8 +1066,7 @@ export class CameraSource
         closeSessionWithEndOfStream()
       })
 
-      const maxRecordingSeconds =
-        normalizeMediaConfig(this.config).recording.maxDurationSeconds ?? 60
+      const maxRecordingSeconds = getMaxRecordingSeconds(this.config)
 
       if (maxRecordingSeconds) {
         maxRecordingTimer = setTimeout(() => {
