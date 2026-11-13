@@ -56,16 +56,6 @@
     "url": "https://github.com/zmanuel1234/homebridge-ring-secure-video/issues"
   },
   "homepage": "https://github.com/zmanuel1234/homebridge-ring-secure-video#readme",
-  "funding": [
-    {
-      "type": "paypal",
-      "url": "https://www.paypal.me/dustingreif"
-    },
-    {
-      "type": "github",
-      "url": "https://github.com/sponsors/dgreif"
-    }
-  ],
   "files": [
     "branding",
     "CHANGELOG.md",
