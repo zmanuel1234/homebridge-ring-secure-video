@@ -221,6 +221,56 @@ function updateRefreshTokenInConfig(
   }
 }
 
+/**
+ * Saves each new Ring refresh token into config.json, replacing the token that is there now.
+ *
+ * The token in config.json is tracked here rather than taken from ring-client-api's
+ * "oldRefreshToken": after a forced refresh, ring-client-api starts from a modified token that
+ * was never written to config.json, and following its old token would save only the first new
+ * token and none after it (so the next start would register with Ring again).
+ */
+export function createRefreshTokenSaver(
+  api: API,
+  tokenInConfig: string | undefined,
+  clearRefreshFlags: boolean,
+) {
+  let current = tokenInConfig,
+    // Only with the first save: turning a force setting back on later must survive renewals.
+    clearFlags = clearRefreshFlags,
+    warned = false
+  return ({
+    oldRefreshToken,
+    newRefreshToken,
+  }: {
+    oldRefreshToken?: string
+    newRefreshToken: string
+  }) => {
+    const replace = current ?? oldRefreshToken
+    if (!replace || newRefreshToken === replace) {
+      return
+    }
+
+    const saved = updateHomebridgeConfig(api, (configContents) => {
+      return updateRefreshTokenInConfig(
+        configContents,
+        replace,
+        newRefreshToken,
+        clearFlags,
+      )
+    })
+    if (saved) {
+      current = newRefreshToken
+      clearFlags = false
+    } else if (!warned) {
+      // Once per run: after a new sign-in while running, every renewal would end up here.
+      warned = true
+      logInfo(
+        'Could not save a new Ring token to config.json (it may have been changed or signed in again while running). If you did not sign in again, the next start may register with Ring again.',
+      )
+    }
+  }
+}
+
 export class RingPlatform implements DynamicPlatformPlugin {
   private readonly homebridgeAccessories: {
     [uuid: string]: PlatformAccessory
@@ -343,29 +393,14 @@ export class RingPlatform implements DynamicPlatformPlugin {
           ? { refreshToken: refreshTokenWithoutPushCredentials }
           : {}),
         systemId,
-      }),
-      refreshTokenToReplace =
-        refreshTokenWithoutPushCredentials && config.refreshToken
-          ? config.refreshToken
-          : undefined
+      })
 
     ringApi.onRefreshTokenUpdated.subscribe(
-      ({ oldRefreshToken, newRefreshToken }) => {
-        const configRefreshToken = refreshTokenToReplace ?? oldRefreshToken
-
-        if (!configRefreshToken) {
-          return
-        }
-
-        updateHomebridgeConfig(this.api, (configContents) => {
-          return updateRefreshTokenInConfig(
-            configContents,
-            configRefreshToken,
-            newRefreshToken,
-            Boolean(refreshTokenWithoutPushCredentials),
-          )
-        })
-      },
+      createRefreshTokenSaver(
+        this.api,
+        config.refreshToken,
+        Boolean(refreshTokenWithoutPushCredentials),
+      ),
     )
 
     const locations = await ringApi.getLocations(),
