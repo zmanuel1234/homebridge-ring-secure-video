@@ -9,6 +9,8 @@
   contents) and npm publishing from GitHub releases, which requires release notes, a matching tag
   and a CHANGELOG section for the version. The token-based `publish:beta` and `publish:nightly`
   scripts are removed, so every npm version goes through those checks.
+- Without a configuration block the plugin now logs "No configuration found" and stays idle,
+  instead of crashing on start (it read a setting before checking that the block exists).
 
 ## Earlier releases (as homebridge-ring-hksv)
 

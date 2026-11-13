@@ -329,3 +329,16 @@ test('exposes all media recording controls and applies CBR arguments', async () 
   ])
   assert.equal(cbrArgs.includes('-crf'), false)
 })
+
+test('does not start, and does not crash, without a configuration block', async () => {
+  const { RingPlatform } = await import('../lib/ring-platform.js')
+  const infos = []
+  const listeners = []
+  const log = { info: (m) => infos.push(m), error() {}, warn() {}, debug() {} }
+  const api = { on: (event) => listeners.push(event) }
+
+  new RingPlatform(log, undefined, api)
+
+  assert.deepEqual(infos, ['No configuration found for platform Ring Secure Video'])
+  assert.deepEqual(listeners, [], 'nothing is started')
+})
