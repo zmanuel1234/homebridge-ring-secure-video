@@ -1,9 +1,36 @@
 # homebridge-ring-secure-video
 
-## Unreleased
+## 1.0.0 (2026-11-14)
+
+First stable release. Compared with homebridge-ring 14.3.0, it adds HomeKit Secure Video
+recording with media profiles (`media`), a separate motion sensor per camera for instant
+notifications, motion from Ring's event history when push notifications fail, automatic Ring
+session refresh with an optional sensor, an optional recording on doorbell press, Ring Intercom
+Video as a camera, and the fixes listed in the betas below. Every homebridge-ring setting is
+available with the same name. Tested on a Raspberry Pi 4 (Node 22, Homebridge 2.5) with a Ring
+Video Doorbell 3 Plus, Ring Alarm and 21 sensors.
+
+Changes since 1.0.0-beta.7:
 
 **Fixes:**
 
+- A packet on a live view's audio port that isn't valid RTP no longer stops Homebridge (any
+  device on the network could send one). Any other error that would have reached rxjs's
+  unhandled-error handler (which stops Homebridge) is logged instead; if it ended a stream, such
+  as a live view's audio, only that stream stops.
+- Ring Intercom Video: a pre-warmed live call that fails no longer stops Homebridge, and the
+  recording starts its own call; an unclaimed pre-warmed call is stopped after 20 s without
+  stopping a call a recording took meanwhile. Pre-warming happens only with HKSV recording on.
+  The check for an active ding runs only for Intercom Video (audio intercoms get dings by push),
+  every 5 s instead of 3 s, and a slow check no longer has its answer dropped when the next is
+  due.
+- A renewed Ring token is saved only into this plugin's platform block. Before, if no block of
+  this plugin had the old token (it was changed in the settings meanwhile, or only another
+  plugin's block had it, such as homebridge-ring set up with the same token), it was written by
+  text replace, possibly into the other plugin's block; now config.json is left as it is, and
+  "Could not save a new Ring token" is logged once.
+- When Homebridge shuts down, live views, talk-back, recordings and Ring calls are ended and the
+  plugin disconnects from Ring, instead of leaving them running until the process exits.
 - With `codec` set to `auto` (the default outside `lowPower`), recordings on a PC, Docker, a NAS
   or a Raspberry Pi 5 no longer fail by picking the Raspberry Pi 4 hardware encoder
   (`h264_v4l2m2m`) just because FFmpeg lists it: it is picked only on Linux with a video encoder
@@ -12,6 +39,23 @@
   one set with `ffmpegPath`) instead of a system `ffmpeg`, and gives up after 10 s instead of
   holding recordings if FFmpeg hangs; a check that fails is logged and tried again 5 minutes
   later. FFmpeg is only asked when `auto` has to choose (not with `lowPower` or a set codec).
+
+**Settings form and docs:**
+
+- "Custom FFmpeg Path" is in the settings form again (it was only in the JSON editor), and CI
+  now fails if a setting is left out of the form. Settings are grouped by topic, the hide-camera
+  settings have descriptions (hiding the camera motion sensor also stops HKSV recordings), and
+  the prebuffer setting no longer suggests it adds video from before the motion.
+- The README shows the plugin's own icon instead of the "Homebridge x Ring" logo; Ring's logo
+  and unused upstream images are removed and no longer in the npm package. The README says which
+  setups are tested and which aren't.
+
+**Other:** unused code removed; the encoder check runs FFmpeg once instead of twice.
+
+**Known:** `npm audit --omit=dev` reports one high-severity advisory for `ip`
+(GHSA-2p57-rm9w-gvfp), listed against `ip`, `werift` and ring-client-api 14.3.0. It concerns
+`ip.isPublic`, which werift doesn't call, so the plugin isn't affected; it goes away with
+ring-client-api 15 and the werift 0.26 it uses.
 
 ## 1.0.0-beta.7 (2026-11-14)
 
