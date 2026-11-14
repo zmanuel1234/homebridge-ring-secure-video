@@ -4,20 +4,22 @@ import { PushNotificationAction, type RingCamera } from 'ring-client-api'
 import { BaseDataAccessory } from './base-data-accessory.ts'
 import {
   catchError,
+  distinctUntilChanged,
   exhaustMap,
   filter,
   finalize,
   map,
   mergeMap,
   share,
+  startWith,
   switchMap,
   throttleTime,
 } from 'rxjs/operators'
-import { CameraSource } from './camera-source.ts'
+import { CameraSource, isHksvEnabled } from './camera-source.ts'
 import type { PlatformAccessory } from 'homebridge'
 import { TargetValueTimer } from './target-value-timer.ts'
 import { delay, logError, logInfo } from 'ring-client-api/util'
-import { defer, EMPTY, firstValueFrom, from, merge, of, timer } from 'rxjs'
+import { combineLatest, defer, EMPTY, firstValueFrom, from, merge, of, timer } from 'rxjs'
 import type { Observable } from 'rxjs'
 import type { PushHealthReporter } from './push-health.ts'
 
@@ -281,6 +283,46 @@ export function addMotionWatchdog(
   )
 }
 
+/**
+ * The camera's motion, also on for a while after each doorbell press (doorbellPressMotion), so
+ * HomeKit records a visitor even when Ring reported no motion: while a live view is open Ring
+ * reports none, and someone may press and leave before it does. A press while motion is already
+ * on keeps it on (no off and on again, which would be a second recording); motion goes off once
+ * neither the camera nor a press in the last watchdogMs keeps it on.
+ */
+export function addDoorbellPressMotion(
+  motion: Observable<boolean>,
+  presses: Observable<unknown>,
+  onPressMotion?: () => void,
+  watchdogMs = MOTION_WATCHDOG_MS,
+): Observable<boolean> {
+  return combineLatest([
+    motion.pipe(startWith(false)),
+    addMotionWatchdog(
+      presses.pipe(
+        // A failing press stream must not stop the camera's own motion.
+        catchError((error) => {
+          logError(error)
+          return EMPTY
+        }),
+        map(() => true),
+      ),
+      watchdogMs,
+    ).pipe(startWith(false)),
+  ]).pipe(
+    // Repeated trues are dropped (HomeKit sees no change from them anyway), so a second motion
+    // alert while motion is on no longer reloads the snapshot; a press reloads it itself.
+    distinctUntilChanged(
+      (a, b) => (a[0] || a[1]) === (b[0] || b[1]),
+    ),
+    map(([cameraMotion, pressMotion]) => {
+      const on = cameraMotion || pressMotion
+      if (on && !cameraMotion) onPressMotion?.()
+      return on
+    }),
+  )
+}
+
 export class Camera extends BaseDataAccessory<RingCamera> {
   private inHomeDoorbellStatus: boolean | undefined
   private cameraSource
@@ -335,11 +377,32 @@ export class Camera extends BaseDataAccessory<RingCamera> {
       this.motionDetected = this.getMotionDetectedObservable().pipe(share())
     }
 
+    if (config.doorbellPressMotion && device.isDoorbot) {
+      if (config.hideCameraMotionSensor) {
+        logInfo(
+          `${device.name}: doorbellPressMotion has no effect while hideCameraMotionSensor is on (HomeKit records on the camera's motion sensor)`,
+        )
+      } else if (!isHksvEnabled(config, device.operatingOnBattery)) {
+        logInfo(`${device.name}: doorbellPressMotion has no effect without HKSV recording`)
+      }
+    }
+
     if (!config.hideCameraMotionSensor && this.motionDetected) {
+      // Only the camera's own motion sensor (which starts HKSV recordings): a press already
+      // gives a doorbell notification, so the separate notification sensor doesn't get it too.
+      // Only with HKSV recording: without it a press would just add a motion notification.
+      const cameraMotion =
+        config.doorbellPressMotion &&
+        device.isDoorbot &&
+        isHksvEnabled(config, device.operatingOnBattery)
+          ? addDoorbellPressMotion(this.motionDetected, device.onDoorbellPressed, () =>
+            logInfo(`${device.name}: doorbell press sent to HomeKit as motion (doorbellPressMotion)`),
+          )
+          : this.motionDetected
       this.registerObservableCharacteristic({
         characteristicType: Characteristic.MotionDetected,
         serviceType: Service.MotionSensor,
-        onValue: this.motionDetected.pipe(
+        onValue: cameraMotion.pipe(
           switchMap((motion) => {
             if (!motion) {
               return Promise.resolve(false)

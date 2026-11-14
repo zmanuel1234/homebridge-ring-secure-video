@@ -366,6 +366,12 @@
         "type": "boolean",
         "description": "Adds a \"<camera> Motion\" sensor for each camera, driven by the same motion events but not tied to the camera. With HomeKit Secure Video recording on, the Home app only notifies about the camera's own motion after analysing the clip; turn on notifications for this sensor instead to be told at once. It appears on this plugin's bridge."
       },
+      "doorbellPressMotion": {
+        "title": "Doorbell Press Starts a Recording",
+        "type": "boolean",
+        "description": "For Ring doorbells with HomeKit Secure Video recording on: a doorbell press also turns on the camera's motion in HomeKit for 30 seconds, so HomeKit records the visitor even when Ring reported no motion (for example while a live view is open, or for someone who presses and leaves at once). A press while motion is already on keeps it on: one recording, not two. Notifications and automations on the camera's own motion sensor also see it; the separate notification sensor does not, as a press already gives a doorbell notification. No effect when the camera's motion sensor is hidden.",
+        "default": false
+      },
       "hideCameraSirenSwitch": {
         "title": "Hide Camera Siren Switch",
         "type": "boolean"
@@ -526,6 +532,7 @@
             "hideCameraLight",
             "hideCameraMotionSensor",
             "cameraMotionNotificationSensor",
+            "doorbellPressMotion",
             "hideCameraSirenSwitch",
             "hideInHomeDoorbellSwitch",
             "hideAlarmSirenSwitch",

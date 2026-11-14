@@ -67,6 +67,7 @@ Big thanks to Dusty, trinityhades and all upstream contributors. This plugin reu
 | `cameraVideoCodec` | Preferred H.264 handling (`auto`, `copy`, `h264_v4l2m2m`, `h264_videotoolbox`, or `libx264`) |
 | `hideDoorbellSwitch` / `hideCameraMotionSensor` / `hideCameraSirenSwitch` | Hides specific HomeKit-exposed services |
 | `cameraMotionNotificationSensor` | Adds a separate "<camera> Motion" sensor per camera for instant motion notifications (see below) |
+| `doorbellPressMotion` | For Ring doorbells with HKSV recording on: a press also turns on the camera's motion for 30 seconds, so HKSV records the visitor even when Ring reported no motion (during a live view, or a quick press-and-leave). One recording per visit, not two. Notifications and automations on the camera's motion sensor also see it; the separate notification sensor does not. No effect with `hideCameraMotionSensor`. Off by default |
 | `showPanicButtons` | Adds panic switches (use with caution) |
 | `ffmpegPath` | Override FFmpeg binary path |
 | `debug` | Enables additional logging |
@@ -155,6 +156,8 @@ no motion event, motion notification or HKSV recording starts during a live view
 Protect, Ring may still save the live view itself). Once the live view is closed, motion is
 reported again. Opening a live view doesn't cut off an HKSV recording that is already running
 (both share one Ring connection), but that recording still ends as usual once its motion ends.
+With `doorbellPressMotion` on, a doorbell press during a live view still starts a recording, as
+long as Ring delivers the press during the live view (not tested yet).
 
 With recording on, the Home app notifies about a camera's motion only after its home hub has
 analysed the clip, which can be late or never. For a notification as soon as Ring reports
