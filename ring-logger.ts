@@ -20,9 +20,10 @@ export function createRingLogger(log: Pick<Logging, 'info' | 'error' | 'debug'>)
   }
 
   return {
-    logInfo(message: any) {
+    // Variadic, as ring-client-api's logInfo is (e.g. "Pruning unused service" with its details).
+    logInfo(...message: any[]) {
       flushUnknown()
-      log.info(message)
+      log.info(...(message as [string, ...any[]]))
     },
     logError(message: any) {
       if (message === 'UNKNOWN MESSAGE') {
@@ -33,7 +34,10 @@ export function createRingLogger(log: Pick<Logging, 'info' | 'error' | 'debug'>)
 
       if (unknownPending && HARMLESS_SESSION_MESSAGES.has(message?.method)) {
         unknownPending = false
-        log.debug(`Ring video session message ignored: ${message.method}`)
+        // Not the whole message: its session_id is a session token.
+        log.debug(
+          `Ring video session message ignored: ${message.method} (stealth_mode=${message.body?.stealth_mode})`,
+        )
         return
       }
 

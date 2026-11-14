@@ -6,7 +6,7 @@ function fakeLog() {
   const lines = []
   return {
     lines,
-    info: (m) => lines.push(['info', m]),
+    info: (...m) => lines.push(['info', ...m]),
     error: (m) => lines.push(['error', m]),
     debug: (m) => lines.push(['debug', m]),
   }
@@ -23,7 +23,7 @@ test("Ring's camera_options session message is logged at debug, not as an error"
     ring = createRingLogger(log)
   ring.logError('UNKNOWN MESSAGE')
   ring.logError(cameraOptions)
-  assert.deepEqual(log.lines, [['debug', 'Ring video session message ignored: camera_options']])
+  assert.deepEqual(log.lines, [['debug', 'Ring video session message ignored: camera_options (stealth_mode=false)']])
 })
 
 test('any other unknown session message is still an error, with the message', () => {
@@ -53,4 +53,24 @@ test('other errors and info pass through unchanged, also right after UNKNOWN MES
     ['error', 'UNKNOWN MESSAGE'],
     ['info', 'connected'],
   ])
+})
+
+test('two UNKNOWN MESSAGE calls in a row, or a text message after one, stay errors', () => {
+  const log = fakeLog(),
+    ring = createRingLogger(log)
+  ring.logError('UNKNOWN MESSAGE')
+  ring.logError('UNKNOWN MESSAGE')
+  ring.logError('some text')
+  assert.deepEqual(log.lines, [
+    ['error', 'UNKNOWN MESSAGE'],
+    ['error', 'UNKNOWN MESSAGE'],
+    ['error', 'some text'],
+  ])
+})
+
+test('info with several parts keeps all of them', () => {
+  const log = fakeLog(),
+    ring = createRingLogger(log)
+  ring.logInfo('Pruning unused service', 'uuid', 'Siren', 'from', 'Front Door')
+  assert.deepEqual(log.lines, [['info', 'Pruning unused service', 'uuid', 'Siren', 'from', 'Front Door']])
 })
