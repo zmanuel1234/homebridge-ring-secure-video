@@ -66,6 +66,7 @@
   "keywords": [
     "homebridge",
     "homebridge-plugin",
+    "supports-hap",
     "ring",
     "hksv",
     "homekit-secure-video",

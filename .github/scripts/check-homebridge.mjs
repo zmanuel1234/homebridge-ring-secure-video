@@ -26,6 +26,9 @@ try {
 if (!/^(@[^/]+\/)?homebridge-/.test(pkg.name ?? '')) fail('package name must start with "homebridge-"')
 if (!pkg.displayName) fail('package.json needs a displayName (shown in the Homebridge UI)')
 if (!pkg.keywords?.includes('homebridge-plugin')) fail('keywords must include "homebridge-plugin"')
+// The transports the plugin publishes over (homebridge/plugins "Declaring Supported Transports"):
+// HAP only; "supports-matter" is for plugins that register Matter accessories themselves.
+if (!pkg.keywords?.includes('supports-hap')) fail('keywords must include "supports-hap"')
 if (!pkg.license) fail('package.json needs a license')
 if (!/github\.com/.test(pkg.repository?.url ?? '')) fail('repository must point at the GitHub repository')
 if (!/github\.com\/.+\/issues/.test(pkg.bugs?.url ?? '')) fail('bugs.url must point at the GitHub issues page')

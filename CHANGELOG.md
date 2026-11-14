@@ -1,5 +1,10 @@
 # homebridge-ring-secure-video
 
+## Unreleased
+
+- The package declares that it publishes accessories over HAP (the `supports-hap` keyword), as
+  Homebridge's verification checks require. Nothing else changes.
+
 ## 1.0.1 (2026-11-14)
 
 - Node.js 26 is supported (it became an LTS version in October 2026, and Homebridge 2.5 supports
