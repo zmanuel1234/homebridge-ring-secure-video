@@ -1,6 +1,6 @@
 # homebridge-ring-secure-video
 
-## Unreleased
+## 1.0.2 (2026-11-14)
 
 - The package declares that it publishes accessories over HAP (the `supports-hap` keyword), as
   Homebridge's verification checks require. Nothing else changes.
