@@ -7,9 +7,11 @@
   reach HomeKit about 2 seconds sooner, so recordings and doorbell notifications start earlier.
   The event was held while waiting for a notification with a snapshot, which without Ring
   Protect usually doesn't come. If one does come within 10 s, its snapshot is loaded for later
-  requests (such as the Home app tile), not for the notification already sent. With Ring
-  Protect the event still waits up to 2 s for it, as before. Nothing is left waiting afterwards
-  (each event used to leave a listener behind until the next snapshot).
+  requests (such as the Home app tile), not for the notification already sent. Ring's data
+  doesn't say whether a camera has Ring Protect, so each camera learns it: once such snapshots
+  come, its events wait up to 2 s for one again, as before, until 3 waits in a row bring none.
+  Nothing is left waiting afterwards (each event used to leave a listener behind until the next
+  snapshot).
 
 ## 1.0.3 (2026-11-14)
 

@@ -28,6 +28,8 @@ import type { PushHealthReporter } from './push-health.ts'
 export const MOTION_WATCHDOG_MS = 30_000
 /** How long a battery camera's late snapshot is waited for, in the background, after an event. */
 export const SNAPSHOT_NOTIFICATION_WAIT_MS = 10_000
+/** Waits for a snapshot that didn't come before a camera's events go to HomeKit at once again. */
+const MISSED_SNAPSHOT_WAITS_BEFORE_NO_WAIT = 3
 /** How often Ring's event history is checked once its push notifications are known to arrive. */
 export const HISTORY_CHECK_WHILE_PUSH_WORKS_MS = 5 * 60_000
 /** A push motion this close to a history event's time is taken as that event's notification. */
@@ -572,6 +574,9 @@ export class Camera extends BaseDataAccessory<RingCamera> {
   }
 
   private pendingSnapshotNotification?: Subscription
+  /** Whether this camera's events are followed by a notification with a snapshot (Ring Protect). */
+  private snapshotNotificationsArrive = false
+  private missedSnapshotWaits = 0
 
   /** The image uuid of the next notification that has one. */
   private nextNotificationSnapshotUuid() {
@@ -588,6 +593,8 @@ export class Camera extends BaseDataAccessory<RingCamera> {
     this.pendingSnapshotNotification = this.nextNotificationSnapshotUuid()
       .pipe(takeUntil(timer(SNAPSHOT_NOTIFICATION_WAIT_MS)))
       .subscribe((uuid) => {
+        this.snapshotNotificationsArrive = true
+        this.missedSnapshotWaits = 0
         this.cameraSource.loadSnapshot(uuid).catch(() => {
           // the event was already sent; HomeKit keeps the last snapshot
         })
@@ -603,14 +610,15 @@ export class Camera extends BaseDataAccessory<RingCamera> {
     /**
      * A camera that can't take a snapshot while recording (on battery, or a few wired models)
      * may get its first notification without an image uuid, followed shortly by a second one
-     * with it. With Ring Protect that second notification comes, so the event waits up to 2 s
-     * for it, as before, and HomeKit's notification gets the new snapshot. Without Ring Protect
-     * it usually never comes, so the event goes to HomeKit at once (recordings and doorbell
-     * notifications start 2 s sooner), and a snapshot that does come within 10 s is loaded
-     * for later requests (the Home app tile).
+     * with it. That second notification usually only comes with Ring Protect, and Ring's data
+     * doesn't say whether a camera has it, so each camera learns it: until a snapshot has come
+     * this way, the event goes to HomeKit at once (recordings and doorbell notifications start
+     * 2 s sooner) and a snapshot that comes within 10 s is loaded for later requests (the Home
+     * app tile). Once snapshots come, the event waits up to 2 s for one, as before, so HomeKit's
+     * notification gets it; after 3 waits in a row without one, events go at once again.
      */
     if (!this.device.canTakeSnapshotWhileRecording && !imageUuid) {
-      if (!this.device.data.subscribed) {
+      if (!this.snapshotNotificationsArrive) {
         this.loadSnapshotFromNextNotification()
         logInfo(this.device.name + ' ' + eventDescription)
         return characteristicValue
@@ -622,10 +630,15 @@ export class Camera extends BaseDataAccessory<RingCamera> {
       )
 
       if (!imageUuid) {
+        this.missedSnapshotWaits++
+        if (this.missedSnapshotWaits >= MISSED_SNAPSHOT_WAITS_BEFORE_NO_WAIT) {
+          this.snapshotNotificationsArrive = false
+        }
         // did not receive an image uuid and one can't be taken while recording. Proceed without a snapshot
         logInfo(this.device.name + ' ' + eventDescription)
         return characteristicValue
       }
+      this.missedSnapshotWaits = 0
     }
 
     logInfo(

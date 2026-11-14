@@ -11,7 +11,7 @@ setHap(hapNodejs)
 useLogger({ logInfo() {}, logError() {} })
 
 // A camera event as Camera.loadSnapshotForEvent sees it, without the rest of the accessory.
-function fakeCamera({ onBattery, snapshotUuid, ringProtect = false }) {
+function fakeCamera({ onBattery, snapshotUuid }) {
   const loaded = []
   const camera = Object.create(Camera.prototype)
   camera.device = {
@@ -19,7 +19,9 @@ function fakeCamera({ onBattery, snapshotUuid, ringProtect = false }) {
     canTakeSnapshotWhileRecording: !onBattery,
     latestNotificationSnapshotUuid: snapshotUuid,
     onNewNotification: new Subject(),
-    data: { subscribed: ringProtect },
+    // ring-client-api sets this for every camera (it subscribes to ding events), so it says
+    // nothing about Ring Protect and must not matter
+    data: { subscribed: true },
   }
   camera.cameraSource = {
     loadSnapshot: async (uuid) => {
@@ -31,7 +33,7 @@ function fakeCamera({ onBattery, snapshotUuid, ringProtect = false }) {
 
 const settle = () => new Promise((resolve) => setImmediate(resolve))
 
-test('without Ring Protect, a battery camera event goes to HomeKit at once', async (t) => {
+test('a battery camera event goes to HomeKit at once until snapshots are seen to come', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout', 'setInterval'] })
   const { camera, loaded } = fakeCamera({ onBattery: true })
   let value
@@ -77,28 +79,47 @@ test('a camera that has a snapshot loads it before the event, as before', async 
   assert.equal(camera.device.onNewNotification.observed, false)
 })
 
-test('with Ring Protect, the event waits up to 2 s for the snapshot, as before', async (t) => {
+test('once snapshots come (Ring Protect), events wait up to 2 s for one; 3 misses end that', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout', 'setInterval'] })
-  const { camera, loaded } = fakeCamera({ onBattery: true, ringProtect: true })
-  let value
-  camera.loadSnapshotForEvent('Doorbell Pressed', 'press').then((v) => (value = v))
-  await settle()
-  assert.equal(value, undefined, 'waiting for the snapshot')
-  t.mock.timers.tick(1000)
-  camera.device.onNewNotification.next({ img: { snapshot_uuid: 'snap-protect' } })
-  await settle()
-  await settle()
-  assert.deepEqual(loaded, ['snap-protect'], 'the snapshot is loaded before the event')
-  assert.equal(value, 'press')
+  const { camera, loaded } = fakeCamera({ onBattery: true })
+  const run = (description) => {
+    const result = { value: undefined }
+    camera.loadSnapshotForEvent(description, description).then((v) => (result.value = v))
+    return result
+  }
 
-  // and without the snapshot, it goes after 2 s with nothing left waiting
-  const other = fakeCamera({ onBattery: true, ringProtect: true })
-  let otherValue
-  other.camera.loadSnapshotForEvent('Detected Motion', true).then((v) => (otherValue = v))
-  t.mock.timers.tick(2000)
+  // first event: sent at once; a snapshot follows, so the camera learns that they come
+  const first = run('first')
   await settle()
-  assert.equal(otherValue, true)
-  assert.equal(other.camera.device.onNewNotification.observed, false)
+  assert.equal(first.value, 'first')
+  camera.device.onNewNotification.next({ img: { snapshot_uuid: 'snap-1' } })
+  await settle()
+  assert.deepEqual(loaded, ['snap-1'])
+
+  // next event waits for its snapshot and loads it before the event
+  const second = run('second')
+  await settle()
+  assert.equal(second.value, undefined, 'waiting for the snapshot')
+  t.mock.timers.tick(1000)
+  camera.device.onNewNotification.next({ img: { snapshot_uuid: 'snap-2' } })
+  await settle()
+  await settle()
+  assert.deepEqual(loaded, ['snap-1', 'snap-2'])
+  assert.equal(second.value, 'second')
+
+  // three waits with no snapshot: after them, events go at once again
+  for (const name of ['miss-1', 'miss-2', 'miss-3']) {
+    const missed = run(name)
+    await settle()
+    assert.equal(missed.value, undefined, `${name} waits`)
+    t.mock.timers.tick(2000)
+    await settle()
+    assert.equal(missed.value, name)
+  }
+  const after = run('after')
+  await settle()
+  assert.equal(after.value, 'after', 'sent at once again')
+  camera.pendingSnapshotNotification.unsubscribe()
 })
 
 test('a snapshot by uuid that comes while another load runs is loaded after it', async () => {
