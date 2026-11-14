@@ -58,7 +58,6 @@
   },
   "homepage": "https://github.com/zmanuel1234/homebridge-ring-secure-video#readme",
   "files": [
-    "branding",
     "CHANGELOG.md",
     "config.schema.json",
     "lib",
