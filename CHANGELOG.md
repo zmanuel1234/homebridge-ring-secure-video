@@ -5,6 +5,10 @@
 - A live view that stops by itself (no traffic from HomeKit for 15 s, or Ring ended the call) is
   removed from the plugin's list of live views; it stayed there until HomeKit sent a stop, which
   it doesn't always do. A stop from HomeKit for such a live view is accepted without an error.
+- The Location Mode switch (Ring locations with Modes and no Ring Alarm) answers HomeKit's status
+  reads within 2.5 s: as "No Response" if Ring hasn't reported the mode yet (slow or unreachable
+  at startup), instead of leaving the read unanswered, which made Homebridge warn that the
+  plugin was slow to respond.
 - Without Ring Protect, motion and doorbell presses from a camera that can't take a snapshot
   while recording (on battery, i.e. Ring power mode not set to wired, and a few wired models)
   reach HomeKit about 2 seconds sooner, so recordings and doorbell notifications start earlier.
