@@ -1,6 +1,6 @@
 import { BaseDeviceAccessory } from './base-device-accessory.ts'
 import type { RingDevice, RingDeviceData } from 'ring-client-api'
-import { distinctUntilChanged } from 'rxjs/operators'
+import { distinctUntilChanged, skip } from 'rxjs/operators'
 import { hap } from './hap.ts'
 import type { RingPlatformConfig } from './config.ts'
 import type { PlatformAccessory } from 'homebridge'
@@ -42,10 +42,17 @@ export class Lock extends BaseDeviceAccessory {
 
     const { Characteristic, Service } = hap
 
+    // Ring reported a new lock state (the requested one, a jam, or a change by hand): any
+    // target HomeKit was waiting for is over, and the target follows Ring's state again.
+    // (Storing the derived target here, as upstream does, would keep a jam's "locked" target
+    // pending, and a lock then unlocked by hand would show "Locking…".)
     this.device.onData
-      .pipe(distinctUntilChanged((a, b) => a.locked === b.locked))
-      .subscribe((data) => {
-        this.targetState = this.getTargetState(data)
+      .pipe(
+        distinctUntilChanged((a, b) => a.locked === b.locked),
+        skip(1),
+      )
+      .subscribe(() => {
+        this.targetState = undefined
       })
 
     this.registerCharacteristic({

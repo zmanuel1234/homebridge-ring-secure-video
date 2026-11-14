@@ -43,6 +43,7 @@ import {
 } from 'werift'
 import type { StreamingSession } from 'ring-client-api/streaming/streaming-session'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { FragmentedMp4Parser } from './fragmented-mp4-parser.ts'
 import {
   getFfmpegCapabilities,
@@ -61,8 +62,9 @@ import {
 } from './ring-media-ingress.ts'
 import { normalizeMediaConfig } from './media-config.ts'
 
-const __dirname = new URL('.', import.meta.url).pathname,
-  mediaDirectory = path.join(__dirname.replace(/\/lib\/?$/, ''), 'media'),
+// The package's media folder, next to lib/. fileURLToPath, not URL.pathname, which keeps %20
+// for a space and gives /C:/... on Windows.
+const mediaDirectory = path.join(fileURLToPath(new URL('.', import.meta.url)), '..', 'media'),
   readFileAsync = promisify(readFile),
   cameraOfflinePath = path.join(mediaDirectory, 'camera-offline.jpg'),
   snapshotsBlockedPath = path.join(mediaDirectory, 'snapshots-blocked.jpg')
@@ -141,6 +143,12 @@ class StreamingSessionWrapper {
   private subscriptions = new Subscription()
   private stopped = false
   private pipelineStops: Array<() => void> = []
+  /** Called once when the session stops, however it stops (HomeKit, the watchdog, Ring). */
+  onStopped?: () => void
+  /** While HomeKit's start request is being handled (its answer tells HomeKit of a failure). */
+  activating = false
+  /** Stopped by itself (not by a request from HomeKit). */
+  endedByItself = false
 
   constructor(
     sourceSession: MediaIngressLease,
@@ -468,6 +476,7 @@ class StreamingSessionWrapper {
     this.transcodedAudioSplitter.close()
     this.videoSplitter.close()
     this.sourceSession.release()
+    this.onStopped?.()
   }
 }
 
@@ -902,6 +911,21 @@ export class CameraSource
         )
 
       this.sessions[request.sessionID] = session
+      // A session that stops by itself (HomeKit stopped sending, or Ring ended the call) leaves
+      // the list too, and HomeKit is told it ended: it doesn't always send its stop request
+      // then, and until it does, the camera counts as busy for other viewers (with HKSV on, a
+      // camera allows one live view). Stops HomeKit asked for take it out of the list first.
+      // During a start request, the error answer tells HomeKit instead (telling it twice could
+      // close another viewer's newly set up session).
+      session.onStopped = () => {
+        if (this.sessions[request.sessionID] === session) {
+          delete this.sessions[request.sessionID]
+          session.endedByItself = true
+          if (!session.activating) {
+            this.controller?.forceStopStreamingSession(request.sessionID)
+          }
+        }
+      }
 
       logInfo(
         `Stream Prepared for ${this.ringCamera.name} (${getDurationSeconds(
@@ -943,6 +967,11 @@ export class CameraSource
       requestType = request.type
 
     if (!session) {
+      if (requestType === 'stop') {
+        // It already stopped by itself (and left the list)
+        callback()
+        return
+      }
       callback(new Error('Cannot find session for stream ' + sessionID))
       return
     }
@@ -954,14 +983,28 @@ export class CameraSource
         )}s)`,
       )
       try {
+        session.activating = true
         await session.activate(request)
       } catch (e) {
         logError('Failed to activate stream')
         logError(e)
-        session.stop()
+        // out of the list first: HomeKit gets this error, so it needn't be told it ended
         delete this.sessions[sessionID]
+        session.stop()
         callback(new Error('Failed to activate stream'))
 
+        return
+      } finally {
+        session.activating = false
+      }
+      if (session.endedByItself) {
+        // it stopped by itself while starting: the error answer tells HomeKit
+        callback(new Error('Stream ended while starting'))
+        return
+      }
+      if (this.sessions[sessionID] !== session) {
+        // HomeKit stopped it while starting and has already closed its side
+        callback()
         return
       }
       logInfo(
@@ -971,8 +1014,9 @@ export class CameraSource
       )
     } else if (requestType === 'stop') {
       logInfo(`Stopped Live Stream for ${this.ringCamera.name}`)
-      session.stop()
+      // out of the list first: HomeKit stopped it, so it needn't be told it ended
       delete this.sessions[sessionID]
+      session.stop()
     }
 
     callback()

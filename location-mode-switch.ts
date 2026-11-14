@@ -1,5 +1,5 @@
 import type { Location, LocationMode } from 'ring-client-api'
-import { distinctUntilChanged } from 'rxjs/operators'
+import { distinctUntilChanged, timeout } from 'rxjs/operators'
 import { hap } from './hap.ts'
 import type { RingPlatformConfig } from './config.ts'
 import { logError, logInfo } from 'ring-client-api/util'
@@ -12,6 +12,12 @@ import type {
   CharacteristicValue,
 } from 'homebridge'
 import { CharacteristicEventTypes } from 'homebridge'
+
+/**
+ * How long a HomeKit status read waits for Ring's first mode report. Homebridge warns about
+ * an accessory slow to respond from 3 s, so the read gives up before that.
+ */
+export const LOCATION_MODE_READ_TIMEOUT_MS = 2500
 
 function getStateFromMode(mode: LocationMode) {
   const {
@@ -65,7 +71,20 @@ export class LocationModeSwitch extends BaseAccessory<Location> {
       getCurrentMode = () => {
         return firstValueFrom(location.onLocationMode)
       },
-      getCurrentState = async () => getStateFromMode(await getCurrentMode())
+      getCurrentState = async () => getStateFromMode(await getCurrentMode()),
+      // For HomeKit's reads: Ring's mode, or "No Response" if Ring hasn't reported one yet
+      // (slow or unreachable at startup) rather than leaving the read unanswered.
+      readCurrentState = async () => {
+        try {
+          return getStateFromMode(
+            await firstValueFrom(
+              location.onLocationMode.pipe(timeout({ first: LOCATION_MODE_READ_TIMEOUT_MS })),
+            ),
+          )
+        } catch {
+          throw new hap.HapStatusError(hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE)
+        }
+      }
 
     location.onLocationMode.pipe(distinctUntilChanged()).subscribe((mode) => {
       const state = getStateFromMode(mode)
@@ -88,7 +107,13 @@ export class LocationModeSwitch extends BaseAccessory<Location> {
           logError('Failed to retrieve location mode for ' + location.name)
           logError(e)
         })
-        const state = await getCurrentState()
+        let state
+        try {
+          state = await readCurrentState()
+        } catch (e: any) {
+          callback(e)
+          return
+        }
 
         if (state === this.targetState) {
           this.targetState = undefined
@@ -101,12 +126,15 @@ export class LocationModeSwitch extends BaseAccessory<Location> {
     targetState.on(
       CharacteristicEventTypes.GET,
       async (callback: CharacteristicGetCallback) => {
-        callback(
-          null,
-          this.targetState !== undefined
-            ? this.targetState
-            : await getCurrentState(),
-        )
+        if (this.targetState !== undefined) {
+          callback(null, this.targetState)
+          return
+        }
+        try {
+          callback(null, await readCurrentState())
+        } catch (e: any) {
+          callback(e)
+        }
       },
     )
 

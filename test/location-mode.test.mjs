@@ -139,3 +139,39 @@ test('NIGHT_ARM (handed to the handler) asks Ring for home, and shows as STAY_AR
   await settle()
   assert.equal(target.value, Target.STAY_ARM)
 })
+
+test("HomeKit's mode reads answer No Response when Ring hasn't reported a mode yet", async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'setInterval'] })
+  const { ReplaySubject } = await import('rxjs')
+  const { LOCATION_MODE_READ_TIMEOUT_MS } = await import('../lib/location-mode-switch.js')
+  const { location } = setup(t, async () => {})
+  const noMode = new ReplaySubject(1) // Ring hasn't answered yet
+  location.onLocationMode = noMode
+  location.getLocationMode = () => new Promise(() => {})
+  // a new accessory on this location, so it reads from the silent subject
+  const hap = new hapNodejs.Accessory('Late Mode', hapNodejs.uuid.generate(`late-${Math.random()}`))
+  new LocationModeSwitch(
+    location,
+    {
+      displayName: 'Late Mode',
+      UUID: hap.UUID,
+      context: {},
+      getService: (s) => hap.getService(s),
+      getServiceById: (s, sub) => hap.getServiceById(s, sub),
+      addService: (...a) => hap.addService(...a),
+      removeService: (s) => hap.removeService(s),
+    },
+    { disableLogs: true },
+  )
+  const late = hap.getService(hapNodejs.Service.SecuritySystem)
+  for (const characteristic of [Current, Target]) {
+    const read = late.getCharacteristic(characteristic).handleGetRequest()
+    t.mock.timers.tick(LOCATION_MODE_READ_TIMEOUT_MS)
+    // HAP rejects with the status it will report: "No Response"
+    await assert.rejects(read, (status) => status === hapNodejs.HAPStatus.SERVICE_COMMUNICATION_FAILURE)
+  }
+
+  // once Ring reports a mode, reads answer it
+  noMode.next('away')
+  assert.equal(await late.getCharacteristic(Current).handleGetRequest(), Current.AWAY_ARM)
+})

@@ -7,7 +7,7 @@
   "main": "./lib/index.js",
   "exports": "./lib/index.js",
   "scripts": {
-    "build": "node -e \"require('fs').rmSync('lib', { recursive: true, force: true })\" && tsc && node -e \"require('fs').cpSync('./homebridge-ui/public', './lib/homebridge-ui/public', { recursive: true })\"",
+    "build": "node -e \"require('fs').rmSync('lib', { recursive: true, force: true })\" && tsc && node -e \"require('fs').cpSync('./homebridge-ui/public', './lib/homebridge-ui/public', { recursive: true, filter: (src) => require('path').basename(src) !== 'tsconfig.json' })\"",
     "lint": "eslint .",
     "test": "npm run build && node --test test/*.test.mjs",
     "prepack": "npm run build",
