@@ -766,13 +766,21 @@ export class CameraSource
   }
 
   private previousLoadSnapshotPromise?: Promise<any>
-  async loadSnapshot(imageUuid?: string) {
+  private previousLoadSnapshotUuid?: string
+  async loadSnapshot(imageUuid?: string): Promise<void> {
     // cache a promise of the snapshot load
     // This prevents multiple concurrent requests for snapshot from pilling up and creating lots of logs
     if (this.previousLoadSnapshotPromise) {
-      return this.previousLoadSnapshotPromise
+      if (!imageUuid || imageUuid === this.previousLoadSnapshotUuid) {
+        return this.previousLoadSnapshotPromise
+      }
+      // A snapshot by uuid (from a notification) while another load runs, which on a camera
+      // that can't take one while recording may not succeed: load this one after it.
+      await this.previousLoadSnapshotPromise.catch(() => undefined)
+      return this.loadSnapshot(imageUuid)
     }
 
+    this.previousLoadSnapshotUuid = imageUuid
     this.previousLoadSnapshotPromise = this.loadAndCacheSnapshot(imageUuid)
 
     try {
@@ -782,6 +790,7 @@ export class CameraSource
     } finally {
       // clear so another request can be made
       this.previousLoadSnapshotPromise = undefined
+      this.previousLoadSnapshotUuid = undefined
     }
   }
 

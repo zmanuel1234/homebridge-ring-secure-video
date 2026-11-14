@@ -13,17 +13,25 @@ import {
   share,
   startWith,
   switchMap,
+  take,
+  takeUntil,
   throttleTime,
 } from 'rxjs/operators'
 import { CameraSource, isHksvEnabled } from './camera-source.ts'
 import type { PlatformAccessory } from 'homebridge'
 import { TargetValueTimer } from './target-value-timer.ts'
-import { delay, logError, logInfo } from 'ring-client-api/util'
+import { logError, logInfo } from 'ring-client-api/util'
 import { combineLatest, defer, EMPTY, firstValueFrom, merge, of, timer } from 'rxjs'
-import type { Observable } from 'rxjs'
+import type { Observable, Subscription } from 'rxjs'
 import type { PushHealthReporter } from './push-health.ts'
 
 export const MOTION_WATCHDOG_MS = 30_000
+/** How long a battery camera's late snapshot is waited for, in the background, after an event. */
+export const SNAPSHOT_NOTIFICATION_WAIT_MS = 10_000
+/** How long an event waits for its snapshot on a camera whose snapshot notifications come. */
+export const SNAPSHOT_EVENT_WAIT_MS = 2000
+/** Waits for a snapshot that didn't come before a camera's events go to HomeKit at once again. */
+const MISSED_SNAPSHOT_WAITS_BEFORE_NO_WAIT = 3
 /** How often Ring's event history is checked once its push notifications are known to arrive. */
 export const HISTORY_CHECK_WHILE_PUSH_WORKS_MS = 5 * 60_000
 /** A push motion this close to a history event's time is taken as that event's notification. */
@@ -567,6 +575,43 @@ export class Camera extends BaseDataAccessory<RingCamera> {
     )
   }
 
+  private pendingSnapshotNotification?: Subscription
+  /** Whether this camera's events are followed by a notification with a snapshot (Ring Protect). */
+  private snapshotNotificationsArrive = false
+  private missedSnapshotWaits = 0
+  private lastMissedSnapshotWaitAt = 0
+
+  /** The image uuid of the next notification that has one. */
+  private nextNotificationSnapshotUuid() {
+    return this.device.onNewNotification.pipe(
+      map((notification) => notification.img?.snapshot_uuid),
+      filter((uuid): uuid is string => Boolean(uuid)),
+      take(1),
+    )
+  }
+
+  /**
+   * Loads the snapshot of the next notification that has one, if it comes within 10 s. With
+   * learn, called as the event happens, a snapshot within the event wait teaches the camera
+   * that its events are worth waiting for.
+   */
+  private loadSnapshotFromNextNotification({ learn }: { learn: boolean }) {
+    this.pendingSnapshotNotification?.unsubscribe()
+    const startedAt = Date.now()
+    this.pendingSnapshotNotification = this.nextNotificationSnapshotUuid()
+      .pipe(takeUntil(timer(SNAPSHOT_NOTIFICATION_WAIT_MS)))
+      .subscribe((uuid) => {
+        // Waiting is only worth it if the snapshot would have come within the wait.
+        if (learn && Date.now() - startedAt <= SNAPSHOT_EVENT_WAIT_MS) {
+          this.snapshotNotificationsArrive = true
+          this.missedSnapshotWaits = 0
+        }
+        this.cameraSource.loadSnapshot(uuid).catch(() => {
+          // the event was already sent; HomeKit keeps the last snapshot
+        })
+      })
+  }
+
   private async loadSnapshotForEvent<T>(
     eventDescription: string,
     characteristicValue: T,
@@ -574,27 +619,46 @@ export class Camera extends BaseDataAccessory<RingCamera> {
     let imageUuid = this.device.latestNotificationSnapshotUuid
 
     /**
-     * Battery cameras may receive an initial notification with no image uuid,
-     * followed shortly by a second notification with the image uuid. We need to
-     * wait for the second notification before we can load the snapshot.
+     * A camera that can't take a snapshot while recording (on battery, or a few wired models)
+     * may get its first notification without an image uuid, followed shortly by a second one
+     * with it. That second notification usually only comes with Ring Protect, and Ring's data
+     * doesn't say whether a camera has it, so each camera learns it: until a snapshot has come
+     * this way, the event goes to HomeKit at once (recordings and doorbell notifications start
+     * 2 s sooner) and a snapshot that comes within 10 s is loaded for later requests (the Home
+     * app tile). Once a snapshot has come within 2 s of an event, events wait up to 2 s for one,
+     * as before, so HomeKit's notification gets it; after 3 events in a row without one, they
+     * go at once again. This is learned again after each restart.
      */
     if (!this.device.canTakeSnapshotWhileRecording && !imageUuid) {
-      await Promise.race([
-        firstValueFrom(
-          this.device.onNewNotification.pipe(
-            filter((notification) => Boolean(notification.img?.snapshot_uuid)),
-          ),
-        ),
-        // wait up to 2 seconds for the second notification
-        delay(2000),
-      ])
-      imageUuid = this.device.latestNotificationSnapshotUuid
+      if (!this.snapshotNotificationsArrive) {
+        this.loadSnapshotFromNextNotification({ learn: true })
+        logInfo(this.device.name + ' ' + eventDescription)
+        return characteristicValue
+      }
+
+      imageUuid = await firstValueFrom(
+        this.nextNotificationSnapshotUuid().pipe(takeUntil(timer(SNAPSHOT_EVENT_WAIT_MS))),
+        { defaultValue: undefined },
+      )
 
       if (!imageUuid) {
+        // A press usually runs two waits at once (the press and its motion): one miss per event.
+        const now = Date.now()
+        if (now - this.lastMissedSnapshotWaitAt > SNAPSHOT_EVENT_WAIT_MS) {
+          this.lastMissedSnapshotWaitAt = now
+          this.missedSnapshotWaits++
+          if (this.missedSnapshotWaits >= MISSED_SNAPSHOT_WAITS_BEFORE_NO_WAIT) {
+            this.snapshotNotificationsArrive = false
+          }
+        }
+        // a snapshot that still comes is loaded for later requests (the Home app tile), but
+        // doesn't count as coming in time: it's already past the event's wait
+        this.loadSnapshotFromNextNotification({ learn: false })
         // did not receive an image uuid and one can't be taken while recording. Proceed without a snapshot
         logInfo(this.device.name + ' ' + eventDescription)
         return characteristicValue
       }
+      this.missedSnapshotWaits = 0
     }
 
     logInfo(
