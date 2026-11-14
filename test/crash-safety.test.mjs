@@ -24,8 +24,9 @@ test('an error thrown in an rxjs subscriber is logged instead of stopping Homebr
     throw new Error('subscriber failed')
   })
   await settle()
-  assert.equal(errors.length, 1)
-  assert.match(String(errors[0]?.message ?? errors[0]), /subscriber failed/)
+  assert.equal(errors.length, 2)
+  assert.match(errors[0], /logged instead of stopping Homebridge/)
+  assert.match(errors[1].message, /subscriber failed/)
 })
 
 test('a packet that is not RTP on the live view audio port is dropped', async (t) => {
@@ -80,8 +81,9 @@ test('a packet that is not RTP on the live view audio port is dropped', async (t
   assert.equal(sent.length, 1, 'the RTP packet after it still goes to HomeKit')
 
   // A 1-byte packet already fails in camera-utils' RtpSplitter, before the plugin sees it: the
-  // rxjs safety net logs it instead of stopping Homebridge.
+  // rxjs safety net logs it instead of stopping Homebridge (that splitter's stream ends: the
+  // live view loses its audio, but nothing else stops).
   await sendPacket(Buffer.from([0x80]))
-  assert.equal(errors.length, 1)
-  assert.equal(errors[0]?.code, 'ERR_OUT_OF_RANGE')
+  assert.equal(errors.length, 2)
+  assert.equal(errors[1]?.code, 'ERR_OUT_OF_RANGE')
 })

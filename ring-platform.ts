@@ -75,8 +75,14 @@ import {
 import { config as rxjsConfig } from 'rxjs'
 
 // rxjs rethrows an error from a subscriber that has no error handler on a timer, where nothing
-// can catch it, and that stops Homebridge and every accessory on it. Log it instead.
-rxjsConfig.onUnhandledError = (e) => logError(e)
+// can catch it, and that stops Homebridge and every accessory on it. Log it instead. If the error
+// ended a stream (an operator such as map threw), that stream stays ended, e.g. a live view's
+// audio; a subscriber that throws keeps receiving values.
+// On the main bridge plugins can share one rxjs, so a handler another plugin set is kept.
+rxjsConfig.onUnhandledError ??= (e) => {
+  logError('Unhandled error (logged instead of stopping Homebridge):')
+  logError(e)
+}
 
 type WrappedRefreshToken = {
   rt?: string

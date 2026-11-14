@@ -232,8 +232,8 @@ class StreamingSessionWrapper {
       try {
         rtp = RtpPacket.deSerialize(message)
       } catch {
-        // Not an RTP packet (too short, or from something else on the port): an error thrown here
-        // would be unhandled and stop Homebridge, so it is dropped.
+        // Not a valid RTP packet (too short, or a bad header length): dropped, so it doesn't reach
+        // the rxjs unhandled-error path (logged per packet, or fatal if no handler is set).
         return null
       }
 
