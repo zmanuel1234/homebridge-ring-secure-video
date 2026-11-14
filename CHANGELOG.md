@@ -1,5 +1,47 @@
 # homebridge-ring-secure-video
 
+## 1.0.0-beta.7 (2026-11-14)
+
+**Changes in behaviour to check after updating:**
+
+- The flat recording settings are removed: `hksvPerformanceMode`, `cameraVideoCodec`,
+  `hksvVideoBitrateKbps`, `hksvVideoMaxBitrateKbps`, `hksvVideoBufferSizeKbps`, `hksvVideoCrf`,
+  `hksvVideoPreset`, `hksvVideoKeyframeInterval`, `hksvPrebufferLengthMs`,
+  `hksvFragmentLengthMs`, `hksvMaxRecordingSeconds`, `hksvMaxQueuedBytes` and
+  `hksvMaxConcurrentRecordings`. Recording is set up only in `media` ("Recording Settings" in
+  the plugin settings), which has each of them with the same allowed values
+  (`hksvPerformanceMode`'s `balanced`/`rpi`/`quality` become `media.profile`'s
+  `adaptive`/`lowPower`/`quality`); the README has a table of what replaces what. A removed
+  setting left in a config is ignored, with a warning at start naming it and its replacement:
+  move its value if needed, then delete it in the JSON editor. Configs last saved from the
+  settings form in beta.6 or earlier usually contain `hksvPerformanceMode` and
+  `hksvVideoKeyframeInterval` (the form filled them in), so expect those two warnings. Without `media.profile` the profile is `adaptive`, so a config that only had
+  `"hksvPerformanceMode": "rpi"` needs `"media": { "profile": "lowPower" }`.
+- The recording log line says `profile=lowPower`, `adaptive` or `quality` instead of
+  `mode=rpi`, `balanced` or `quality`.
+
+**Fixes** (from homebridge-ring 15.0.0-beta.0):
+
+- A volume, brightness, dimmer or fan-speed change that Ring rejects no longer crashes
+  Homebridge (and with it the plugin's bridge); it is logged, and the value goes back to the last
+  level Ring reported, unless a newer change was sent meanwhile (dgreif/ring#1892).
+- A Ring mode change (Home, Away, Disarmed) from HomeKit that Ring rejects no longer crashes
+  Homebridge; it is logged, and the target goes back to the mode Ring reports. A pending Home (Stay) target is no
+  longer overwritten by another mode report before Ring confirms it, and an older request
+  failing late no longer undoes a newer one (dgreif/ring#1871).
+- A Ring token without its refresh token (from a sign-in response that couldn't be read, seen
+  with unsupported Node.js versions) is no longer saved over a working one (which made every
+  later start fail until signing in again) or used for reconnecting; the working token is kept,
+  and the error is logged once per run (the plugin's side of dgreif/ring#1886).
+
+**Docs:**
+
+- The settings form calls `media` "Recording Settings", "Enable HKSV" is no longer marked
+  experimental, and the settings' descriptions carry the Raspberry Pi advice, bitrate ranges,
+  verified codecs and each profile's defaults.
+- README: a fuller disclaimer, and in "Origin and Attribution" the versions this started from
+  and where to report problems.
+
 ## 1.0.0-beta.6 (2026-11-13)
 
 **Changes in behaviour to check after updating:**
