@@ -232,7 +232,14 @@ class StreamingSessionWrapper {
     let runningTimestamp: number
 
     this.transcodedAudioSplitter.addMessageHandler(({ message }) => {
-      const rtp: RtpPacket | undefined = RtpPacket.deSerialize(message)
+      let rtp: RtpPacket
+      try {
+        rtp = RtpPacket.deSerialize(message)
+      } catch {
+        // Not a valid RTP packet (too short, or a bad header length): dropped, so it doesn't reach
+        // the rxjs unhandled-error path (logged per packet, or fatal if no handler is set).
+        return null
+      }
 
       // For some reason HAP uses RFC 3550 timestamps instead of following RTP Paylod
       // Format for Opus Speech and Audio Codec from RFC 7587 like everyone else.
