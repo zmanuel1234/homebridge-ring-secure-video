@@ -23,6 +23,8 @@ function fakeCamera({ onBattery, snapshotUuid }) {
     // nothing about Ring Protect and must not matter
     data: { subscribed: true },
   }
+  // the per-camera state the constructor would set up
+  Object.assign(camera, { snapshotNotificationsArrive: false, missedSnapshotWaits: 0, lastMissedSnapshotWaitAt: 0 })
   camera.cameraSource = {
     loadSnapshot: async (uuid) => {
       loaded.push(uuid)
@@ -80,7 +82,7 @@ test('a camera that has a snapshot loads it before the event, as before', async 
 })
 
 test('once snapshots come (Ring Protect), events wait up to 2 s for one; 3 misses end that', async (t) => {
-  t.mock.timers.enable({ apis: ['setTimeout', 'setInterval'] })
+  t.mock.timers.enable({ apis: ['setTimeout', 'setInterval', 'Date'] })
   const { camera, loaded } = fakeCamera({ onBattery: true })
   const run = (description) => {
     const result = { value: undefined }
@@ -88,10 +90,22 @@ test('once snapshots come (Ring Protect), events wait up to 2 s for one; 3 misse
     return result
   }
 
-  // first event: sent at once; a snapshot follows, so the camera learns that they come
+  // a snapshot 5 s after an event is loaded, but doesn't make the camera wait (it'd miss it)
+  const late = run('late')
+  await settle()
+  t.mock.timers.tick(5000)
+  camera.device.onNewNotification.next({ img: { snapshot_uuid: 'snap-late' } })
+  await settle()
+  assert.equal(late.value, 'late')
+  assert.deepEqual(loaded, ['snap-late'])
+  loaded.length = 0
+  t.mock.timers.tick(10000)
+
+  // first event: sent at once; a snapshot follows within 1 s, so the camera learns that they come
   const first = run('first')
   await settle()
   assert.equal(first.value, 'first')
+  t.mock.timers.tick(1000)
   camera.device.onNewNotification.next({ img: { snapshot_uuid: 'snap-1' } })
   await settle()
   assert.deepEqual(loaded, ['snap-1'])
@@ -107,15 +121,20 @@ test('once snapshots come (Ring Protect), events wait up to 2 s for one; 3 misse
   assert.deepEqual(loaded, ['snap-1', 'snap-2'])
   assert.equal(second.value, 'second')
 
-  // three waits with no snapshot: after them, events go at once again
+  // three events with no snapshot (each a press and its motion, waiting together): after them,
+  // events go at once again
   for (const name of ['miss-1', 'miss-2', 'miss-3']) {
-    const missed = run(name)
+    t.mock.timers.tick(10000)
+    const press = run(name),
+      motion = run(`${name}-motion`)
     await settle()
-    assert.equal(missed.value, undefined, `${name} waits`)
+    assert.equal(press.value, undefined, `${name} waits`)
     t.mock.timers.tick(2000)
     await settle()
-    assert.equal(missed.value, name)
+    assert.equal(press.value, name)
+    assert.equal(motion.value, `${name}-motion`)
   }
+  t.mock.timers.tick(10000)
   const after = run('after')
   await settle()
   assert.equal(after.value, 'after', 'sent at once again')

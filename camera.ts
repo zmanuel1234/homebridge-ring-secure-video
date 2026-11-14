@@ -28,6 +28,8 @@ import type { PushHealthReporter } from './push-health.ts'
 export const MOTION_WATCHDOG_MS = 30_000
 /** How long a battery camera's late snapshot is waited for, in the background, after an event. */
 export const SNAPSHOT_NOTIFICATION_WAIT_MS = 10_000
+/** How long an event waits for its snapshot on a camera whose snapshot notifications come. */
+export const SNAPSHOT_EVENT_WAIT_MS = 2000
 /** Waits for a snapshot that didn't come before a camera's events go to HomeKit at once again. */
 const MISSED_SNAPSHOT_WAITS_BEFORE_NO_WAIT = 3
 /** How often Ring's event history is checked once its push notifications are known to arrive. */
@@ -577,6 +579,7 @@ export class Camera extends BaseDataAccessory<RingCamera> {
   /** Whether this camera's events are followed by a notification with a snapshot (Ring Protect). */
   private snapshotNotificationsArrive = false
   private missedSnapshotWaits = 0
+  private lastMissedSnapshotWaitAt = 0
 
   /** The image uuid of the next notification that has one. */
   private nextNotificationSnapshotUuid() {
@@ -590,11 +593,15 @@ export class Camera extends BaseDataAccessory<RingCamera> {
   /** Loads the snapshot of the next notification that has one, if it comes within 10 s. */
   private loadSnapshotFromNextNotification() {
     this.pendingSnapshotNotification?.unsubscribe()
+    const startedAt = Date.now()
     this.pendingSnapshotNotification = this.nextNotificationSnapshotUuid()
       .pipe(takeUntil(timer(SNAPSHOT_NOTIFICATION_WAIT_MS)))
       .subscribe((uuid) => {
-        this.snapshotNotificationsArrive = true
-        this.missedSnapshotWaits = 0
+        // Waiting is only worth it if the snapshot would have come within the wait.
+        if (Date.now() - startedAt <= SNAPSHOT_EVENT_WAIT_MS) {
+          this.snapshotNotificationsArrive = true
+          this.missedSnapshotWaits = 0
+        }
         this.cameraSource.loadSnapshot(uuid).catch(() => {
           // the event was already sent; HomeKit keeps the last snapshot
         })
@@ -614,8 +621,9 @@ export class Camera extends BaseDataAccessory<RingCamera> {
      * doesn't say whether a camera has it, so each camera learns it: until a snapshot has come
      * this way, the event goes to HomeKit at once (recordings and doorbell notifications start
      * 2 s sooner) and a snapshot that comes within 10 s is loaded for later requests (the Home
-     * app tile). Once snapshots come, the event waits up to 2 s for one, as before, so HomeKit's
-     * notification gets it; after 3 waits in a row without one, events go at once again.
+     * app tile). Once a snapshot has come within 2 s of an event, events wait up to 2 s for one,
+     * as before, so HomeKit's notification gets it; after 3 events in a row without one, they
+     * go at once again. This is learned again after each restart.
      */
     if (!this.device.canTakeSnapshotWhileRecording && !imageUuid) {
       if (!this.snapshotNotificationsArrive) {
@@ -625,15 +633,22 @@ export class Camera extends BaseDataAccessory<RingCamera> {
       }
 
       imageUuid = await firstValueFrom(
-        this.nextNotificationSnapshotUuid().pipe(takeUntil(timer(2000))),
+        this.nextNotificationSnapshotUuid().pipe(takeUntil(timer(SNAPSHOT_EVENT_WAIT_MS))),
         { defaultValue: undefined },
       )
 
       if (!imageUuid) {
-        this.missedSnapshotWaits++
-        if (this.missedSnapshotWaits >= MISSED_SNAPSHOT_WAITS_BEFORE_NO_WAIT) {
-          this.snapshotNotificationsArrive = false
+        // A press usually runs two waits at once (the press and its motion): one miss per event.
+        const now = Date.now()
+        if (now - this.lastMissedSnapshotWaitAt > SNAPSHOT_EVENT_WAIT_MS) {
+          this.lastMissedSnapshotWaitAt = now
+          this.missedSnapshotWaits++
+          if (this.missedSnapshotWaits >= MISSED_SNAPSHOT_WAITS_BEFORE_NO_WAIT) {
+            this.snapshotNotificationsArrive = false
+          }
         }
+        // a snapshot that still comes is loaded for later requests (the Home app tile)
+        this.loadSnapshotFromNextNotification()
         // did not receive an image uuid and one can't be taken while recording. Proceed without a snapshot
         logInfo(this.device.name + ' ' + eventDescription)
         return characteristicValue
