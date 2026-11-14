@@ -141,6 +141,8 @@ class StreamingSessionWrapper {
   private subscriptions = new Subscription()
   private stopped = false
   private pipelineStops: Array<() => void> = []
+  /** Called once when the session stops, however it stops (HomeKit, the watchdog, Ring). */
+  onStopped?: () => void
 
   constructor(
     sourceSession: MediaIngressLease,
@@ -468,6 +470,7 @@ class StreamingSessionWrapper {
     this.transcodedAudioSplitter.close()
     this.videoSplitter.close()
     this.sourceSession.release()
+    this.onStopped?.()
   }
 }
 
@@ -902,6 +905,13 @@ export class CameraSource
         )
 
       this.sessions[request.sessionID] = session
+      // A session that stops by itself (no traffic from HomeKit for 15 s, or Ring ended the
+      // call) leaves the list too: HomeKit doesn't always send its stop request then.
+      session.onStopped = () => {
+        if (this.sessions[request.sessionID] === session) {
+          delete this.sessions[request.sessionID]
+        }
+      }
 
       logInfo(
         `Stream Prepared for ${this.ringCamera.name} (${getDurationSeconds(
@@ -943,6 +953,11 @@ export class CameraSource
       requestType = request.type
 
     if (!session) {
+      if (requestType === 'stop') {
+        // It already stopped by itself (and left the list)
+        callback()
+        return
+      }
       callback(new Error('Cannot find session for stream ' + sessionID))
       return
     }

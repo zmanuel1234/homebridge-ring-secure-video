@@ -2,6 +2,9 @@
 
 ## 1.0.4 (2026-11-14)
 
+- A live view that stops by itself (no traffic from HomeKit for 15 s, or Ring ended the call) is
+  removed from the plugin's list of live views; it stayed there until HomeKit sent a stop, which
+  it doesn't always do. A stop from HomeKit for such a live view is accepted without an error.
 - Without Ring Protect, motion and doorbell presses from a camera that can't take a snapshot
   while recording (on battery, i.e. Ring power mode not set to wired, and a few wired models)
   reach HomeKit about 2 seconds sooner, so recordings and doorbell notifications start earlier.
