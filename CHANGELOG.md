@@ -1,6 +1,6 @@
 # homebridge-ring-secure-video
 
-## Unreleased
+## 1.0.3 (2026-11-14)
 
 - README: a doorbell press during a live view (in the Home app, or opened outside the plugin
   through Ring) is now tested to start a recording with `doorbellPressMotion`.
