@@ -25,7 +25,6 @@ export type MediaIngressState =
 export interface MediaIngressLease {
   readonly session: StreamingSession
   subscribeVideo(handler: (packet: RtpPacket) => void): Subscription
-  subscribeAudio(handler: (packet: RtpPacket) => void): Subscription
   createTranscoder(options: IngressTranscoderOptions): Promise<IngressTranscoder>
   release(): void
 }
@@ -197,7 +196,6 @@ export class RingMediaIngress {
       return {
         session,
         subscribeVideo: (handler) => session.onVideoRtp.subscribe((packet) => handler(clonePacket(packet))),
-        subscribeAudio: (handler) => session.onAudioRtp.subscribe((packet) => handler(clonePacket(packet))),
         createTranscoder: (options) => this.createTranscoder(session, options),
         release: () => {
           if (released) return

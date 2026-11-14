@@ -785,7 +785,6 @@ export class CameraSource
     }
   }
 
-  fn = 1
   private async loadAndCacheSnapshot(imageUuid?: string) {
     const start = Date.now()
     logDebug(
@@ -795,8 +794,7 @@ export class CameraSource
     )
 
     try {
-      const previousSnapshot = this.cachedSnapshot,
-        newSnapshot = await this.ringCamera.getSnapshot({ uuid: imageUuid })
+      const newSnapshot = await this.ringCamera.getSnapshot({ uuid: imageUuid })
       this.cachedSnapshot = newSnapshot
       this.cachedSnapshotAt = Date.now()
 
@@ -857,7 +855,7 @@ export class CameraSource
   }
 
   async handleSnapshotRequest(
-    request: SnapshotRequest,
+    _request: SnapshotRequest,
     callback: SnapshotRequestCallback,
   ) {
     try {

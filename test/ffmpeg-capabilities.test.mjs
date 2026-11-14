@@ -31,12 +31,12 @@ test('the Pi hardware encoder only counts on Linux with an encoder device', () =
 
 test("auto picks libx264 where the hardware encoder is listed but can't work", () => {
   const config = { media: { profile: 'adaptive' } },
-    pick = (encoders) => selectHksvVideoCodec(undefined, { encoders, hwaccels: new Set() }, config)
+    pick = (encoders) => selectHksvVideoCodec(undefined, { encoders }, config)
   assert.equal(pick(getUsableEncoders(listed, 'linux', [])), 'libx264')
   assert.equal(pick(getUsableEncoders(listed, 'linux', pi4)), 'h264_v4l2m2m')
   assert.equal(pick(getUsableEncoders(listed, 'darwin', [])), 'h264_videotoolbox')
   assert.equal(
-    selectHksvVideoCodec(undefined, { encoders: new Set(['h264_v4l2m2m']), hwaccels: new Set() }, { media: { profile: 'lowPower' } }),
+    selectHksvVideoCodec(undefined, { encoders: new Set(['h264_v4l2m2m']) }, { media: { profile: 'lowPower' } }),
     'copy',
     'lowPower stays on copy',
   )
