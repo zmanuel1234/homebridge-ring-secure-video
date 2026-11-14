@@ -207,30 +207,35 @@ function updateRefreshTokenInConfig(
   newRefreshToken: string,
   clearRefreshFlags: boolean,
 ) {
+  let homebridgeConfig
   try {
-    const homebridgeConfig = JSON.parse(configContents),
-      platformConfig = homebridgeConfig.platforms?.find(
-        (platform: PlatformConfig) =>
-          (platform.platform === platformName ||
-            platform.platform === `${pluginName}.${platformName}`) &&
-          platform.refreshToken === oldRefreshToken,
-      )
-
-    if (!platformConfig) {
-      throw new Error('Ring platform config not found')
-    }
-
-    platformConfig.refreshToken = newRefreshToken
-
-    if (clearRefreshFlags) {
-      platformConfig.forceRefreshRingPushCredentials = false
-      platformConfig.forceRefreshRingApiSession = false
-    }
-
-    return `${JSON.stringify(homebridgeConfig, null, 4)}\n`
+    homebridgeConfig = JSON.parse(configContents)
   } catch {
+    // Not JSON Homebridge could read either; replace the token where it is.
     return configContents.replace(oldRefreshToken, newRefreshToken)
   }
+
+  const platformConfig = homebridgeConfig.platforms?.find(
+    (platform: PlatformConfig) =>
+      (platform.platform === platformName ||
+        platform.platform === `${pluginName}.${platformName}`) &&
+      platform.refreshToken === oldRefreshToken,
+  )
+
+  if (!platformConfig) {
+    // The token was changed in the config meanwhile, or is only in another plugin's block (a
+    // homebridge-ring set up with the same token): leave the file as it is.
+    return configContents
+  }
+
+  platformConfig.refreshToken = newRefreshToken
+
+  if (clearRefreshFlags) {
+    platformConfig.forceRefreshRingPushCredentials = false
+    platformConfig.forceRefreshRingApiSession = false
+  }
+
+  return `${JSON.stringify(homebridgeConfig, null, 4)}\n`
 }
 
 /**

@@ -94,6 +94,31 @@ test('without a forced refresh, each new token replaces the previous one', async
   })
 })
 
+test("a new token is not written into another plugin's block that has the old one", async () => {
+  // homebridge-ring set up with the same token, while this plugin's token was changed meanwhile
+  await withConfig({ platform: 'Ring Secure Video', refreshToken: 'T9' }, async (api, read) => {
+    const configPath = api.user.configPath()
+    const platforms = await read()
+    platforms.push({ platform: 'Ring', refreshToken: 'T0' })
+    await writeFile(configPath, JSON.stringify({ platforms }, null, 4))
+    const before = await readFile(configPath, 'utf8')
+
+    createRefreshTokenSaver(api, 'T0', false)({ oldRefreshToken: 'T0', newRefreshToken: 'T1' })
+    assert.equal(await readFile(configPath, 'utf8'), before, 'config.json is left as it is')
+  })
+})
+
+test('a config.json that is not JSON still gets the new token', async () => {
+  await withConfig({ platform: 'Ring Secure Video', refreshToken: 'T0' }, async (api) => {
+    const configPath = api.user.configPath()
+    await writeFile(configPath, `${await readFile(configPath, 'utf8')}\n// note`)
+    createRefreshTokenSaver(api, 'T0', false)({ oldRefreshToken: 'T0', newRefreshToken: 'T1' })
+    const saved = await readFile(configPath, 'utf8')
+    assert.match(saved, /"T1"/)
+    assert.doesNotMatch(saved, /"T0"/)
+  })
+})
+
 // ring-client-api's token: base64 JSON with the Ring refresh token in `rt`.
 const wrapped = (auth) => Buffer.from(JSON.stringify(auth)).toString('base64')
 
