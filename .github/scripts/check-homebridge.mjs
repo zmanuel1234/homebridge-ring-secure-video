@@ -30,7 +30,7 @@ if (!pkg.license) fail('package.json needs a license')
 if (!/github\.com/.test(pkg.repository?.url ?? '')) fail('repository must point at the GitHub repository')
 if (!/github\.com\/.+\/issues/.test(pkg.bugs?.url ?? '')) fail('bugs.url must point at the GitHub issues page')
 
-// Supported environments: Homebridge 2 and every Node LTS Homebridge supports (22, 24).
+// Supported environments: Homebridge 2 and every Node LTS Homebridge supports (22, 24, 26).
 // Accepts ranges written as "^22", ">=22", "^22 || ^24" and the like.
 const covers = (range, major) =>
   range.split('||').some((alt) => {
@@ -41,7 +41,7 @@ const covers = (range, major) =>
     return m[1] === '>=' ? base <= major : base === major
   })
 const nodeRange = pkg.engines?.node ?? ''
-for (const major of [22, 24]) {
+for (const major of [22, 24, 26]) {
   if (!covers(nodeRange, major)) fail(`engines.node must include Node ${major} (Homebridge's supported LTS)`)
 }
 if (!pkg.engines?.homebridge) fail('engines.homebridge is missing')

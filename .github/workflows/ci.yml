@@ -28,12 +28,12 @@ jobs:
       - run: npm pack --dry-run
       - name: Release tag check script works
         run: .github/scripts/check-release-tag.sh "v$(node -p "require('./package.json').version")"
-  # Every Node version the plugin supports (Homebridge requires its LTS versions, 22 and 24).
+  # Every Node version the plugin supports (Homebridge 2.5 supports the LTS versions 22, 24 and 26).
   node-versions:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node: [22, 24]
+        node: [22, 24, 26]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
