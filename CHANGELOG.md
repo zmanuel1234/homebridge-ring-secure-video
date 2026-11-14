@@ -1,5 +1,18 @@
 # homebridge-ring-secure-video
 
+## Unreleased
+
+**Fixes:**
+
+- With `codec` set to `auto` (the default outside `lowPower`), recordings on a PC, Docker, a NAS
+  or a Raspberry Pi 5 no longer fail by picking the Raspberry Pi 4 hardware encoder
+  (`h264_v4l2m2m`) just because FFmpeg lists it: it is picked only on Linux with a video encoder
+  device Homebridge can open, and `h264_videotoolbox` only on a Mac; otherwise `auto` picks
+  `libx264`. The check now asks the FFmpeg that records (the one bundled with the plugin, or the
+  one set with `ffmpegPath`) instead of a system `ffmpeg`, and gives up after 10 s instead of
+  holding recordings if FFmpeg hangs; a check that fails is logged and tried again 5 minutes
+  later. FFmpeg is only asked when `auto` has to choose (not with `lowPower` or a set codec).
+
 ## 1.0.0-beta.7 (2026-11-14)
 
 **Changes in behaviour to check after updating:**
