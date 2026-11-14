@@ -1,16 +1,28 @@
 import { execFile } from 'node:child_process'
+import { readdirSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { promisify } from 'node:util'
+import { defaultFfmpegPath } from '@homebridge/camera-utils'
 import { getFfmpegPath } from 'ring-client-api/ffmpeg'
 import { logDebug } from 'ring-client-api/util'
 
 const execFileAsync = promisify(execFile)
 
+/** A probe that hangs must not hold every recording (they wait for it) forever. */
+export const FFMPEG_PROBE_TIMEOUT_MS = 10_000
+
 export interface FfmpegCapabilities {
+  /** Encoders the recording FFmpeg lists that can also work on this machine. */
   encoders: Set<string>
   hwaccels: Set<string>
 }
 
 let cachedCapabilities: Promise<FfmpegCapabilities> | undefined
+
+/** The FFmpeg HKSV recordings run with: the plugin's ffmpegPath, or the bundled one. */
+export function getRecordingFfmpegPath() {
+  return getFfmpegPath() || defaultFfmpegPath
+}
 
 function parseNames(output: string) {
   return new Set(
@@ -21,18 +33,57 @@ function parseNames(output: string) {
   )
 }
 
-async function getFfmpegOutput(args: string[]) {
-  const ffmpegPath = getFfmpegPath() || 'ffmpeg'
-
+export async function getFfmpegOutput(
+  args: string[],
+  ffmpegPath = getRecordingFfmpegPath(),
+  timeout = FFMPEG_PROBE_TIMEOUT_MS,
+) {
   try {
     const { stdout, stderr } = await execFileAsync(ffmpegPath, args, {
       maxBuffer: 1024 * 1024,
+      timeout,
     })
 
     return `${stdout}\n${stderr}`
   } catch (e: any) {
     return `${e.stdout ?? ''}\n${e.stderr ?? ''}`
   }
+}
+
+/** The names of the Linux video devices (a Raspberry Pi 4's encoder is "bcm2835-codec-encode"). */
+export function getV4l2DeviceNames(sysfs = '/sys/class/video4linux') {
+  try {
+    return readdirSync(sysfs).map((device) => {
+      try {
+        return readFileSync(join(sysfs, device, 'name'), 'utf8').trim()
+      } catch {
+        return ''
+      }
+    })
+  } catch {
+    return []
+  }
+}
+
+/**
+ * FFmpeg builds list hardware encoders whether or not the hardware is there: the bundled FFmpeg
+ * and Ubuntu's list h264_v4l2m2m on any x86 machine, where encoding with it fails. So
+ * h264_v4l2m2m only counts on Linux with a V4L2 encoder device (a Raspberry Pi 4 has one, a Pi 5
+ * none), and h264_videotoolbox only on macOS.
+ */
+export function getUsableEncoders(
+  listed: Set<string>,
+  platform: string = process.platform,
+  v4l2DeviceNames: string[] = platform === 'linux' ? getV4l2DeviceNames() : [],
+) {
+  const usable = new Set(listed)
+  if (platform !== 'linux' || !v4l2DeviceNames.some((name) => /encode/i.test(name))) {
+    usable.delete('h264_v4l2m2m')
+  }
+  if (platform !== 'darwin') {
+    usable.delete('h264_videotoolbox')
+  }
+  return usable
 }
 
 async function loadCapabilities(): Promise<FfmpegCapabilities> {
@@ -42,7 +93,7 @@ async function loadCapabilities(): Promise<FfmpegCapabilities> {
   ])
 
   const capabilities = {
-    encoders: parseNames(encodersOutput),
+    encoders: getUsableEncoders(parseNames(encodersOutput)),
     hwaccels: parseNames(hwaccelsOutput),
   }
 

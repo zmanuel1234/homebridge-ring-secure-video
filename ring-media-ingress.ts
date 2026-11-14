@@ -1,10 +1,6 @@
-import {
-  defaultFfmpegPath,
-  reservePorts,
-  RtpSplitter,
-} from '@homebridge/camera-utils'
+import { reservePorts, RtpSplitter } from '@homebridge/camera-utils'
 import type { RingCamera } from 'ring-client-api'
-import { getFfmpegPath } from 'ring-client-api/ffmpeg'
+import { getRecordingFfmpegPath } from './ffmpeg-capabilities.ts'
 import type { StreamingSession } from 'ring-client-api/streaming/streaming-session'
 import { logDebug, logError, logInfo } from 'ring-client-api/util'
 import { Subscription } from 'rxjs'
@@ -358,7 +354,7 @@ export class RingMediaIngress {
       }
       releaseFfmpeg = hksvRecordingQueue.trackFfmpegProcess()
       ffmpeg = new ManagedFfmpegProcess({
-        ffmpegPath: getFfmpegPath() || defaultFfmpegPath,
+        ffmpegPath: getRecordingFfmpegPath(),
         ffmpegArgs: [
           '-hide_banner', '-protocol_whitelist', 'pipe,udp,rtp,file,crypto',
           ...(usingOpus ? ['-acodec', 'libopus'] : []),
