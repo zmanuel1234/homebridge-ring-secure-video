@@ -1,5 +1,12 @@
 # homebridge-ring-secure-video
 
+## Unreleased
+
+- Node.js 26 is supported (it became an LTS version in October 2026, and Homebridge 2.5 supports
+  it); CI tests Node 22, 24 and 26. On Node 26, npm warns that ring-client-api 14.3.0 doesn't list
+  Node 26 (`EBADENGINE`); the warning is harmless. Node 22 needs 22.12 or later, as Homebridge
+  does.
+
 ## 1.0.0 (2026-11-14)
 
 First stable release. Compared with homebridge-ring 14.3.0, it adds HomeKit Secure Video

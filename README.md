@@ -104,7 +104,7 @@ Without `media.profile`, the profile is `adaptive`, so a config that only had
 
 ## Installation
 
-Requires Node.js 22 or 24 and Homebridge 1.8 or later (tested with 2.5; 1.8 is supported but not
+Requires Node.js 22, 24 or 26 and Homebridge 1.8 or later (tested with 2.5; 1.8 is supported but not
 tested). If Homebridge is installed globally:
 
 ```bash
