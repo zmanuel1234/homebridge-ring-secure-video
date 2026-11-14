@@ -108,6 +108,8 @@ test('FFmpeg is only asked when auto has to choose', () => {
   assert.equal(hksvCodecNeedsCapabilities({}), true, 'auto in adaptive, the default')
   assert.equal(hksvCodecNeedsCapabilities({ media: { profile: 'quality' } }), true)
   assert.equal(hksvCodecNeedsCapabilities({ media: { profile: 'lowPower' } }), false)
+  assert.equal(hksvCodecNeedsCapabilities({ media: { profile: 'lowPower', recording: { codec: 'auto' } } }), false)
+  assert.equal(hksvCodecNeedsCapabilities({ media: { recording: { codec: 'h264_v4l2m2m' } } }), false)
   assert.equal(hksvCodecNeedsCapabilities({ media: { recording: { codec: 'libx264' } } }), false)
   assert.equal(hksvCodecNeedsCapabilities({ media: { recording: { codec: 'copy' } } }), false)
 })

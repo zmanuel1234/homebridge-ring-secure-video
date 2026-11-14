@@ -224,7 +224,9 @@ A hardware encoder is picked only if the FFmpeg that records has it and the comp
 hardware: `h264_v4l2m2m` needs a Linux video encoder device that Homebridge can open (the Pi 4's
 `bcm2835-codec-encode`), so a Raspberry Pi 5, a PC or a NAS gets `libx264`, as does Docker unless
 the device is passed through. The log shows the choice for each recording:
-`Starting HKSV recording pipeline ... video=<codec>`.
+`Starting HKSV recording pipeline ... video=<codec>`. If FFmpeg doesn't answer when asked which
+encoders it has, an error is logged (the first time) and `auto` records with `libx264` until FFmpeg
+is asked again, at the first recording after 5 minutes.
 
 #### Settings verified on a Raspberry Pi 4
 
