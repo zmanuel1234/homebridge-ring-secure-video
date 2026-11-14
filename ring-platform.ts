@@ -56,6 +56,7 @@ import {
 import { PanicButtons } from './panic-buttons.ts'
 import type { RefreshTokenAuth } from 'ring-client-api/rest-client'
 import { logError, logInfo, useLogger } from 'ring-client-api/util'
+import { createRingLogger } from './ring-logger.ts'
 import type { BaseAccessory } from './base-accessory.ts'
 import { FloodFreezeSensor } from './flood-freeze-sensor.ts'
 import { FreezeSensor } from './freeze-sensor.ts'
@@ -440,14 +441,7 @@ export class RingPlatform implements DynamicPlatformPlugin {
     }
 
     if (!config.disableLogs) {
-      useLogger({
-        logInfo(message) {
-          log.info(message)
-        },
-        logError(message) {
-          log.error(message)
-        },
-      })
+      useLogger(createRingLogger(log))
     }
 
     if (pushReceiverFix.result === 'failed') {

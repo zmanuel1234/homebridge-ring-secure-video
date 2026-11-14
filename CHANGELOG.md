@@ -4,6 +4,11 @@
 
 - README: a doorbell press during a live view (in the Home app, or opened outside the plugin
   through Ring) is now tested to start a recording with `doorbellPressMotion`.
+- A live view or recording no longer logs `UNKNOWN MESSAGE` and a message as errors when Ring sends
+  `camera_options` (Ring confirming a setting ring-client-api 14.3.0 sends when a video session
+  starts, harmless); it is logged at debug. Any other unknown message is still logged as an error.
+- "Pruning unused service" log lines include the service and device again (only the first words
+  were logged).
 
 ## 1.0.2 (2026-11-14)
 
