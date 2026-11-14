@@ -72,6 +72,11 @@ import {
   getMotionNotificationSensorUuid,
   setUpMotionNotificationSensor,
 } from './motion-notification-sensor.ts'
+import { config as rxjsConfig } from 'rxjs'
+
+// rxjs rethrows an error from a subscriber that has no error handler on a timer, where nothing
+// can catch it, and that stops Homebridge and every accessory on it. Log it instead.
+rxjsConfig.onUnhandledError = (e) => logError(e)
 
 type WrappedRefreshToken = {
   rt?: string

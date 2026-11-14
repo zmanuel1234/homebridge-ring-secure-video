@@ -228,7 +228,14 @@ class StreamingSessionWrapper {
     let runningTimestamp: number
 
     this.transcodedAudioSplitter.addMessageHandler(({ message }) => {
-      const rtp: RtpPacket | undefined = RtpPacket.deSerialize(message)
+      let rtp: RtpPacket
+      try {
+        rtp = RtpPacket.deSerialize(message)
+      } catch {
+        // Not an RTP packet (too short, or from something else on the port): an error thrown here
+        // would be unhandled and stop Homebridge, so it is dropped.
+        return null
+      }
 
       // For some reason HAP uses RFC 3550 timestamps instead of following RTP Paylod
       // Format for Opus Speech and Audio Codec from RFC 7587 like everyone else.
