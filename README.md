@@ -1,5 +1,5 @@
 <p align="center">
-  <img alt="Ring Secure Video" src="branding/homebridge-ring-secure-video.svg" width="150">
+  <img alt="Ring Secure Video" src="https://raw.githubusercontent.com/zmanuel1234/homebridge-ring-secure-video/main/branding/homebridge-ring-secure-video.svg" width="150">
 </p>
 
 # homebridge-ring-secure-video
