@@ -67,7 +67,7 @@ const checkedElsewhere = {
   doorbellPressMotion: 'camera.ts: unset counts as off (truthy check), like the default false',
 }
 test('every form default is checked', () => {
-  const covered = new Set(['enableHksv', 'disableHksvOnBattery', 'hksvPerformanceMode', 'hksvVideoKeyframeInterval', 'media'])
+  const covered = new Set(['enableHksv', 'disableHksvOnBattery', 'media'])
   const withDefaults = Object.entries(schema.schema.properties)
     .filter(([, spec]) => spec.default !== undefined || (spec.type === 'object' && JSON.stringify(spec).includes('"default"')))
     .map(([key]) => key)

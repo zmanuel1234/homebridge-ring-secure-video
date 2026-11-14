@@ -1,16 +1,8 @@
 import type { RingPlatformConfig } from './config.ts'
 import type { FfmpegCapabilities } from './ffmpeg-capabilities.ts'
-import {
-  getLegacyHksvPerformanceMode,
-  normalizeMediaConfig,
-  type HksvVideoCodec,
-} from './media-config.ts'
+import { normalizeMediaConfig, type HksvVideoCodec } from './media-config.ts'
 
 export type { HksvVideoCodec } from './media-config.ts'
-
-export function getHksvPerformanceMode(config: RingPlatformConfig) {
-  return getLegacyHksvPerformanceMode(config)
-}
 
 export function getHksvRecordingResolutions(config: RingPlatformConfig) {
   if (normalizeMediaConfig(config).profile === 'lowPower') {
