@@ -22,6 +22,8 @@ async function prepare(sessionID = 's1') {
   source.ringCamera = { name: 'Front Door' }
   source.sessions = {}
   source.mediaIngress = { acquire: async () => lease }
+  const forceStopped = []
+  source.controller = { forceStopStreamingSession: (id) => forceStopped.push(id) }
   const key = Buffer.alloc(16),
     salt = Buffer.alloc(14)
   await new Promise((resolve) =>
@@ -37,15 +39,22 @@ async function prepare(sessionID = 's1') {
       resolve,
     ),
   )
-  return { source, callEnded, released: () => released }
+  return { source, callEnded, released: () => released, forceStopped }
 }
 
-test('a live view that Ring ends leaves the session list without a stop from HomeKit', async () => {
-  const { source, callEnded, released } = await prepare()
+test('a live view that Ring ends leaves the session list, and HomeKit is told', async () => {
+  const { source, callEnded, released, forceStopped } = await prepare()
   assert.ok(source.sessions.s1)
   callEnded.next()
   assert.deepEqual(source.sessions, {})
   assert.equal(released(), 1)
+  assert.deepEqual(forceStopped, ['s1'])
+})
+
+test('a live view HomeKit stops is not reported back to HomeKit', async () => {
+  const { source, forceStopped } = await prepare()
+  await new Promise((resolve) => source.handleStreamRequest({ sessionID: 's1', type: 'stop' }, resolve))
+  assert.deepEqual(forceStopped, [])
 })
 
 test("HomeKit's stop after the session stopped by itself is accepted without an error", async () => {
@@ -69,11 +78,10 @@ test('a stop from HomeKit removes the session once, as before', async () => {
 })
 
 test('a stopped session does not remove a newer one with the same id', async () => {
-  const { source, callEnded } = await prepare()
+  const { source } = await prepare()
   const old = source.sessions.s1
   const newer = { stop() {} }
   source.sessions.s1 = newer
   old.stop()
-  callEnded.next()
   assert.equal(source.sessions.s1, newer)
 })

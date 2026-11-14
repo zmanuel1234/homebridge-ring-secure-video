@@ -907,11 +907,15 @@ export class CameraSource
         )
 
       this.sessions[request.sessionID] = session
-      // A session that stops by itself (no traffic from HomeKit for 15 s, or Ring ended the
-      // call) leaves the list too: HomeKit doesn't always send its stop request then.
+      // A session that stops by itself (HomeKit sent nothing for about 20 s, or Ring ended the
+      // call) leaves the list too, and HomeKit is told it ended: it doesn't always send its stop
+      // request then, and until it does, the camera counts as busy for other viewers (with HKSV
+      // on, a camera allows one live view). After HomeKit's own stop, the session is no longer
+      // HomeKit's, so telling it again does nothing.
       session.onStopped = () => {
         if (this.sessions[request.sessionID] === session) {
           delete this.sessions[request.sessionID]
+          this.controller?.forceStopStreamingSession(request.sessionID)
         }
       }
 
@@ -975,8 +979,9 @@ export class CameraSource
       } catch (e) {
         logError('Failed to activate stream')
         logError(e)
-        session.stop()
+        // out of the list first: HomeKit gets this error, so it needn't be told it ended
         delete this.sessions[sessionID]
+        session.stop()
         callback(new Error('Failed to activate stream'))
 
         return
@@ -988,8 +993,9 @@ export class CameraSource
       )
     } else if (requestType === 'stop') {
       logInfo(`Stopped Live Stream for ${this.ringCamera.name}`)
-      session.stop()
+      // out of the list first: HomeKit stopped it, so it needn't be told it ended
       delete this.sessions[sessionID]
+      session.stop()
     }
 
     callback()
