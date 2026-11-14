@@ -1,5 +1,10 @@
 # homebridge-ring-secure-video
 
+## Unreleased
+
+- README: a doorbell press during a live view (in the Home app, or opened outside the plugin
+  through Ring) is now tested to start a recording with `doorbellPressMotion`.
+
 ## 1.0.2 (2026-11-14)
 
 - The package declares that it publishes accessories over HAP (the `supports-hap` keyword), as

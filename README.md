@@ -179,8 +179,12 @@ no motion event, motion notification or HKSV recording starts during a live view
 Protect, Ring may still save the live view itself). Once the live view is closed, motion is
 reported again. Opening a live view doesn't cut off an HKSV recording that is already running
 (both share one Ring connection), but that recording still ends as usual once its motion ends.
-With `doorbellPressMotion` on, a doorbell press during a live view still starts a recording, as
-long as Ring delivers the press during the live view (not tested yet).
+With `doorbellPressMotion` on, a doorbell press during a live view still starts a recording:
+tested with a Ring Video Doorbell 3 Plus, both with a live view open in the Home app and with one
+opened outside the plugin, through Ring (a Brilliant panel's Ring integration). Ring delivered the
+press each time, and HomeKit asked for the recording 2 to 3 seconds after the press reached the
+plugin. The clip starts only once Ring's video arrives, and the plugin keeps no video from before
+an event, so the moment of the press itself isn't in the clip.
 
 With recording on, the Home app notifies about a camera's motion only after its home hub has
 analysed the clip, which can be late or never. For a notification as soon as Ring reports
