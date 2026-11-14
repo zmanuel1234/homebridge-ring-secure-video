@@ -1,5 +1,13 @@
 # homebridge-ring-secure-video
 
+## Unreleased
+
+- Motion and doorbell presses from a camera on battery (Ring power mode not set to wired) reach
+  HomeKit about 2 seconds sooner, so recordings and doorbell notifications start earlier: the
+  event is no longer held while waiting for a snapshot notification that, without Ring Protect,
+  usually doesn't come. A late snapshot is still loaded if it comes within 10 s, and nothing is
+  left waiting after that (each event used to leave a listener behind until the next snapshot).
+
 ## 1.0.3 (2026-11-14)
 
 - README: a doorbell press during a live view (in the Home app, or opened outside the plugin
