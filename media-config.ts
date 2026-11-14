@@ -179,7 +179,7 @@ function legacyInteger(
   maximum: number,
 ): number {
   // Keep the flat v14 options compatible: they were rounded and clamped at
-  // consumption time. Nested v15 values use integer() and fail fast instead.
+  // consumption time. Nested media values use integer() and fail fast instead.
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     return fallback
   }
@@ -246,7 +246,7 @@ function getProfile(
   config: RingPlatformConfig,
   modernProfile: unknown,
 ): MediaProfile {
-  // The nested v15 setting is authoritative when both forms are present.
+  // The nested media setting is authoritative when both forms are present.
   // This makes it safe for config UIs to retain legacy fields during upgrade.
   if (modernProfile !== undefined) {
     return enumValue(modernProfile, 'media.profile', ['adaptive', 'lowPower', 'quality'], 'adaptive')
@@ -257,7 +257,7 @@ function getProfile(
 }
 
 /**
- * Converts legacy flat HKSV options and v15 media options into one validated
+ * Converts legacy flat HKSV options and media options into one validated
  * configuration. New nested recording values intentionally win over legacy
  * values; legacy fields remain supported while users migrate.
  */
@@ -336,8 +336,36 @@ export function sanitizeMediaConfig(config: RingPlatformConfig): {
   return { media: normalizeMediaConfig(config), ignored }
 }
 
-/** Maps v15 profiles to the legacy names used by existing camera code. */
-export function getLegacyHksvPerformanceMode(config: RingPlatformConfig) {
-  const profile = normalizeMediaConfig(config).profile
-  return profile === 'lowPower' ? 'rpi' : profile === 'quality' ? 'quality' : 'balanced'
+/** Each deprecated flat setting and the media setting that replaces it. */
+export const legacyMediaSettings = {
+  hksvPerformanceMode: 'media.profile',
+  cameraVideoCodec: 'media.recording.codec',
+  hksvVideoBitrateKbps: 'media.recording.bitrateKbps',
+  hksvVideoMaxBitrateKbps: 'media.recording.maxBitrateKbps',
+  hksvVideoBufferSizeKbps: 'media.recording.bufferSizeKbps',
+  hksvVideoCrf: 'media.recording.crf',
+  hksvVideoPreset: 'media.recording.preset',
+  hksvVideoKeyframeInterval: 'media.recording.keyframeInterval',
+  hksvPrebufferLengthMs: 'media.recording.prebufferLengthMs',
+  hksvFragmentLengthMs: 'media.recording.fragmentLengthMs',
+  hksvMaxRecordingSeconds: 'media.recording.maxDurationSeconds',
+  hksvMaxQueuedBytes: 'media.recording.maxQueuedBytes',
+  hksvMaxConcurrentRecordings: 'media.recording.maxConcurrentRecordings',
+} as const
+
+/**
+ * Deprecated flat settings that have no effect because their media setting is also set. Meant
+ * for after sanitizeMediaConfig(config), which removes unusable media values; null counts as
+ * unset either way.
+ */
+export function getOverriddenLegacySettings(config: RingPlatformConfig) {
+  const media = config.media as Record<string, unknown> | undefined,
+    recording = media?.recording as Record<string, unknown> | undefined
+  return Object.entries(legacyMediaSettings)
+    .filter(([legacy, modern]) => {
+      if ((config as unknown as Record<string, unknown>)[legacy] == null) return false
+      const [, group, key] = modern.split('.')
+      return key === undefined ? media?.[group] != null : recording?.[key] != null
+    })
+    .map(([legacy, modern]) => ({ legacy, modern }))
 }

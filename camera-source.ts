@@ -48,11 +48,7 @@ import {
   getFfmpegCapabilities,
   type FfmpegCapabilities,
 } from './ffmpeg-capabilities.ts'
-import {
-  getHksvPerformanceMode,
-  getHksvRecordingResolutions,
-  selectHksvVideoCodec,
-} from './hksv-options.ts'
+import { getHksvRecordingResolutions, selectHksvVideoCodec } from './hksv-options.ts'
 import { hksvRecordingQueue } from './hksv-work-queue.ts'
 import {
   RingMediaIngress,
@@ -1110,7 +1106,7 @@ export class CameraSource
       throwIfClosed()
 
       logInfo(
-        `Starting HKSV recording pipeline for ${this.ringCamera.name} (streamId=${streamId}, mode=${getHksvPerformanceMode(this.config)}, video=${selectedVideoCodec})`,
+        `Starting HKSV recording pipeline for ${this.ringCamera.name} (streamId=${streamId}, profile=${normalizeMediaConfig(this.config).profile}, video=${selectedVideoCodec})`,
       )
 
       sourceSession = await this.mediaIngress.acquire(

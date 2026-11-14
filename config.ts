@@ -60,7 +60,7 @@ export interface RingPlatformConfig extends RingApiOptions {
     | 'slower'
     | 'veryslow'
   /**
-   * v15 media configuration. Values in media.recording take precedence over
+   * Media configuration. Values in media.recording take precedence over
    * profile defaults and legacy HKSV tuning fields.
    */
   media?: MediaConfigInput

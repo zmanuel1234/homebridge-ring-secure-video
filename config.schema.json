@@ -22,21 +22,21 @@
         "description": "If enabled, HomeKit will register a delayed entry event as a triggered alarm. Useful if you want to know as soon as someone opens a door with the alarm armed"
       },
       "enableHksv": {
-        "title": "Enable HKSV (Experimental)",
+        "title": "Enable HKSV",
         "type": "boolean",
         "default": true,
-        "description": "Enables HomeKit Secure Video services for supported Ring cameras. This implementation is currently in-progress."
+        "description": "Enables HomeKit Secure Video recording for supported Ring cameras."
       },
       "media": {
-        "title": "Media Engine (v15)",
+        "title": "Recording Settings (media)",
         "type": "object",
-        "description": "Adaptive media profile with optional validated recording overrides. This supersedes the legacy HKSV tuning fields.",
+        "description": "The recording profile and optional recording settings. These replace the legacy HKSV settings (in the Legacy Recording Settings section), and win when both are set.",
         "additionalProperties": false,
         "properties": {
           "profile": {
             "title": "Media profile",
             "type": "string",
-            "description": "Defaults to the HKSV Performance Mode (rpi gives lowPower, quality gives quality), otherwise adaptive.",
+            "description": "adaptive (default), lowPower or quality. Use lowPower for a Raspberry Pi and other small computers: lower recording resolutions, one recording at a time, and copy (no re-encoding) unless another codec is set. Verified on a Pi 4 with copy, h264_v4l2m2m and libx264. Without this, the legacy HKSV Performance Mode is used (rpi gives lowPower, quality gives quality).",
             "oneOf": [
               { "title": "adaptive", "enum": ["adaptive"] },
               { "title": "lowPower", "enum": ["lowPower"] },
@@ -52,28 +52,28 @@
                 "title": "Recording codec",
                 "type": "string",
                 "enum": ["auto", "copy", "libx264", "h264_v4l2m2m", "h264_videotoolbox"],
-                "description": "Preferred H.264 handling for recordings."
+                "description": "Preferred H.264 handling for recordings. auto (the default, except copy in lowPower) chooses the lowest-cost option for the profile; copy records Ring's video without re-encoding. Complete clips are verified on a Raspberry Pi 4 with a Ring Video Doorbell 3 Plus for copy, h264_v4l2m2m and libx264; if clips from another camera don't play with copy, try h264_v4l2m2m (Raspberry Pi 4; the Pi 5 has no hardware H.264 encoder) or libx264."
               },
               "bitrateKbps": {
                 "title": "Video bitrate (kbps)",
                 "type": "integer",
                 "minimum": 256,
                 "maximum": 12000,
-                "description": "Target video bitrate."
+                "description": "Target video bitrate when re-encoding (not with copy). Defaults to the profile's (1000 lowPower, 3000 adaptive, 5000 quality). Increase this first if fast motion becomes blocky or pixelated; 4000-6000 is a good starting range for wired cameras."
               },
               "maxBitrateKbps": {
                 "title": "Maximum video bitrate (kbps)",
                 "type": "integer",
                 "minimum": 256,
                 "maximum": 20000,
-                "description": "Maximum burst video bitrate when using VBR."
+                "description": "Maximum burst video bitrate when using VBR. Defaults to 2x the bitrate; 8000-12000 is a practical range for a bitrate of 4000-6000."
               },
               "bufferSizeKbps": {
                 "title": "Rate-control buffer size (kbps)",
                 "type": "integer",
                 "minimum": 256,
                 "maximum": 40000,
-                "description": "FFmpeg video rate-control buffer size."
+                "description": "FFmpeg rate-control buffer size. Defaults to 2x the maximum bitrate. Leave unset unless you are tuning bitrate stability."
               },
               "rateControl": {
                 "title": "Rate control",
@@ -87,34 +87,34 @@
                 "type": "integer",
                 "minimum": 18,
                 "maximum": 35,
-                "description": "Optional libx264 quality value for VBR recordings."
+                "description": "Optional libx264 quality value for VBR recordings (libx264 only). Lower values improve quality and use more bitrate and CPU; try 20-23."
               },
               "preset": {
                 "title": "libx264 preset",
                 "type": "string",
                 "enum": ["ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow"],
-                "description": "Optional libx264 speed/quality preset."
+                "description": "libx264 speed/quality preset (libx264 only). Defaults to ultrafast in lowPower, otherwise veryfast. Move toward fast or medium for quality, or superfast for lower CPU."
               },
               "keyframeInterval": {
                 "title": "Keyframe interval (frames)",
                 "type": "integer",
                 "minimum": 5,
                 "maximum": 240,
-                "description": "Maximum frames between keyframes."
+                "description": "Maximum frames between keyframes when re-encoding. Defaults to 30, the recommended value; shorter intervals can improve fragmenting at the cost of bitrate."
               },
               "prebufferLengthMs": {
                 "title": "Prebuffer length (ms)",
                 "type": "integer",
                 "minimum": 4000,
                 "maximum": 16000,
-                "description": "How much pre-event video HomeKit retains."
+                "description": "How much pre-event video HomeKit retains. Minimum and default 4000 ms."
               },
               "fragmentLengthMs": {
                 "title": "Fragment length (ms)",
                 "type": "integer",
                 "minimum": 1000,
                 "maximum": 8000,
-                "description": "Target fragmented MP4 duration."
+                "description": "Target fragmented MP4 duration. Defaults to 4000 ms."
               },
               "maxDurationSeconds": {
                 "title": "Maximum recording length (s)",
@@ -129,14 +129,14 @@
                 "type": "integer",
                 "minimum": 1048576,
                 "maximum": 67108864,
-                "description": "Maximum per-recording buffered data."
+                "description": "Maximum recording data queued in memory per recording before it is closed to protect Homebridge. Defaults to 6 MB in lowPower, otherwise 16 MB."
               },
               "maxConcurrentRecordings": {
                 "title": "Maximum simultaneous recordings",
                 "type": "integer",
                 "minimum": 1,
                 "maximum": 4,
-                "description": "Maximum simultaneous recording pipelines."
+                "description": "Maximum simultaneous recording pipelines. Defaults to 1 in lowPower, otherwise 2; keep 1 on a Raspberry Pi."
               }
             }
           }
@@ -177,32 +177,31 @@
         "default": true
       },
       "hksvPrebufferLengthMs": {
-        "title": "HKSV Prebuffer Length (ms)",
+        "title": "HKSV Prebuffer Length (ms) (deprecated)",
         "type": "integer",
         "minimum": 4000,
         "maximum": 16000,
-        "description": "How much pre-event video is retained for HKSV. Minimum is 4000ms."
+        "description": "Deprecated: use media.recording.prebufferLengthMs in Recording Settings instead, which wins when both are set. Still read when that one is not set."
       },
       "hksvFragmentLengthMs": {
-        "title": "HKSV Fragment Length (ms)",
+        "title": "HKSV Fragment Length (ms) (deprecated)",
         "type": "integer",
         "minimum": 1000,
         "maximum": 8000,
-        "description": "Target recording fragment duration for HKSV fragmented MP4 output."
+        "description": "Deprecated: use media.recording.fragmentLengthMs in Recording Settings instead, which wins when both are set. Still read when that one is not set."
       },
       "hksvMaxRecordingSeconds": {
-        "title": "HKSV Max Recording Seconds",
+        "title": "HKSV Max Recording Seconds (deprecated)",
         "type": "integer",
         "minimum": 0,
         "maximum": 300,
         "placeholder": 180,
-        "description": "Optional safety cap for a single HKSV recording stream duration (default 180). Set 0 to disable the cap."
+        "description": "Deprecated: use media.recording.maxDurationSeconds in Recording Settings instead, which wins when both are set. Still read when that one is not set."
       },
       "hksvPerformanceMode": {
-        "title": "HKSV Performance Mode",
+        "title": "HKSV Performance Mode (deprecated)",
         "type": "string",
-        "description": "High-level HKSV tuning profile. Use rpi for Raspberry Pi and other small computers: lower advertised recording tiers, one recording at a time, and remuxing (copy) unless a codec other than auto is set. Verified on a Pi 4 with copy, h264_v4l2m2m and libx264.",
-        "default": "balanced",
+        "description": "Deprecated: use media.profile (rpi = lowPower, balanced = adaptive, quality = quality) in Recording Settings instead, which wins when both are set. Still read when that one is not set.",
         "oneOf": [
           {
             "title": "balanced",
@@ -219,59 +218,58 @@
         ]
       },
       "hksvMaxQueuedBytes": {
-        "title": "HKSV Max Queued Bytes",
+        "title": "HKSV Max Queued Bytes (deprecated)",
         "type": "integer",
         "minimum": 1048576,
         "maximum": 67108864,
-        "description": "Maximum fragmented MP4 data queued in memory per HKSV recording stream before the stream is closed to protect Homebridge."
+        "description": "Deprecated: use media.recording.maxQueuedBytes in Recording Settings instead, which wins when both are set. Still read when that one is not set."
       },
       "hksvMaxConcurrentRecordings": {
-        "title": "HKSV Max Concurrent Recordings",
+        "title": "HKSV Max Concurrent Recordings (deprecated)",
         "type": "integer",
         "minimum": 1,
         "maximum": 4,
-        "description": "Maximum number of simultaneous HKSV recording pipelines. Raspberry Pi users should keep this at 1."
+        "description": "Deprecated: use media.recording.maxConcurrentRecordings in Recording Settings instead, which wins when both are set. Still read when that one is not set."
       },
       "hksvVideoBitrateKbps": {
-        "title": "HKSV Video Bitrate (kbps)",
+        "title": "HKSV Video Bitrate (kbps) (deprecated)",
         "type": "integer",
         "minimum": 256,
         "maximum": 12000,
-        "description": "Target video bitrate for HKSV recording transcodes. Defaults to the media profile's (1000 lowPower, 3000 adaptive, 5000 quality). Increase this first if fast motion becomes blocky or pixelated. 4000-6000 is a good starting range for wired cameras."
+        "description": "Deprecated: use media.recording.bitrateKbps in Recording Settings instead, which wins when both are set. Still read when that one is not set."
       },
       "hksvVideoMaxBitrateKbps": {
-        "title": "HKSV Max Video Bitrate (kbps)",
+        "title": "HKSV Max Video Bitrate (kbps) (deprecated)",
         "type": "integer",
         "minimum": 256,
         "maximum": 20000,
-        "description": "Maximum burst bitrate for HKSV recording transcodes. Defaults to 2x the target bitrate. A practical starting range is 8000-12000 when target bitrate is 4000-6000."
+        "description": "Deprecated: use media.recording.maxBitrateKbps in Recording Settings instead, which wins when both are set. Still read when that one is not set."
       },
       "hksvVideoBufferSizeKbps": {
-        "title": "HKSV Video Buffer Size (kbps)",
+        "title": "HKSV Video Buffer Size (kbps) (deprecated)",
         "type": "integer",
         "minimum": 256,
         "maximum": 40000,
-        "description": "FFmpeg VBV buffer size for HKSV recording transcodes. Defaults to 2x the max video bitrate. Leave unset unless you are tuning bitrate stability."
+        "description": "Deprecated: use media.recording.bufferSizeKbps in Recording Settings instead, which wins when both are set. Still read when that one is not set."
       },
       "hksvVideoCrf": {
-        "title": "HKSV x264 Quality (CRF)",
+        "title": "HKSV x264 Quality (CRF) (deprecated)",
         "type": "integer",
         "minimum": 18,
         "maximum": 35,
-        "description": "Optional libx264 quality value. Lower values improve quality and use more bitrate/CPU. Try 20-23 if you stay on libx264. Ignored when using VideoToolbox."
+        "description": "Deprecated: use media.recording.crf in Recording Settings instead, which wins when both are set. Still read when that one is not set."
       },
       "hksvVideoKeyframeInterval": {
-        "title": "HKSV Keyframe Interval",
+        "title": "HKSV Keyframe Interval (deprecated)",
         "type": "integer",
         "minimum": 5,
         "maximum": 240,
-        "default": 30,
-        "description": "Maximum number of frames between video keyframes in HKSV recordings. 30 is the recommended default. Shorter intervals can improve fragmenting at the cost of bitrate."
+        "description": "Deprecated: use media.recording.keyframeInterval in Recording Settings instead, which wins when both are set. Still read when that one is not set."
       },
       "hksvVideoPreset": {
-        "title": "HKSV x264 Preset",
+        "title": "HKSV x264 Preset (deprecated)",
         "type": "string",
-        "description": "libx264 speed/quality preset for HKSV recordings. veryfast is the recommended default. Move toward fast or medium for quality, or superfast for lower CPU. Ignored when using VideoToolbox.",
+        "description": "Deprecated: use media.recording.preset in Recording Settings instead, which wins when both are set. Still read when that one is not set.",
         "oneOf": [
           {
             "title": "ultrafast",
@@ -317,9 +315,9 @@
         "description": "Optional tag appended to Ring accessory names and HomeKit identities. Change this to expose the same Ring devices as distinct accessories in Home app for debugging or multi-home testing."
       },
       "cameraVideoCodec": {
-        "title": "Camera Video Codec",
+        "title": "Camera Video Codec (deprecated)",
         "type": "string",
-        "description": "Preferred FFmpeg H.264 handling for HKSV recordings. auto chooses the lowest-cost option for the configured performance mode; copy remuxes Ring video without re-encoding. Complete clips are verified on a Raspberry Pi 4 with a Ring Video Doorbell 3 Plus for copy, h264_v4l2m2m and libx264; if clips from another camera don't play with copy, try h264_v4l2m2m (Raspberry Pi 4; the Pi 5 has no hardware H.264 encoder) or libx264.",
+        "description": "Deprecated: use media.recording.codec in Recording Settings instead, which wins when both are set. Still read when that one is not set.",
         "oneOf": [
           {
             "title": "auto",
@@ -505,20 +503,32 @@
             "automaticSessionRefresh",
             "sessionRefreshSensor",
             "enableCameraMotionHistory",
-            "disableHksvOnBattery",
-            "hksvVideoPreset",
-            "cameraVideoCodec",
-            "hksvPrebufferLengthMs",
-            "hksvFragmentLengthMs",
-            "hksvMaxRecordingSeconds",
+            "disableHksvOnBattery"
+          ]
+        },
+        {
+          "type": "fieldset",
+          "title": "Legacy Recording Settings (deprecated)",
+          "expandable": true,
+          "expanded": false,
+          "items": [
+            {
+              "type": "help",
+              "helpvalue": "<p>These older settings still work, but Recording Settings (media) replaces them and wins when both are set. Leave them empty for new setups. To remove one, delete it in the JSON editor (Config tab) if the form can't clear it.</p>"
+            },
             "hksvPerformanceMode",
-            "hksvMaxQueuedBytes",
-            "hksvMaxConcurrentRecordings",
+            "cameraVideoCodec",
             "hksvVideoBitrateKbps",
             "hksvVideoMaxBitrateKbps",
             "hksvVideoBufferSizeKbps",
             "hksvVideoCrf",
-            "hksvVideoKeyframeInterval"
+            "hksvVideoPreset",
+            "hksvVideoKeyframeInterval",
+            "hksvPrebufferLengthMs",
+            "hksvFragmentLengthMs",
+            "hksvMaxRecordingSeconds",
+            "hksvMaxQueuedBytes",
+            "hksvMaxConcurrentRecordings"
           ]
         },
         {

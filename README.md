@@ -17,7 +17,7 @@ Everything `homebridge-ring` exposes is here too (it is not a drop-in swap, thou
 platform names differ, so its accessories are new to HomeKit and are set up again), plus:
 
 - **HomeKit Secure Video recording** for Ring cameras and doorbells, with media profiles for small
-  machines such as a Raspberry Pi (`media`, `hksvPerformanceMode`).
+  machines such as a Raspberry Pi (`media`).
 - **Instant motion notifications** with HKSV on: an optional separate motion sensor per camera
   (`cameraMotionNotificationSensor`), so the Home app notifies without waiting for clip analysis.
 - **Motion when Ring's push notifications fail**: motion from Ring's event history
@@ -50,21 +50,13 @@ Big thanks to Dusty, trinityhades and all upstream contributors. This plugin reu
 
 | Option | Purpose |
 | --- | --- |
-| `enableHksv` | Enables experimental HKSV support for eligible cameras; on by default, set `false` to turn it off |
+| `enableHksv` | Enables HKSV recording for eligible cameras; on by default, set `false` to turn it off |
+| `media` | Recording profile (`media.profile`: `adaptive`, `lowPower` or `quality`) and optional recording settings (`media.recording`); see [Media configuration](#media-configuration) and [Recording codecs](#recording-codecs) |
 | `enableCameraMotionHistory` | Allows camera motion to fall back to recent Ring event history if push notifications don't arrive. The history is checked every `cameraStatusPollingSeconds` until motion events turn out to come by push too, then every 5 minutes as a safety net (and frequently again once a push is missed, so motion can go unreported for up to 5 minutes after push stops working); disable to only trust push-triggered motion |
 | `automaticSessionRefresh` | When Ring's event history shows motion that Ring sent no push notification for (3 events over at least 30 minutes, none pushed), refreshes the Ring API session by itself, as **Force Ring API Session Refresh** does (see Troubleshooting): a child bridge restarts for it, the main bridge does it at the next Homebridge restart. Events while motion is snoozed are not counted, nor, when the camera alerts for people only, events without a person. At most once a day, and no more after 2 refreshes that brought no motion push notification. Needs `enableCameraMotionHistory`. On by default; set `false` to turn it off, for example if Ring is set to send no motion alerts in some Modes or on a schedule |
 | `sessionRefreshSensor` | Adds a "Ring Session Refreshed" contact sensor that opens after an automatic session refresh (10 s after the Home app is connected to it, within 3 minutes) and stays open for a day, also across restarts (which don't notify again). Turn on its notifications in the Home app (needs a home hub) to be told when to remove the older `homebridge-ring-secure-video` entry from Authorized Client Devices. Needs `automaticSessionRefresh`. Off by default |
 | `disableHksvOnBattery` | Disables HKSV on cameras running on battery to reduce battery/network usage; wired battery models keep it. On by default |
-| `hksvPrebufferLengthMs` | HKSV prebuffer duration (minimum 4000ms) |
-| `hksvFragmentLengthMs` | HKSV fragment duration target |
-| `hksvMaxRecordingSeconds` | Optional safety cap for a recording session (default 180 s; 0 disables) |
-| `hksvPerformanceMode` | HKSV tuning profile (`balanced`, `rpi`, or `quality`) |
-| `hksvMaxConcurrentRecordings` / `hksvMaxQueuedBytes` | HKSV safeguards for small systems under load |
-| `hksvVideoBitrateKbps` / `hksvVideoMaxBitrateKbps` / `hksvVideoBufferSizeKbps` | HKSV recording bitrate controls for improving fast-motion quality |
-| `hksvVideoCrf` / `hksvVideoPreset` | Optional libx264 quality and CPU tuning controls |
-| `hksvVideoKeyframeInterval` | HKSV recording keyframe interval |
 | `homeKitAccessoryTag` | Appends a tag to accessory names and HomeKit IDs so the same Ring device can be exposed as a distinct HomeKit accessory for debugging/testing |
-| `cameraVideoCodec` | Preferred H.264 handling (`auto`, `copy`, `h264_v4l2m2m`, `h264_videotoolbox`, or `libx264`) |
 | `hideDoorbellSwitch` / `hideCameraMotionSensor` / `hideCameraSirenSwitch` | Hides specific HomeKit-exposed services |
 | `cameraMotionNotificationSensor` | Adds a separate "<camera> Motion" sensor per camera for instant motion notifications (see below) |
 | `doorbellPressMotion` | For Ring doorbells with HKSV recording on: a press also turns on the camera's motion for 30 seconds, so HKSV records the visitor even when Ring reported no motion (during a live view, or a quick press-and-leave). One recording per visit, not two. Notifications and automations on the camera's motion sensor also see it; the separate notification sensor does not. No effect with `hideCameraMotionSensor`. Off by default |
@@ -73,15 +65,34 @@ Big thanks to Dusty, trinityhades and all upstream contributors. This plugin reu
 | `debug` | Enables additional logging |
 | `disableLogs` | Disables plugin logging |
 
-## v15 media configuration
+## Media configuration
 
-v15 uses an adaptive media engine that keeps Ring call ownership separate from
-each live-view and recording FFmpeg process. Configure `media.profile` as
-`adaptive` (default), `lowPower`, or `quality`. Advanced overrides live in
-`media.recording`; they are strictly validated and take precedence over legacy
-`hksv*` fields, which remain compatibility aliases during migration. Set
+Recording is set up in `media` ("Recording Settings" in the plugin settings). The media engine
+keeps the Ring call separate from each live-view and recording FFmpeg process. Set
+`media.profile` to `adaptive` (default), `lowPower` or `quality`. Advanced settings live in
+`media.recording`; each is validated, and an unusable value is ignored with a warning. Set
 `media.recording.maxDurationSeconds` to change its safety cap (default 180 seconds; HomeKit
 normally ends a recording itself when motion stops), or to `0` to disable it.
+
+### Legacy recording settings
+
+The flat settings from earlier versions still work but are deprecated, and appear in the
+plugin settings under "Legacy Recording Settings (deprecated)". When both are set, the `media`
+setting wins, and the log says which older setting is ignored. Unlike `media` values, an
+out-of-range legacy value is rounded and clamped rather than ignored.
+
+| Deprecated setting | Use instead |
+| --- | --- |
+| `hksvPerformanceMode` (`balanced`, `rpi`, `quality`) | `media.profile` (`adaptive`, `lowPower`, `quality`) |
+| `cameraVideoCodec` | `media.recording.codec` |
+| `hksvVideoBitrateKbps` / `hksvVideoMaxBitrateKbps` / `hksvVideoBufferSizeKbps` | `media.recording.bitrateKbps` / `maxBitrateKbps` / `bufferSizeKbps` |
+| `hksvVideoCrf` / `hksvVideoPreset` | `media.recording.crf` / `preset` |
+| `hksvVideoKeyframeInterval` | `media.recording.keyframeInterval` |
+| `hksvPrebufferLengthMs` / `hksvFragmentLengthMs` | `media.recording.prebufferLengthMs` / `fragmentLengthMs` |
+| `hksvMaxRecordingSeconds` | `media.recording.maxDurationSeconds` |
+| `hksvMaxQueuedBytes` / `hksvMaxConcurrentRecordings` | `media.recording.maxQueuedBytes` / `maxConcurrentRecordings` |
+
+`media.recording.rateControl` (`vbr` or `cbr`) has no legacy equivalent.
 
 ## Installation
 
@@ -174,7 +185,7 @@ fork).
 ### Recording codecs
 
 Only HKSV recordings are encoded; live view passes Ring's video through. `media.recording.codec`
-(or the older `cameraVideoCodec`) chooses how:
+(or the deprecated `cameraVideoCodec`) chooses how:
 
 | Codec | What it does | CPU |
 | --- | --- | --- |
@@ -197,7 +208,7 @@ ignores all of them. The Pi's hardware encoder uses `bitrateKbps` and `keyframeI
 
 | Profile (`media.profile`) | `auto` picks |
 | --- | --- |
-| `lowPower` (also `"hksvPerformanceMode": "rpi"`) | `copy` |
+| `lowPower` (also the deprecated `"hksvPerformanceMode": "rpi"`) | `copy` |
 | `adaptive` (default) or `quality` | `h264_v4l2m2m` if FFmpeg has it (Raspberry Pi 4), else `h264_videotoolbox` if FFmpeg has it (Mac), else `libx264` |
 
 "FFmpeg has it" means the encoder is built into FFmpeg, not that the hardware is there: on a
