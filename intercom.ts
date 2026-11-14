@@ -5,9 +5,9 @@ import type { RingPlatformConfig } from './config.ts'
 import type { PlatformAccessory } from 'homebridge'
 import { BaseDataAccessory } from './base-data-accessory.ts'
 import { logError, logInfo } from 'ring-client-api/util'
-import { filter, map, share, switchMap, throttleTime } from 'rxjs/operators'
-import { interval, merge, Subject } from 'rxjs'
-import { CameraSource } from './camera-source.ts'
+import { exhaustMap, filter, map, share, throttleTime } from 'rxjs/operators'
+import { EMPTY, interval, merge, Subject } from 'rxjs'
+import { CameraSource, isHksvEnabled } from './camera-source.ts'
 
 /**
  * Creates a RingCamera-compatible proxy for a Ring Intercom Video device.
@@ -96,19 +96,30 @@ function createIntercomVideoProxy(device: RingIntercom): RingCamera {
   define('preWarmCamera', () => {
     if (preWarmedCall) return
     logInfo(`${device.name}: pre-warming camera connection`)
-    preWarmedCall = realStartLiveCall()
-    // Clean up if HKSV doesn't claim it within 20 seconds
-    preWarmCleanup = setTimeout(async () => {
-      if (preWarmedCall) {
-        try {
-          const session = await preWarmedCall
-          session.stop()
-        } catch {
-          // ignore: the pre-warmed call may have already failed or ended
-        }
-        preWarmedCall = null
+    const call: Promise<any> = realStartLiveCall()
+    preWarmedCall = call
+    // Handled here, so a call that fails before anything awaits it isn't an unhandled rejection
+    // (which stops Homebridge); a recording then starts its own call instead of this failed one.
+    call.catch((e) => {
+      if (preWarmedCall !== call) return
+      logError(`${device.name}: pre-warmed camera connection failed`)
+      logError(e)
+      preWarmedCall = null
+      if (preWarmCleanup) {
+        clearTimeout(preWarmCleanup)
         preWarmCleanup = null
       }
+    })
+    // Clean up if HKSV doesn't claim it within 20 seconds. Taken out of the slot first, so a
+    // recording arriving while it still connects starts its own call rather than get this one
+    // stopped under it, and a newer pre-warm isn't cleared by this one's timer.
+    preWarmCleanup = setTimeout(() => {
+      if (preWarmedCall !== call) return
+      preWarmedCall = null
+      preWarmCleanup = null
+      call
+        .then((session) => session.stop())
+        .catch(() => undefined) // a failed call has nothing to stop
     }, 20000)
   })
 
@@ -133,6 +144,9 @@ function createIntercomVideoProxy(device: RingIntercom): RingCamera {
 
   return proxy
 }
+
+/** How often Intercom Video asks Ring for an active ding (its ding pushes don't arrive). */
+const DING_POLL_INTERVAL_MS = 5000
 
 export class Intercom extends BaseDataAccessory<RingIntercom> {
   private unlocking = false
@@ -187,34 +201,37 @@ export class Intercom extends BaseDataAccessory<RingIntercom> {
       // notifications (different category than RingIntercom.onDing expects),
       // so onDing never fires. Poll Ring's active-dings endpoint as a reliable
       // fallback — it reflects the current ring in real time (unlike the history
-      // endpoint which can lag by ~60 seconds).
+      // endpoint which can lag by ~60 seconds). Only Intercom Video needs it; a request
+      // still running when the next one is due skips that one rather than piling up.
       onDingDetected = (() => {
         let lastDingId: string | undefined
 
-        const polled = interval(3000).pipe(
-          switchMap(async () => {
-            try {
-              const active: any[] = await (device as any).restClient.request({
-                url: 'https://api.ring.com/clients_api/dings/active',
-              })
-              return Array.isArray(active) ? active : []
-            } catch {
-              return []
-            }
-          }),
-          filter((active: any[]) => {
-            const ding = active.find(
-              (d) =>
-                String(d.doorbot_id) === String(device.id) &&
-                d.kind === 'ding',
+        const polled = !isIntercomVideo
+          ? EMPTY
+          : interval(DING_POLL_INTERVAL_MS).pipe(
+              exhaustMap(async () => {
+                try {
+                  const active: any[] = await (device as any).restClient.request({
+                    url: 'https://api.ring.com/clients_api/dings/active',
+                  })
+                  return Array.isArray(active) ? active : []
+                } catch {
+                  return []
+                }
+              }),
+              filter((active: any[]) => {
+                const ding = active.find(
+                  (d) =>
+                    String(d.doorbot_id) === String(device.id) &&
+                    d.kind === 'ding',
+                )
+                if (!ding) return false
+                if (String(ding.id) === lastDingId) return false
+                lastDingId = String(ding.id)
+                return true
+              }),
+              map(() => undefined as void),
             )
-            if (!ding) return false
-            if (String(ding.id) === lastDingId) return false
-            lastDingId = String(ding.id)
-            return true
-          }),
-          map(() => undefined as void),
-        )
 
         // share() makes this hot: one polling interval, one lastDingId,
         // emission fans out to all subscribers (doorbell service + auto-open)
@@ -326,7 +343,13 @@ export class Intercom extends BaseDataAccessory<RingIntercom> {
 
     // Pre-warm the camera WebRTC connection on every ding so HKSV recording
     // gets live video instead of black frames.
-    if (intercomVideoProxy) {
+    // Only with HKSV: recordings are what it is for (a live view opened within 20 s would also
+    // use it), and without HKSV it would open a Ring live call on every ding that usually nothing
+    // claims.
+    if (
+      intercomVideoProxy &&
+      isHksvEnabled(config, intercomVideoProxy.operatingOnBattery)
+    ) {
       const proxy = intercomVideoProxy
       onDingDetected.subscribe(() => {
         ;(proxy as any).preWarmCamera?.()
