@@ -306,3 +306,22 @@ test('retry delays, permanent errors and error descriptions', async () => {
   assert.equal(describeError(Object.assign(new Error(), { response: { status: 503 } })), 'Ring returned HTTP 503')
   assert.equal(describeError('plain'), 'plain')
 })
+
+test('shutting down disconnects from Ring and shuts down the cameras', async () => {
+  const location = fakeRingLocation()
+  const { platform, calls, events } = platformWith([
+    fakeLocation('Home', async () => [contactSensor('door', 'Door', location)]),
+  ])
+  await platform.connectToApi()
+  const { CameraSource } = await import('../lib/camera-source.js')
+  const camera = new CameraSource(
+    { name: 'Front Door', id: 'cam', operatingOnBattery: false, data: { settings: {} } },
+    {},
+  )
+  let cameraShutDown = false
+  camera.mediaIngress.shutdown = () => (cameraShutDown = true)
+  assert.equal(calls.disconnects, 0)
+  events.shutdown()
+  assert.equal(calls.disconnects, 1)
+  assert.equal(cameraShutDown, true, 'cameras are shut down too')
+})

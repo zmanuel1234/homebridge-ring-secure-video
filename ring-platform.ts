@@ -41,6 +41,7 @@ import { Fan } from './fan.ts'
 import { Outlet } from './outlet.ts'
 import { Switch } from './switch.ts'
 import { Camera } from './camera.ts'
+import { shutDownCameraSources } from './camera-source.ts'
 import {
   PushHealthMonitor,
   type PushRecoveryState,
@@ -475,6 +476,12 @@ export class RingPlatform implements DynamicPlatformPlugin {
       this.shuttingDown = true
       clearTimeout(this.retryTimer)
       this.sessionRefreshSensor?.stop()
+      shutDownCameraSources()
+      try {
+        this.ringApi?.disconnect()
+      } catch (e) {
+        logError(e)
+      }
     })
 
     if (config.automaticSessionRefresh !== false) {
@@ -507,6 +514,7 @@ export class RingPlatform implements DynamicPlatformPlugin {
   private retryTimer?: ReturnType<typeof setTimeout>
   private shuttingDown = false
   private devicesSetUp = false
+  private ringApi?: RingApi
   private pushHealth?: PushHealthMonitor
   private gotNewToken = false
   private sessionRefreshSensor?: SessionRefreshSensor
@@ -698,6 +706,7 @@ export class RingPlatform implements DynamicPlatformPlugin {
       return
     }
     this.devicesSetUp = true
+    this.ringApi = ringApi
 
     const cachedAccessoryIds = Object.keys(this.homebridgeAccessories),
       platformAccessories: PlatformAccessory[] = [],
