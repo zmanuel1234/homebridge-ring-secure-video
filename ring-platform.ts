@@ -41,6 +41,7 @@ import { Fan } from './fan.ts'
 import { Outlet } from './outlet.ts'
 import { Switch } from './switch.ts'
 import { Camera } from './camera.ts'
+import { shutDownCameraSources } from './camera-source.ts'
 import {
   PushHealthMonitor,
   type PushRecoveryState,
@@ -218,30 +219,35 @@ function updateRefreshTokenInConfig(
   newRefreshToken: string,
   clearRefreshFlags: boolean,
 ) {
+  let homebridgeConfig
   try {
-    const homebridgeConfig = JSON.parse(configContents),
-      platformConfig = homebridgeConfig.platforms?.find(
-        (platform: PlatformConfig) =>
-          (platform.platform === platformName ||
-            platform.platform === `${pluginName}.${platformName}`) &&
-          platform.refreshToken === oldRefreshToken,
-      )
-
-    if (!platformConfig) {
-      throw new Error('Ring platform config not found')
-    }
-
-    platformConfig.refreshToken = newRefreshToken
-
-    if (clearRefreshFlags) {
-      platformConfig.forceRefreshRingPushCredentials = false
-      platformConfig.forceRefreshRingApiSession = false
-    }
-
-    return `${JSON.stringify(homebridgeConfig, null, 4)}\n`
+    homebridgeConfig = JSON.parse(configContents)
   } catch {
+    // Not JSON Homebridge could read either; replace the token where it is.
     return configContents.replace(oldRefreshToken, newRefreshToken)
   }
+
+  const platformConfig = homebridgeConfig.platforms?.find(
+    (platform: PlatformConfig) =>
+      (platform.platform === platformName ||
+        platform.platform === `${pluginName}.${platformName}`) &&
+      platform.refreshToken === oldRefreshToken,
+  )
+
+  if (!platformConfig) {
+    // The token was changed in the config meanwhile, or is only in another plugin's block (a
+    // homebridge-ring set up with the same token): leave the file as it is.
+    return configContents
+  }
+
+  platformConfig.refreshToken = newRefreshToken
+
+  if (clearRefreshFlags) {
+    platformConfig.forceRefreshRingPushCredentials = false
+    platformConfig.forceRefreshRingApiSession = false
+  }
+
+  return `${JSON.stringify(homebridgeConfig, null, 4)}\n`
 }
 
 /**
@@ -481,6 +487,12 @@ export class RingPlatform implements DynamicPlatformPlugin {
       this.shuttingDown = true
       clearTimeout(this.retryTimer)
       this.sessionRefreshSensor?.stop()
+      shutDownCameraSources()
+      try {
+        this.ringApi?.disconnect()
+      } catch (e) {
+        logError(e)
+      }
     })
 
     if (config.automaticSessionRefresh !== false) {
@@ -513,6 +525,7 @@ export class RingPlatform implements DynamicPlatformPlugin {
   private retryTimer?: ReturnType<typeof setTimeout>
   private shuttingDown = false
   private devicesSetUp = false
+  private ringApi?: RingApi
   private pushHealth?: PushHealthMonitor
   private gotNewToken = false
   private sessionRefreshSensor?: SessionRefreshSensor
@@ -704,6 +717,7 @@ export class RingPlatform implements DynamicPlatformPlugin {
       return
     }
     this.devicesSetUp = true
+    this.ringApi = ringApi
 
     const cachedAccessoryIds = Object.keys(this.homebridgeAccessories),
       platformAccessories: PlatformAccessory[] = [],

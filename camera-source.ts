@@ -541,6 +541,24 @@ export function isHksvEnabled(
   )
 }
 
+/** Every camera's source, so they can all be stopped when Homebridge shuts down. */
+const cameraSources = new Set<CameraSource>()
+
+/**
+ * Homebridge is shutting down: end every live view, recording and Ring call, so no FFmpeg (live
+ * view, talk-back, recording) is left running after the bridge stops.
+ */
+export function shutDownCameraSources() {
+  for (const source of cameraSources) {
+    try {
+      source.shutdown()
+    } catch (e) {
+      // One camera failing must not keep the others (or Ring's connection) open.
+      logError(e)
+    }
+  }
+}
+
 export class CameraSource
   implements CameraStreamingDelegate, CameraRecordingDelegate
 {
@@ -562,6 +580,7 @@ export class CameraSource
     this.ringCamera = ringCamera
     this.config = config
     this.mediaIngress = new RingMediaIngress(ringCamera)
+    cameraSources.add(this)
 
     const enableHksv = isHksvEnabled(config, ringCamera.operatingOnBattery)
 
@@ -1296,6 +1315,17 @@ export class CameraSource
       updateQueuedBytes?.(0)
       releaseQueueSlot?.()
     }
+  }
+
+  shutdown() {
+    for (const [sessionId, session] of Object.entries(this.sessions)) {
+      delete this.sessions[sessionId]
+      session.stop()
+    }
+    for (const streamId of [...this.activeRecordingSessions.keys()]) {
+      this.closeRecordingStream(streamId, 'Homebridge shutting down')
+    }
+    this.mediaIngress.shutdown()
   }
 
   closeRecordingStream(streamId: number, reason: any) {
