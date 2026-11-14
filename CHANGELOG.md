@@ -2,12 +2,11 @@
 
 ## 1.0.4 (2026-11-14)
 
-- A live view that stops by itself (HomeKit stopped sending for a few seconds, or for about 20 s
-  if it never sent anything, or Ring ended the call) is removed from the plugin's list of live
-  views, and HomeKit is told it ended. Until HomeKit
-  sent its own stop, which it doesn't always do, the live view stayed listed, and with HKSV on
-  (one live view per camera) other viewers could get "busy". A stop from HomeKit for such a live
-  view is accepted without an error.
+- A live view that stops by itself (HomeKit stopped sending for a few seconds, or for about 20 s if
+  it never sent anything, or Ring ended the call) is removed from the plugin's list of live views,
+  and HomeKit is told it ended. Until HomeKit sent its own stop, which it doesn't always do, the
+  live view stayed listed, and with HKSV on (one live view per camera) other viewers could get
+  "busy". A stop from HomeKit for such a live view is accepted without an error.
 - The Location Mode switch (Ring locations with Modes and no Ring Alarm) answers HomeKit's status
   reads within 2.5 s: as "No Response" if Ring hasn't reported the mode yet (slow or unreachable
   at startup), instead of leaving the read unanswered, which made Homebridge warn that the

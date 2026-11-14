@@ -147,6 +147,8 @@ class StreamingSessionWrapper {
   onStopped?: () => void
   /** While HomeKit's start request is being handled (its answer tells HomeKit of a failure). */
   activating = false
+  /** Stopped by itself (not by a request from HomeKit). */
+  endedByItself = false
 
   constructor(
     sourceSession: MediaIngressLease,
@@ -918,6 +920,7 @@ export class CameraSource
       session.onStopped = () => {
         if (this.sessions[request.sessionID] === session) {
           delete this.sessions[request.sessionID]
+          session.endedByItself = true
           if (!session.activating) {
             this.controller?.forceStopStreamingSession(request.sessionID)
           }
@@ -994,9 +997,14 @@ export class CameraSource
       } finally {
         session.activating = false
       }
-      if (this.sessions[sessionID] !== session) {
+      if (session.endedByItself) {
         // it stopped by itself while starting: the error answer tells HomeKit
         callback(new Error('Stream ended while starting'))
+        return
+      }
+      if (this.sessions[sessionID] !== session) {
+        // HomeKit stopped it while starting and has already closed its side
+        callback()
         return
       }
       logInfo(

@@ -99,3 +99,18 @@ test('a live view that stops while HomeKit starts it is answered with an error, 
   assert.deepEqual(forceStopped, [], 'the error answer tells HomeKit')
   assert.deepEqual(source.sessions, {})
 })
+
+test('a live view HomeKit stops while starting it is answered OK, so HomeKit closes it once', async () => {
+  const { source, forceStopped } = await prepare()
+  const session = source.sessions.s1
+  session.activate = async () => {
+    // HomeKit's stop arrives while the start is handled
+    await new Promise((resolve) => source.handleStreamRequest({ sessionID: 's1', type: 'stop' }, resolve))
+  }
+  const error = await new Promise((resolve) =>
+    source.handleStreamRequest({ sessionID: 's1', type: 'start' }, resolve),
+  )
+  assert.equal(error, undefined)
+  assert.deepEqual(forceStopped, [])
+  assert.deepEqual(source.sessions, {})
+})
