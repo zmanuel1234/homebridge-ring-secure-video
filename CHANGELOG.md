@@ -1,6 +1,6 @@
 # homebridge-ring-secure-video
 
-## Unreleased
+## 1.0.4 (2026-11-14)
 
 - Without Ring Protect, motion and doorbell presses from a camera that can't take a snapshot
   while recording (on battery, i.e. Ring power mode not set to wired, and a few wired models)
