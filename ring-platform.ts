@@ -272,6 +272,37 @@ function clearRefreshPending(storagePath: string, update: PushRecoveryState = {}
 }
 
 /**
+ * False for a token ring-client-api built from a Ring sign-in response without a refresh token
+ * (its `rt`). Saving one would make every later start fail with invalid_grant until signing in
+ * again, while the token it replaces may still work (dgreif/ring#1886). A token that isn't
+ * ring-client-api's JSON form (an old plain refresh token) can't be checked and counts as valid.
+ */
+export function hasRingRefreshToken(token: string) {
+  try {
+    const auth = JSON.parse(Buffer.from(token, 'base64').toString())
+    if (auth && typeof auth === 'object' && !Array.isArray(auth)) {
+      return typeof auth.rt === 'string' && auth.rt !== ''
+    }
+  } catch {
+    // Not ring-client-api's JSON form.
+  }
+  return token !== ''
+}
+
+let reportedTokenWithoutRt = false
+
+function isUsableNewToken(token: string) {
+  if (hasRingRefreshToken(token)) return true
+  if (!reportedTokenWithoutRt) {
+    reportedTokenWithoutRt = true
+    logError(
+      'Could not read a refresh token in Ring\'s sign-in response (this can happen with an unsupported Node.js version); the previous Ring token is kept (in config.json and for reconnecting). If this repeats, check the Node.js version and update the plugin, then sign in again in the plugin settings if needed.',
+    )
+  }
+  return false
+}
+
+/**
  * Saves each new Ring refresh token into config.json, replacing the token that is there now.
  *
  * The token in config.json is tracked here rather than taken from ring-client-api's
@@ -299,7 +330,7 @@ export function createRefreshTokenSaver(
     newRefreshToken: string
   }) => {
     const replace = current ?? oldRefreshToken
-    if (!replace || newRefreshToken === replace) {
+    if (!replace || newRefreshToken === replace || !isUsableNewToken(newRefreshToken)) {
       return
     }
 
@@ -630,6 +661,8 @@ export class RingPlatform implements DynamicPlatformPlugin {
     // A retry must sign in with the newest token (Ring may have replaced the old one) and must
     // not force a new identity or push registration again.
     ringApi.onRefreshTokenUpdated.subscribe(({ newRefreshToken }) => {
+      // A broken token is not kept for reconnecting either (see hasRingRefreshToken).
+      if (!isUsableNewToken(newRefreshToken)) return
       config.refreshToken = newRefreshToken
       config.forceRefreshRingPushCredentials = false
       config.forceRefreshRingApiSession = false

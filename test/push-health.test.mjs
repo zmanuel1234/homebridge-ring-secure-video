@@ -534,3 +534,15 @@ test('session refresh sensor: no needless updates, an already subscribed hub, an
   t.mock.timers.tick(minutes(5))
   assert.deepEqual(waiting.changes, [])
 })
+
+test('a token without a Ring refresh token is not used for reconnecting either', async (t) => {
+  const good = Buffer.from(JSON.stringify({ rt: 'r0' })).toString('base64'),
+    broken = Buffer.from(JSON.stringify({ hid: 'h' })).toString('base64')
+  const { created, platform: p, config } = platform(t, { config: { refreshToken: good }, savedToken: good })
+
+  await p.connectToApi()
+  created[0].onRefreshTokenUpdated.next({ oldRefreshToken: good, newRefreshToken: broken })
+  assert.equal(config.refreshToken, good)
+  await p.connectToApi()
+  assert.equal(created[1].options.refreshToken, good, 'a retry signs in with the working token')
+})

@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
-import { createRefreshTokenSaver } from '../lib/ring-platform.js'
+import { createRefreshTokenSaver, hasRingRefreshToken } from '../lib/ring-platform.js'
 
 async function withConfig(platform, run) {
   const dir = await mkdtemp(join(tmpdir(), 'ring-token-'))
@@ -92,4 +92,31 @@ test('without a forced refresh, each new token replaces the previous one', async
     assert.equal(ring.refreshToken, 'T2')
     assert.equal(ring.forceRefreshRingPushCredentials, undefined, 'no flags are added')
   })
+})
+
+// ring-client-api's token: base64 JSON with the Ring refresh token in `rt`.
+const wrapped = (auth) => Buffer.from(JSON.stringify(auth)).toString('base64')
+
+test('a token without a Ring refresh token is never saved over a working one', async () => {
+  const good = wrapped({ rt: 'r0', hid: 'h' }),
+    broken = wrapped({ hid: 'h' }), // what an undecodable sign-in response turns into
+    renewed = wrapped({ rt: 'r1', hid: 'h' })
+  await withConfig({ platform: 'Ring Secure Video', refreshToken: good }, async (api, read) => {
+    const save = createRefreshTokenSaver(api, good, false)
+    save({ oldRefreshToken: good, newRefreshToken: broken })
+    assert.equal((await read())[1].refreshToken, good, 'the working token stays')
+
+    save({ oldRefreshToken: good, newRefreshToken: renewed })
+    assert.equal((await read())[1].refreshToken, renewed, 'a good token still replaces it')
+  })
+})
+
+test('which tokens count as having a Ring refresh token', () => {
+  assert.equal(hasRingRefreshToken(wrapped({ rt: 'r', hid: 'h', pnc: {} })), true)
+  assert.equal(hasRingRefreshToken(wrapped({ hid: 'h' })), false)
+  assert.equal(hasRingRefreshToken(wrapped({ hid: 'h', pnc: {} })), false, 'as the push credentials setter then sends')
+  assert.equal(hasRingRefreshToken(wrapped({ rt: '', hid: 'h' })), false)
+  assert.equal(hasRingRefreshToken(wrapped({ rt: 42 })), false)
+  assert.equal(hasRingRefreshToken('eyJhbGciOiJIUzI1NiJ9.plain-ring-refresh-token'), true, 'an old plain token')
+  assert.equal(hasRingRefreshToken(''), false)
 })
