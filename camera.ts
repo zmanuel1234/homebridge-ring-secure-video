@@ -590,15 +590,19 @@ export class Camera extends BaseDataAccessory<RingCamera> {
     )
   }
 
-  /** Loads the snapshot of the next notification that has one, if it comes within 10 s. */
-  private loadSnapshotFromNextNotification() {
+  /**
+   * Loads the snapshot of the next notification that has one, if it comes within 10 s. With
+   * learn, called as the event happens, a snapshot within the event wait teaches the camera
+   * that its events are worth waiting for.
+   */
+  private loadSnapshotFromNextNotification({ learn }: { learn: boolean }) {
     this.pendingSnapshotNotification?.unsubscribe()
     const startedAt = Date.now()
     this.pendingSnapshotNotification = this.nextNotificationSnapshotUuid()
       .pipe(takeUntil(timer(SNAPSHOT_NOTIFICATION_WAIT_MS)))
       .subscribe((uuid) => {
         // Waiting is only worth it if the snapshot would have come within the wait.
-        if (Date.now() - startedAt <= SNAPSHOT_EVENT_WAIT_MS) {
+        if (learn && Date.now() - startedAt <= SNAPSHOT_EVENT_WAIT_MS) {
           this.snapshotNotificationsArrive = true
           this.missedSnapshotWaits = 0
         }
@@ -627,7 +631,7 @@ export class Camera extends BaseDataAccessory<RingCamera> {
      */
     if (!this.device.canTakeSnapshotWhileRecording && !imageUuid) {
       if (!this.snapshotNotificationsArrive) {
-        this.loadSnapshotFromNextNotification()
+        this.loadSnapshotFromNextNotification({ learn: true })
         logInfo(this.device.name + ' ' + eventDescription)
         return characteristicValue
       }
@@ -647,8 +651,9 @@ export class Camera extends BaseDataAccessory<RingCamera> {
             this.snapshotNotificationsArrive = false
           }
         }
-        // a snapshot that still comes is loaded for later requests (the Home app tile)
-        this.loadSnapshotFromNextNotification()
+        // a snapshot that still comes is loaded for later requests (the Home app tile), but
+        // doesn't count as coming in time: it's already past the event's wait
+        this.loadSnapshotFromNextNotification({ learn: false })
         // did not receive an image uuid and one can't be taken while recording. Proceed without a snapshot
         logInfo(this.device.name + ' ' + eventDescription)
         return characteristicValue

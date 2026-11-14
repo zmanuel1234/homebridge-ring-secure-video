@@ -162,3 +162,28 @@ test('a snapshot by uuid that comes while another load runs is loaded after it',
   finish['snap-late']()
   await byUuid
 })
+
+test('a camera whose snapshots come 3 s after its events stops waiting after 3 of them', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'setInterval', 'Date'] })
+  const { camera } = fakeCamera({ onBattery: true })
+  Object.assign(camera, { snapshotNotificationsArrive: true }) // learned earlier
+  const values = []
+  for (let i = 1; i <= 4; i++) {
+    t.mock.timers.tick(20000)
+    camera.loadSnapshotForEvent(`event-${i}`, i).then((v) => values.push(v))
+    await settle()
+    t.mock.timers.tick(2000) // the wait misses
+    await settle()
+    t.mock.timers.tick(1000) // the snapshot comes 3 s after the event
+    camera.device.onNewNotification.next({ img: { snapshot_uuid: `snap-${i}` } })
+    await settle()
+  }
+  assert.equal(camera.snapshotNotificationsArrive, false, 'stopped waiting')
+  // the 4th event already went at once
+  t.mock.timers.tick(20000)
+  let value
+  camera.loadSnapshotForEvent('event-5', 5).then((v) => (value = v))
+  await settle()
+  assert.equal(value, 5)
+  camera.pendingSnapshotNotification?.unsubscribe()
+})
