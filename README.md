@@ -1,5 +1,5 @@
 <p align="center">
-  <img alt="Homebridge x Ring" src="branding/Homebridge_x_Ring.svg" width="500px">
+  <img alt="Ring Secure Video" src="branding/homebridge-ring-secure-video.svg" width="150">
 </p>
 
 # homebridge-ring-secure-video
@@ -13,8 +13,7 @@ It is meant to replace `homebridge-ring` on its own: one plugin, one Ring sign-i
 
 ## What it adds to homebridge-ring
 
-Everything `homebridge-ring` exposes is here too (it is not a drop-in swap, though: the plugin and
-platform names differ, so its accessories are new to HomeKit and are set up again), plus:
+Everything `homebridge-ring` exposes is here too, with the same settings, plus:
 
 - **HomeKit Secure Video recording** for Ring cameras and doorbells, with media profiles for small
   machines such as a Raspberry Pi (`media`).
@@ -105,8 +104,8 @@ Without `media.profile`, the profile is `adaptive`, so a config that only had
 
 ## Installation
 
-Requires Node.js 22 or 24 and Homebridge 1.8 or later (2.x recommended). If Homebridge is installed
-globally:
+Requires Node.js 22 or 24 and Homebridge 1.8 or later (tested with 2.5; 1.8 is supported but not
+tested). If Homebridge is installed globally:
 
 ```bash
 npm i -g homebridge-ring-secure-video
@@ -161,11 +160,15 @@ Changing `homeKitAccessoryTag` updates both the exposed accessory name and the g
 
 ## HKSV Status
 
-HKSV support is experimental and actively evolving. Behavior may vary by camera model, wired vs battery power, Ring API changes, and FFmpeg environment.
+Behavior may vary by camera model, wired vs battery power, Ring API changes, and FFmpeg
+environment.
 
-Verified so far: complete HomeKit clips from a Ring Video Doorbell 3 Plus on a Raspberry Pi 4
-(Node 22, Homebridge 2) with each of `copy`, `h264_v4l2m2m` and `libx264` (see below). The HKSV fork this continues reported 3 cameras on an M4 Mac mini.
-Please report your experience and setup details to help improve support.
+Tested: complete HomeKit clips from a Ring Video Doorbell 3 Plus on a Raspberry Pi 4 (Node 22,
+Homebridge 2.5) with each of `copy`, `h264_v4l2m2m` and `libx264` (see below). The HKSV fork this
+continues reported 3 cameras on an M4 Mac mini. Not tested here: other Ring cameras, battery
+cameras, Ring Intercom Video, `h264_videotoolbox` and Homebridge 1.8. Please
+[report](https://github.com/zmanuel1234/homebridge-ring-secure-video/issues) how it works with
+your setup.
 
 Recordings follow the frame rate and audio format HomeKit asks for, and include audio only when
 **Record Audio** is on in the camera's settings in the Home app.
@@ -250,9 +253,6 @@ For a Raspberry Pi, start with:
   }
 }
 ```
-
-### Minimum specifications for HKSV: 
-[TBD - will be added as more users test and report their setups]
 
 ## Troubleshooting
 
