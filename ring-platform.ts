@@ -66,7 +66,7 @@ import { UnknownZWaveSwitchSwitch } from './unknown-zwave-switch.ts'
 import { generateMacAddress } from './util.ts'
 import { Intercom } from './intercom.ts'
 import { Valve } from './valve.ts'
-import { getOverriddenLegacySettings, sanitizeMediaConfig } from './media-config.ts'
+import { getRemovedSettings, sanitizeMediaConfig } from './media-config.ts'
 import { configureHksvResourceGovernor } from './hksv-work-queue.ts'
 import {
   getMotionNotificationSensorUuid,
@@ -419,12 +419,12 @@ export class RingPlatform implements DynamicPlatformPlugin {
     const { media, ignored } = sanitizeMediaConfig(config)
     for (const setting of ignored) {
       this.log.warn(
-        `Ignoring the media setting ${setting.path} (expected ${setting.expectation}); the older setting or the default is used instead. Correct it in the plugin settings.`,
+        `Ignoring the media setting ${setting.path} (expected ${setting.expectation}); the default is used instead. Correct it in the plugin settings.`,
       )
     }
-    for (const { legacy, modern } of getOverriddenLegacySettings(config)) {
-      this.log.info(
-        `The deprecated setting ${legacy} is ignored because ${modern} is set; it can be removed from the config (in the JSON editor if the settings form can't clear it).`,
+    for (const { removed, replacement } of getRemovedSettings(config)) {
+      this.log.warn(
+        `The setting ${removed} was removed in 1.0.0 and is ignored: move its value to ${replacement} (Recording Settings) if it isn't set there yet, then delete ${removed} in the JSON editor (Config tab).`,
       )
     }
     configureHksvResourceGovernor({

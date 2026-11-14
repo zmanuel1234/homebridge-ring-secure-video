@@ -74,14 +74,16 @@ keeps the Ring call separate from each live-view and recording FFmpeg process. S
 `media.recording.maxDurationSeconds` to change its safety cap (default 180 seconds; HomeKit
 normally ends a recording itself when motion stops), or to `0` to disable it.
 
-### Legacy recording settings
+### Settings removed in 1.0.0
 
-The flat settings from earlier versions still work but are deprecated, and appear in the
-plugin settings under "Legacy Recording Settings (deprecated)". When both are set, the `media`
-setting wins, and the log says which older setting is ignored. Unlike `media` values, an
-out-of-range legacy value is rounded and clamped rather than ignored.
+The flat recording settings from earlier versions were removed in 1.0.0; `media` replaces each
+of them, with the same allowed values (except `hksvPerformanceMode`, whose values are renamed as
+shown). A removed setting left in a config is ignored, and the log says which one and what
+replaces it: move its value there if it isn't set there yet, then delete it in the JSON editor.
+Without `media.profile`, the profile is `adaptive`, so a config that only had
+`"hksvPerformanceMode": "rpi"` needs `"media": { "profile": "lowPower" }`.
 
-| Deprecated setting | Use instead |
+| Removed setting | Use instead |
 | --- | --- |
 | `hksvPerformanceMode` (`balanced`, `rpi`, `quality`) | `media.profile` (`adaptive`, `lowPower`, `quality`) |
 | `cameraVideoCodec` | `media.recording.codec` |
@@ -92,7 +94,7 @@ out-of-range legacy value is rounded and clamped rather than ignored.
 | `hksvMaxRecordingSeconds` | `media.recording.maxDurationSeconds` |
 | `hksvMaxQueuedBytes` / `hksvMaxConcurrentRecordings` | `media.recording.maxQueuedBytes` / `maxConcurrentRecordings` |
 
-`media.recording.rateControl` (`vbr` or `cbr`) has no legacy equivalent.
+`media.recording.rateControl` (`vbr` or `cbr`) had no flat setting.
 
 ## Installation
 
@@ -185,7 +187,7 @@ fork).
 ### Recording codecs
 
 Only HKSV recordings are encoded; live view passes Ring's video through. `media.recording.codec`
-(or the deprecated `cameraVideoCodec`) chooses how:
+chooses how:
 
 | Codec | What it does | CPU |
 | --- | --- | --- |
@@ -208,14 +210,13 @@ ignores all of them. The Pi's hardware encoder uses `bitrateKbps` and `keyframeI
 
 | Profile (`media.profile`) | `auto` picks |
 | --- | --- |
-| `lowPower` (also the deprecated `"hksvPerformanceMode": "rpi"`) | `copy` |
+| `lowPower` | `copy` |
 | `adaptive` (default) or `quality` | `h264_v4l2m2m` if FFmpeg has it (Raspberry Pi 4), else `h264_videotoolbox` if FFmpeg has it (Mac), else `libx264` |
 
 "FFmpeg has it" means the encoder is built into FFmpeg, not that the hardware is there: on a
 Raspberry Pi 5 (no hardware encoder), set `codec` to `copy` or `libx264` rather than relying on
-`auto` in the `adaptive` and `quality` profiles. A valid legacy `cameraVideoCodec` in the config
-counts as the codec when `media.recording.codec` isn't set. The log shows the choice for each recording: `Starting HKSV recording pipeline ...
-video=<codec>`.
+`auto` in the `adaptive` and `quality` profiles. The log shows the choice for each recording:
+`Starting HKSV recording pipeline ... video=<codec>`.
 
 #### Settings verified on a Raspberry Pi 4
 

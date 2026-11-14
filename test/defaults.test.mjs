@@ -22,11 +22,10 @@ function withFormDefaults(config, properties = schema.schema.properties) {
 
 const configs = [
   {},
-  { hksvPerformanceMode: 'rpi' },
-  { hksvPerformanceMode: 'quality' },
-  { hksvPerformanceMode: 'rpi', hksvVideoBitrateKbps: 800 },
   { media: { profile: 'lowPower' } },
-  { hksvPerformanceMode: 'rpi', media: { recording: { rateControl: 'cbr' } } },
+  { media: { profile: 'quality' } },
+  { media: { profile: 'lowPower', recording: { bitrateKbps: 800 } } },
+  { media: { profile: 'lowPower', recording: { rateControl: 'cbr' } } },
 ]
 
 test('saving the settings form does not change the media settings in effect', () => {

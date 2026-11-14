@@ -172,120 +172,41 @@ function integer(
   return value
 }
 
-function legacyInteger(
+function optionalInteger(
   value: unknown,
-  fallback: number,
-  minimum: number,
-  maximum: number,
-): number {
-  // Keep the flat v14 options compatible: they were rounded and clamped at
-  // consumption time. Nested media values use integer() and fail fast instead.
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
-    return fallback
-  }
-
-  return Math.min(Math.max(Math.round(value), minimum), maximum)
-}
-
-function preferInteger(
-  modern: unknown,
-  legacy: unknown,
-  path: string,
-  fallback: number,
-  minimum: number,
-  maximum: number,
-  legacyMinimum = minimum,
-) {
-  return modern === undefined
-    ? legacyInteger(legacy, fallback, legacyMinimum, maximum)
-    : integer(modern, path, fallback, minimum, maximum)
-}
-
-function preferOptionalInteger(
-  modern: unknown,
-  legacy: unknown,
   path: string,
   minimum: number,
   maximum: number,
-  legacyMinimum = minimum,
 ): number | undefined {
-  if (modern !== undefined) {
-    return integer(modern, path, minimum, minimum, maximum)
-  }
-
-  if (typeof legacy !== 'number' || !Number.isFinite(legacy)) {
-    return undefined
-  }
-
-  return Math.min(Math.max(Math.round(legacy), legacyMinimum), maximum)
+  return value === undefined ? undefined : integer(value, path, minimum, minimum, maximum)
 }
 
-function legacyEnum<T extends string>(
-  value: unknown,
-  values: readonly T[],
-  fallback: T,
-) {
-  return typeof value === 'string' && values.includes(value as T)
-    ? value as T
-    : fallback
-}
-
-function preferEnum<T extends string>(
-  modern: unknown,
-  legacy: unknown,
-  path: string,
-  values: readonly T[],
-  fallback: T,
-) {
-  return modern === undefined
-    ? legacyEnum(legacy, values, fallback)
-    : enumValue(modern, path, values, fallback)
-}
-
-function getProfile(
-  config: RingPlatformConfig,
-  modernProfile: unknown,
-): MediaProfile {
-  // The nested media setting is authoritative when both forms are present.
-  // This makes it safe for config UIs to retain legacy fields during upgrade.
-  if (modernProfile !== undefined) {
-    return enumValue(modernProfile, 'media.profile', ['adaptive', 'lowPower', 'quality'], 'adaptive')
-  }
-  return config.hksvPerformanceMode === 'rpi'
-    ? 'lowPower'
-    : config.hksvPerformanceMode === 'quality' ? 'quality' : 'adaptive'
-}
-
-/**
- * Converts legacy flat HKSV options and media options into one validated
- * configuration. New nested recording values intentionally win over legacy
- * values; legacy fields remain supported while users migrate.
- */
+/** Converts the media options into one validated configuration, with each profile's defaults. */
 export function normalizeMediaConfig(config: RingPlatformConfig): NormalizedMediaConfig {
   const media = getMediaInput(config)
-  const profile = getProfile(config, media.profile)
+  const profile = enumValue(media.profile, 'media.profile', ['adaptive', 'lowPower', 'quality'], 'adaptive')
   const input = media.recording
   const lowPower = profile === 'lowPower'
-  const bitrateKbps = preferInteger(input.bitrateKbps, config.hksvVideoBitrateKbps, 'media.recording.bitrateKbps', lowPower ? 1000 : profile === 'quality' ? 5000 : 3000, 256, 12000)
-  const maxBitrateKbps = preferInteger(input.maxBitrateKbps, config.hksvVideoMaxBitrateKbps, 'media.recording.maxBitrateKbps', Math.min(bitrateKbps * 2, 20000), bitrateKbps, 20000)
-  const bufferSizeKbps = preferInteger(input.bufferSizeKbps, config.hksvVideoBufferSizeKbps, 'media.recording.bufferSizeKbps', Math.min(maxBitrateKbps * 2, 40000), maxBitrateKbps, 40000)
+  const bitrateKbps = integer(input.bitrateKbps, 'media.recording.bitrateKbps', lowPower ? 1000 : profile === 'quality' ? 5000 : 3000, 256, 12000)
+  const maxBitrateKbps = integer(input.maxBitrateKbps, 'media.recording.maxBitrateKbps', Math.min(bitrateKbps * 2, 20000), bitrateKbps, 20000)
+  const bufferSizeKbps = integer(input.bufferSizeKbps, 'media.recording.bufferSizeKbps', Math.min(maxBitrateKbps * 2, 40000), maxBitrateKbps, 40000)
 
   return {
     profile,
     recording: {
-      codec: preferEnum(input.codec, config.cameraVideoCodec, 'media.recording.codec', codecs, lowPower ? 'copy' : 'auto'),
+      codec: enumValue(input.codec, 'media.recording.codec', codecs, lowPower ? 'copy' : 'auto'),
       bitrateKbps,
       maxBitrateKbps,
       bufferSizeKbps,
       rateControl: enumValue(input.rateControl, 'media.recording.rateControl', ['cbr', 'vbr'], 'vbr'),
-      crf: preferOptionalInteger(input.crf, config.hksvVideoCrf, 'media.recording.crf', 18, 35),
-      preset: preferEnum(input.preset, config.hksvVideoPreset, 'media.recording.preset', presets, lowPower ? 'ultrafast' : 'veryfast'),
-      keyframeInterval: preferInteger(input.keyframeInterval, config.hksvVideoKeyframeInterval, 'media.recording.keyframeInterval', 30, 5, 240),
-      prebufferLengthMs: preferInteger(input.prebufferLengthMs, config.hksvPrebufferLengthMs, 'media.recording.prebufferLengthMs', 4000, 4000, 16000),
-      fragmentLengthMs: preferInteger(input.fragmentLengthMs, config.hksvFragmentLengthMs, 'media.recording.fragmentLengthMs', 4000, 1000, 8000),
-      maxDurationSeconds: preferOptionalInteger(input.maxDurationSeconds, config.hksvMaxRecordingSeconds, 'media.recording.maxDurationSeconds', 0, 300, 0),
-      maxQueuedBytes: preferInteger(input.maxQueuedBytes, config.hksvMaxQueuedBytes, 'media.recording.maxQueuedBytes', lowPower ? 6 * 1024 * 1024 : 16 * 1024 * 1024, 1024 * 1024, 64 * 1024 * 1024),
-      maxConcurrentRecordings: preferInteger(input.maxConcurrentRecordings, config.hksvMaxConcurrentRecordings, 'media.recording.maxConcurrentRecordings', lowPower ? 1 : 2, 1, 4),
+      crf: optionalInteger(input.crf, 'media.recording.crf', 18, 35),
+      preset: enumValue(input.preset, 'media.recording.preset', presets, lowPower ? 'ultrafast' : 'veryfast'),
+      keyframeInterval: integer(input.keyframeInterval, 'media.recording.keyframeInterval', 30, 5, 240),
+      prebufferLengthMs: integer(input.prebufferLengthMs, 'media.recording.prebufferLengthMs', 4000, 4000, 16000),
+      fragmentLengthMs: integer(input.fragmentLengthMs, 'media.recording.fragmentLengthMs', 4000, 1000, 8000),
+      maxDurationSeconds: optionalInteger(input.maxDurationSeconds, 'media.recording.maxDurationSeconds', 0, 300),
+      maxQueuedBytes: integer(input.maxQueuedBytes, 'media.recording.maxQueuedBytes', lowPower ? 6 * 1024 * 1024 : 16 * 1024 * 1024, 1024 * 1024, 64 * 1024 * 1024),
+      maxConcurrentRecordings: integer(input.maxConcurrentRecordings, 'media.recording.maxConcurrentRecordings', lowPower ? 1 : 2, 1, 4),
     },
   }
 }
@@ -312,7 +233,7 @@ function removeSetting(config: Record<string, unknown>, path: string) {
 /**
  * Like normalizeMediaConfig, but never throws: each media setting that can't be used is taken out
  * of config (in memory only, so every later normalizeMediaConfig call agrees) and reported, and the
- * older flat setting or the default is used instead. A bad value, for example a maximum bitrate below the bitrate, would
+ * default is used instead. A bad value, for example a maximum bitrate below the bitrate, would
  * otherwise stop the plugin from starting and take everything on its bridge down with it.
  */
 export function sanitizeMediaConfig(config: RingPlatformConfig): {
@@ -336,8 +257,8 @@ export function sanitizeMediaConfig(config: RingPlatformConfig): {
   return { media: normalizeMediaConfig(config), ignored }
 }
 
-/** Each deprecated flat setting and the media setting that replaces it. */
-export const legacyMediaSettings = {
+/** Each flat recording setting removed in 1.0.0 and the media setting that replaced it. */
+export const removedMediaSettings = {
   hksvPerformanceMode: 'media.profile',
   cameraVideoCodec: 'media.recording.codec',
   hksvVideoBitrateKbps: 'media.recording.bitrateKbps',
@@ -353,19 +274,9 @@ export const legacyMediaSettings = {
   hksvMaxConcurrentRecordings: 'media.recording.maxConcurrentRecordings',
 } as const
 
-/**
- * Deprecated flat settings that have no effect because their media setting is also set. Meant
- * for after sanitizeMediaConfig(config), which removes unusable media values; null counts as
- * unset either way.
- */
-export function getOverriddenLegacySettings(config: RingPlatformConfig) {
-  const media = config.media as Record<string, unknown> | undefined,
-    recording = media?.recording as Record<string, unknown> | undefined
-  return Object.entries(legacyMediaSettings)
-    .filter(([legacy, modern]) => {
-      if ((config as unknown as Record<string, unknown>)[legacy] == null) return false
-      const [, group, key] = modern.split('.')
-      return key === undefined ? media?.[group] != null : recording?.[key] != null
-    })
-    .map(([legacy, modern]) => ({ legacy, modern }))
+/** Removed settings still in a config (they are ignored), with what replaced each. */
+export function getRemovedSettings(config: RingPlatformConfig) {
+  return Object.entries(removedMediaSettings)
+    .filter(([removed]) => (config as unknown as Record<string, unknown>)[removed] != null)
+    .map(([removed, replacement]) => ({ removed, replacement }))
 }

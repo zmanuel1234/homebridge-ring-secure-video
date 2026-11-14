@@ -81,12 +81,12 @@ test('a setting name with a dot in it is ignored on its own', () => {
 test('with very many unusable settings, all media settings are ignored with one last warning', () => {
   const media = { profile: 'quality' }
   for (let i = 0; i < 70; i++) media[`bad${i}`] = i
-  const config = { media, hksvPerformanceMode: 'rpi' }
+  const config = { media }
   const { media: normalized, ignored } = sanitizeMediaConfig(config)
   assert.equal(ignored.length, 65)
   assert.equal(ignored.at(-1).path, 'media')
   assert.equal(config.media, undefined)
-  assert.equal(normalized.profile, 'lowPower')
+  assert.equal(normalized.profile, 'adaptive')
 })
 
 test('defaults derived from a high bitrate stay within their limits', () => {
@@ -98,10 +98,10 @@ test('defaults derived from a high bitrate stay within their limits', () => {
 
 test('a media block that is not an object is ignored as a whole', () => {
   for (const media of ['fast', [], 3, { recording: 'x' }, { profile: 'turbo' }]) {
-    const config = { media, hksvPerformanceMode: 'rpi' }
+    const config = { media }
     const { media: normalized, ignored } = sanitizeMediaConfig(config)
     assert.equal(ignored.length, 1, JSON.stringify(media))
-    assert.equal(normalized.profile, 'lowPower', 'falls back to the older setting')
+    assert.equal(normalized.profile, 'adaptive', 'falls back to the default')
   }
 })
 

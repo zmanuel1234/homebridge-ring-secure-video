@@ -30,13 +30,13 @@
       "media": {
         "title": "Recording Settings (media)",
         "type": "object",
-        "description": "The recording profile and optional recording settings. These replace the legacy HKSV settings (in the Legacy Recording Settings section), and win when both are set.",
+        "description": "The recording profile and optional recording settings.",
         "additionalProperties": false,
         "properties": {
           "profile": {
             "title": "Media profile",
             "type": "string",
-            "description": "adaptive (default), lowPower or quality. Use lowPower for a Raspberry Pi and other small computers: lower recording resolutions, one recording at a time, and copy (no re-encoding) unless another codec is set. Verified on a Pi 4 with copy, h264_v4l2m2m and libx264. Without this, the legacy HKSV Performance Mode is used (rpi gives lowPower, quality gives quality).",
+            "description": "adaptive (default), lowPower or quality. Use lowPower for a Raspberry Pi and other small computers: lower recording resolutions, one recording at a time, and copy (no re-encoding) unless another codec is set. Verified on a Pi 4 with copy, h264_v4l2m2m and libx264.",
             "oneOf": [
               { "title": "adaptive", "enum": ["adaptive"] },
               { "title": "lowPower", "enum": ["lowPower"] },
@@ -176,170 +176,10 @@
         "description": "If enabled, HKSV is disabled on cameras running on battery, to reduce battery and network impact. Battery models that are wired (power mode wired in the Ring app) keep HKSV.",
         "default": true
       },
-      "hksvPrebufferLengthMs": {
-        "title": "HKSV Prebuffer Length (ms) (deprecated)",
-        "type": "integer",
-        "minimum": 4000,
-        "maximum": 16000,
-        "description": "Deprecated: use media.recording.prebufferLengthMs in Recording Settings instead, which wins when both are set. Still read when that one is not set."
-      },
-      "hksvFragmentLengthMs": {
-        "title": "HKSV Fragment Length (ms) (deprecated)",
-        "type": "integer",
-        "minimum": 1000,
-        "maximum": 8000,
-        "description": "Deprecated: use media.recording.fragmentLengthMs in Recording Settings instead, which wins when both are set. Still read when that one is not set."
-      },
-      "hksvMaxRecordingSeconds": {
-        "title": "HKSV Max Recording Seconds (deprecated)",
-        "type": "integer",
-        "minimum": 0,
-        "maximum": 300,
-        "placeholder": 180,
-        "description": "Deprecated: use media.recording.maxDurationSeconds in Recording Settings instead, which wins when both are set. Still read when that one is not set."
-      },
-      "hksvPerformanceMode": {
-        "title": "HKSV Performance Mode (deprecated)",
-        "type": "string",
-        "description": "Deprecated: use media.profile (rpi = lowPower, balanced = adaptive, quality = quality) in Recording Settings instead, which wins when both are set. Still read when that one is not set.",
-        "oneOf": [
-          {
-            "title": "balanced",
-            "enum": ["balanced"]
-          },
-          {
-            "title": "rpi",
-            "enum": ["rpi"]
-          },
-          {
-            "title": "quality",
-            "enum": ["quality"]
-          }
-        ]
-      },
-      "hksvMaxQueuedBytes": {
-        "title": "HKSV Max Queued Bytes (deprecated)",
-        "type": "integer",
-        "minimum": 1048576,
-        "maximum": 67108864,
-        "description": "Deprecated: use media.recording.maxQueuedBytes in Recording Settings instead, which wins when both are set. Still read when that one is not set."
-      },
-      "hksvMaxConcurrentRecordings": {
-        "title": "HKSV Max Concurrent Recordings (deprecated)",
-        "type": "integer",
-        "minimum": 1,
-        "maximum": 4,
-        "description": "Deprecated: use media.recording.maxConcurrentRecordings in Recording Settings instead, which wins when both are set. Still read when that one is not set."
-      },
-      "hksvVideoBitrateKbps": {
-        "title": "HKSV Video Bitrate (kbps) (deprecated)",
-        "type": "integer",
-        "minimum": 256,
-        "maximum": 12000,
-        "description": "Deprecated: use media.recording.bitrateKbps in Recording Settings instead, which wins when both are set. Still read when that one is not set."
-      },
-      "hksvVideoMaxBitrateKbps": {
-        "title": "HKSV Max Video Bitrate (kbps) (deprecated)",
-        "type": "integer",
-        "minimum": 256,
-        "maximum": 20000,
-        "description": "Deprecated: use media.recording.maxBitrateKbps in Recording Settings instead, which wins when both are set. Still read when that one is not set."
-      },
-      "hksvVideoBufferSizeKbps": {
-        "title": "HKSV Video Buffer Size (kbps) (deprecated)",
-        "type": "integer",
-        "minimum": 256,
-        "maximum": 40000,
-        "description": "Deprecated: use media.recording.bufferSizeKbps in Recording Settings instead, which wins when both are set. Still read when that one is not set."
-      },
-      "hksvVideoCrf": {
-        "title": "HKSV x264 Quality (CRF) (deprecated)",
-        "type": "integer",
-        "minimum": 18,
-        "maximum": 35,
-        "description": "Deprecated: use media.recording.crf in Recording Settings instead, which wins when both are set. Still read when that one is not set."
-      },
-      "hksvVideoKeyframeInterval": {
-        "title": "HKSV Keyframe Interval (deprecated)",
-        "type": "integer",
-        "minimum": 5,
-        "maximum": 240,
-        "description": "Deprecated: use media.recording.keyframeInterval in Recording Settings instead, which wins when both are set. Still read when that one is not set."
-      },
-      "hksvVideoPreset": {
-        "title": "HKSV x264 Preset (deprecated)",
-        "type": "string",
-        "description": "Deprecated: use media.recording.preset in Recording Settings instead, which wins when both are set. Still read when that one is not set.",
-        "oneOf": [
-          {
-            "title": "ultrafast",
-            "enum": ["ultrafast"]
-          },
-          {
-            "title": "superfast",
-            "enum": ["superfast"]
-          },
-          {
-            "title": "veryfast",
-            "enum": ["veryfast"]
-          },
-          {
-            "title": "faster",
-            "enum": ["faster"]
-          },
-          {
-            "title": "fast",
-            "enum": ["fast"]
-          },
-          {
-            "title": "medium",
-            "enum": ["medium"]
-          },
-          {
-            "title": "slow",
-            "enum": ["slow"]
-          },
-          {
-            "title": "slower",
-            "enum": ["slower"]
-          },
-          {
-            "title": "veryslow",
-            "enum": ["veryslow"]
-          }
-        ]
-      },
       "homeKitAccessoryTag": {
         "title": "HomeKit Accessory Tag",
         "type": "string",
         "description": "Optional tag appended to Ring accessory names and HomeKit identities. Change this to expose the same Ring devices as distinct accessories in Home app for debugging or multi-home testing."
-      },
-      "cameraVideoCodec": {
-        "title": "Camera Video Codec (deprecated)",
-        "type": "string",
-        "description": "Deprecated: use media.recording.codec in Recording Settings instead, which wins when both are set. Still read when that one is not set.",
-        "oneOf": [
-          {
-            "title": "auto",
-            "enum": ["auto"]
-          },
-          {
-            "title": "copy",
-            "enum": ["copy"]
-          },
-          {
-            "title": "h264_v4l2m2m",
-            "enum": ["h264_v4l2m2m"]
-          },
-          {
-            "title": "h264_videotoolbox",
-            "enum": ["h264_videotoolbox"]
-          },
-          {
-            "title": "libx264",
-            "enum": ["libx264"]
-          }
-        ]
       },
       "hideLightGroups": {
         "title": "Hide Light Groups",
@@ -504,31 +344,6 @@
             "sessionRefreshSensor",
             "enableCameraMotionHistory",
             "disableHksvOnBattery"
-          ]
-        },
-        {
-          "type": "fieldset",
-          "title": "Legacy Recording Settings (deprecated)",
-          "expandable": true,
-          "expanded": false,
-          "items": [
-            {
-              "type": "help",
-              "helpvalue": "<p>These older settings still work, but Recording Settings (media) replaces them and wins when both are set. Leave them empty for new setups. To remove one, delete it in the JSON editor (Config tab) if the form can't clear it.</p>"
-            },
-            "hksvPerformanceMode",
-            "cameraVideoCodec",
-            "hksvVideoBitrateKbps",
-            "hksvVideoMaxBitrateKbps",
-            "hksvVideoBufferSizeKbps",
-            "hksvVideoCrf",
-            "hksvVideoPreset",
-            "hksvVideoKeyframeInterval",
-            "hksvPrebufferLengthMs",
-            "hksvFragmentLengthMs",
-            "hksvMaxRecordingSeconds",
-            "hksvMaxQueuedBytes",
-            "hksvMaxConcurrentRecordings"
           ]
         },
         {
