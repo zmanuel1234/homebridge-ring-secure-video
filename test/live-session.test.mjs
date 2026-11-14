@@ -85,3 +85,17 @@ test('a stopped session does not remove a newer one with the same id', async () 
   old.stop()
   assert.equal(source.sessions.s1, newer)
 })
+
+test('a live view that stops while HomeKit starts it is answered with an error, not told twice', async () => {
+  const { source, callEnded, forceStopped } = await prepare()
+  const session = source.sessions.s1
+  session.activate = async () => {
+    callEnded.next() // Ring ends the call while the start request is handled
+  }
+  const error = await new Promise((resolve) =>
+    source.handleStreamRequest({ sessionID: 's1', type: 'start' }, resolve),
+  )
+  assert.match(String(error), /ended while starting/)
+  assert.deepEqual(forceStopped, [], 'the error answer tells HomeKit')
+  assert.deepEqual(source.sessions, {})
+})

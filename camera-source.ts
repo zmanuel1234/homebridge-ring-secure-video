@@ -145,6 +145,8 @@ class StreamingSessionWrapper {
   private pipelineStops: Array<() => void> = []
   /** Called once when the session stops, however it stops (HomeKit, the watchdog, Ring). */
   onStopped?: () => void
+  /** While HomeKit's start request is being handled (its answer tells HomeKit of a failure). */
+  activating = false
 
   constructor(
     sourceSession: MediaIngressLease,
@@ -907,15 +909,18 @@ export class CameraSource
         )
 
       this.sessions[request.sessionID] = session
-      // A session that stops by itself (HomeKit sent nothing for about 20 s, or Ring ended the
-      // call) leaves the list too, and HomeKit is told it ended: it doesn't always send its stop
-      // request then, and until it does, the camera counts as busy for other viewers (with HKSV
-      // on, a camera allows one live view). After HomeKit's own stop, the session is no longer
-      // HomeKit's, so telling it again does nothing.
+      // A session that stops by itself (HomeKit stopped sending, or Ring ended the call) leaves
+      // the list too, and HomeKit is told it ended: it doesn't always send its stop request
+      // then, and until it does, the camera counts as busy for other viewers (with HKSV on, a
+      // camera allows one live view). Stops HomeKit asked for take it out of the list first.
+      // During a start request, the error answer tells HomeKit instead (telling it twice could
+      // close another viewer's newly set up session).
       session.onStopped = () => {
         if (this.sessions[request.sessionID] === session) {
           delete this.sessions[request.sessionID]
-          this.controller?.forceStopStreamingSession(request.sessionID)
+          if (!session.activating) {
+            this.controller?.forceStopStreamingSession(request.sessionID)
+          }
         }
       }
 
@@ -975,6 +980,7 @@ export class CameraSource
         )}s)`,
       )
       try {
+        session.activating = true
         await session.activate(request)
       } catch (e) {
         logError('Failed to activate stream')
@@ -984,6 +990,13 @@ export class CameraSource
         session.stop()
         callback(new Error('Failed to activate stream'))
 
+        return
+      } finally {
+        session.activating = false
+      }
+      if (this.sessions[sessionID] !== session) {
+        // it stopped by itself while starting: the error answer tells HomeKit
+        callback(new Error('Stream ended while starting'))
         return
       }
       logInfo(
