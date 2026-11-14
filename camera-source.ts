@@ -655,9 +655,9 @@ export class CameraSource
   private getHksvVideoArguments(capabilities?: FfmpegCapabilities) {
     const media = normalizeMediaConfig(this.config),
       {
-        codec: cameraVideoCodec,
-        crf: hksvVideoCrf,
-        preset: hksvVideoPreset,
+        codec,
+        crf,
+        preset,
         bitrateKbps,
         maxBitrateKbps,
         bufferSizeKbps,
@@ -665,7 +665,7 @@ export class CameraSource
         keyframeInterval,
       } = media.recording,
       selectedCodec = selectHksvVideoCodec(
-        cameraVideoCodec,
+        codec,
         capabilities,
         this.config,
       ),
@@ -711,7 +711,7 @@ export class CameraSource
     if (selectedCodec === 'libx264') {
       videoArguments.push(
         '-preset',
-        hksvVideoPreset,
+        preset,
         '-tune',
         'zerolatency',
         '-keyint_min',
@@ -720,10 +720,10 @@ export class CameraSource
         '0',
       )
 
-      if (rateControl !== 'cbr' && Number.isFinite(hksvVideoCrf)) {
+      if (rateControl !== 'cbr' && Number.isFinite(crf)) {
         videoArguments.push(
           '-crf',
-          `${getIntegerConfigValue(hksvVideoCrf, 23, 18, 35)}`,
+          `${getIntegerConfigValue(crf, 23, 18, 35)}`,
         )
       }
     }

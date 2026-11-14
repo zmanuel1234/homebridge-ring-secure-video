@@ -20,10 +20,7 @@ import type { Stats } from 'fs'
 import type { API } from 'homebridge'
 import { createHash, randomBytes } from 'crypto'
 import { basename, dirname, join } from 'path'
-import type {
-  HksvVideoCodec,
-  MediaConfigInput,
-} from './media-config.ts'
+import type { MediaConfigInput } from './media-config.ts'
 
 const systemIdFileName = '.ring.json'
 export const controlCenterDisplayName = 'homebridge-ring-secure-video'
@@ -38,34 +35,12 @@ export interface RingPlatformConfig extends RingApiOptions {
   doorbellPressMotion?: boolean
   enableCameraMotionHistory?: boolean
   disableHksvOnBattery?: boolean
-  hksvPrebufferLengthMs?: number
-  hksvFragmentLengthMs?: number
-  hksvMaxRecordingSeconds?: number
-  hksvVideoBitrateKbps?: number
-  hksvVideoMaxBitrateKbps?: number
-  hksvVideoBufferSizeKbps?: number
-  hksvVideoCrf?: number
-  hksvVideoKeyframeInterval?: number
-  hksvPerformanceMode?: 'quality' | 'balanced' | 'rpi'
-  hksvMaxQueuedBytes?: number
-  hksvMaxConcurrentRecordings?: number
-  hksvVideoPreset?:
-    | 'ultrafast'
-    | 'superfast'
-    | 'veryfast'
-    | 'faster'
-    | 'fast'
-    | 'medium'
-    | 'slow'
-    | 'slower'
-    | 'veryslow'
   /**
-   * Media configuration. Values in media.recording take precedence over
-   * profile defaults and legacy HKSV tuning fields.
+   * Media configuration: the recording profile, and recording settings that take precedence
+   * over the profile's defaults.
    */
   media?: MediaConfigInput
   homeKitAccessoryTag?: string
-  cameraVideoCodec?: HksvVideoCodec
   beamDurationSeconds?: number
   ffmpegPath?: string
   hideLightGroups?: boolean

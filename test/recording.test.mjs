@@ -113,22 +113,26 @@ function startManagedNodeChild({ ignoreTerm, stopGraceMs }) {
   return { ffmpeg, ready, exit }
 }
 
-test('normalizes v15 media settings while preserving legacy HKSV semantics', () => {
+test('normalizes media settings, ignoring the removed flat settings', () => {
   const lowPower = normalizeMediaConfig({
-    hksvPerformanceMode: 'rpi',
-    hksvMaxRecordingSeconds: 0,
+    media: { profile: 'lowPower', recording: { maxDurationSeconds: 0 } },
   })
 
   assert.equal(lowPower.profile, 'lowPower')
   assert.equal(lowPower.recording.maxQueuedBytes, 6 * 1024 * 1024)
   assert.equal(lowPower.recording.maxDurationSeconds, 0)
-  assert.equal(
-    normalizeMediaConfig({
-      hksvPerformanceMode: 'rpi',
-      media: { profile: 'quality', recording: { bitrateKbps: 5000 } },
-    }).profile,
-    'quality',
-  )
+  const removedOnly = normalizeMediaConfig({
+    hksvPerformanceMode: 'rpi',
+    cameraVideoCodec: 'libx264',
+    hksvVideoBitrateKbps: 800,
+    hksvVideoKeyframeInterval: 112,
+    hksvMaxRecordingSeconds: 0,
+  })
+  assert.equal(removedOnly.profile, 'adaptive')
+  assert.equal(removedOnly.recording.codec, 'auto')
+  assert.equal(removedOnly.recording.bitrateKbps, 3000)
+  assert.equal(removedOnly.recording.keyframeInterval, 30)
+  assert.equal(removedOnly.recording.maxDurationSeconds, undefined)
   assert.throws(
     () => normalizeMediaConfig({ media: { recording: { unexpected: true } } }),
     /supported recording setting/,
@@ -561,8 +565,7 @@ test('caps recordings at 180 seconds unless configured otherwise', () => {
   assert.equal(getMaxRecordingSeconds({}), 180)
   assert.equal(getMaxRecordingSeconds({ media: { recording: { maxDurationSeconds: 90 } } }), 90)
   assert.equal(getMaxRecordingSeconds({ media: { recording: { maxDurationSeconds: 0 } } }), 0, '0 disables the cap')
-  assert.equal(getMaxRecordingSeconds({ hksvMaxRecordingSeconds: 90 }), 90, 'legacy setting')
-  assert.equal(getMaxRecordingSeconds({ hksvMaxRecordingSeconds: 0 }), 0, 'legacy 0 disables the cap')
+  assert.equal(getMaxRecordingSeconds({ hksvMaxRecordingSeconds: 90 }), 180, 'removed setting')
 })
 
 test('marks the last fragment of a recording as the end of the stream', async () => {
