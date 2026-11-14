@@ -35,6 +35,7 @@ export interface RingPlatformConfig extends RingApiOptions {
   forceRefreshRingApiSession?: boolean
   automaticSessionRefresh?: boolean
   sessionRefreshSensor?: boolean
+  doorbellPressMotion?: boolean
   enableCameraMotionHistory?: boolean
   disableHksvOnBattery?: boolean
   hksvPrebufferLengthMs?: number
