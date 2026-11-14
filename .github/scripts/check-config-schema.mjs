@@ -85,8 +85,20 @@ function layoutKeys(items, out = []) {
   }
   return out
 }
-for (const key of layoutKeys(file.layout)) {
+const keysInLayout = layoutKeys(file.layout)
+for (const key of keysInLayout) {
   if (!propertyAt(key)) fail(`the form layout refers to "${key}", which config.schema.json doesn't define`)
+}
+
+// 3b. Every setting is in the form layout ("name" is filled in by Homebridge): one left out
+//     can't be set in the settings form at all, only in the JSON editor.
+if (Array.isArray(file.layout)) {
+  const topLevelInLayout = new Set(keysInLayout.map((key) => key.split(/[.[]/)[0]))
+  for (const key of Object.keys(schema?.properties ?? {})) {
+    if (key !== 'name' && !topLevelInLayout.has(key)) {
+      fail(`"${key}" is not in the form layout, so the settings form doesn't show it`)
+    }
+  }
 }
 
 // 4. JSON examples in the README parse and are valid settings. Examples may show only some

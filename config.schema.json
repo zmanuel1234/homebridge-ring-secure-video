@@ -5,7 +5,7 @@
   "customUi": true,
   "customUiPath": "./lib/homebridge-ui",
   "customUiDevServer": "http://localhost:3000/api/plugins/settings-ui/homebridge-ring-secure-video",
-  "headerDisplay": "See [the wiki](https://github.com/dgreif/ring/wiki/Refresh-Tokens) for details on generating a refresh token",
+  "headerDisplay": "Sign in to Ring here to get a refresh token (\"Generate New Refresh Token\" signs in again or changes accounts). See the [README](https://github.com/zmanuel1234/homebridge-ring-secure-video#readme) for each setting.",
   "accountLinkingHeader": "Please supply your Ring credentials.  These will be used to contact the Ring servers and generate a unique access token for your account.  Your email and password will be sent directly to Ring and will not be stored anywhere.",
   "schema": {
     "type": "object",
@@ -107,7 +107,7 @@
                 "type": "integer",
                 "minimum": 4000,
                 "maximum": 16000,
-                "description": "How much pre-event video HomeKit retains. Minimum and default 4000 ms."
+                "description": "The pre-event length the plugin tells HomeKit it supports, 4000-16000 ms (default 4000). It doesn't add video from before the motion: the plugin keeps no video buffer and starts Ring's video when a recording begins, so leave this at the default."
               },
               "fragmentLengthMs": {
                 "title": "Fragment length (ms)",
@@ -193,11 +193,13 @@
       },
       "hideCameraLight": {
         "title": "Hide Camera Light",
-        "type": "boolean"
+        "type": "boolean",
+        "description": "Hides the light switch of cameras with a light (Floodlight Cam, Spotlight Cam)."
       },
       "hideCameraMotionSensor": {
         "title": "Hide Camera Motion Sensors",
-        "type": "boolean"
+        "type": "boolean",
+        "description": "Hides each camera's motion sensor. HomeKit Secure Video records when that sensor reports motion, so hiding it also stops recordings (and makes Doorbell Press Starts a Recording do nothing)."
       },
       "cameraMotionNotificationSensor": {
         "title": "Separate Motion Sensor for Notifications",
@@ -212,16 +214,18 @@
       },
       "hideCameraSirenSwitch": {
         "title": "Hide Camera Siren Switch",
-        "type": "boolean"
+        "type": "boolean",
+        "description": "Hides the siren switch of cameras with a siren."
       },
       "hideInHomeDoorbellSwitch": {
         "title": "Hide In-Home Doorbell Switch",
-        "type": "boolean"
+        "type": "boolean",
+        "description": "Hides the switch that turns the in-home (mechanical or digital) chime of a wired Ring doorbell on or off."
       },
       "hideAlarmSirenSwitch": {
         "title": "Hide Alarm Siren Switch",
         "type": "boolean",
-        "description": "Hides switch that allows you to turn on the siren of the Ring Alarm.  Enable this is your Siri commands keep setting off the siren and you don't care about having the switch"
+        "description": "Hides switch that allows you to turn on the siren of the Ring Alarm.  Enable this if your Siri commands keep setting off the siren and you don't care about having the switch"
       },
       "externalCameraIdSalt": {
         "title": "External Camera ID Salt",
@@ -231,7 +235,7 @@
       "showPanicButtons": {
         "title": "Show Panic Buttons",
         "type": "boolean",
-        "description": "Creates a new `Panic Buttons` device in HomeKit with `Burglar Alarm` and `Fire Alarm` switches.  **Use these at your own risk.  I do not guarantee functionality in case of emergency, nor do I take responsibility for any false alarms**.  These function just like the SOS sliders in the Ring app."
+        "description": "Creates a new `Panic Buttons` device in HomeKit with `Burglar Alarm` and `Fire Alarm` switches.  **Use these at your own risk: they are not guaranteed to work in an emergency, and no responsibility is taken for false alarms.**  These function just like the SOS sliders in the Ring app."
       },
       "ffmpegPath": {
         "title": "Custom FFmpeg Path",
@@ -256,7 +260,7 @@
       "avoidSnapshotBatteryDrain": {
         "title": "Avoid Snapshot Battery Drain",
         "type": "boolean",
-        "description": "Causes snapshots for battery cameras to be fetched at a minimum 10 minute interval to avoid draining the battery.  This is useful if have the Home app open constantly, causing frequent snapshot requests."
+        "description": "Causes snapshots for battery cameras to be fetched at a minimum 10 minute interval to avoid draining the battery.  This is useful if you have the Home app open constantly, causing frequent snapshot requests."
       },
       "beamDurationSeconds": {
         "title": "Ring Smart Lighting Timer",
@@ -273,7 +277,7 @@
       "disableLogs": {
         "title": "Disable All Logging",
         "type": "boolean",
-        "description": "Disables all logs generated by the Ring plugin"
+        "description": "Disables all logs generated by this plugin"
       },
       "cameraStatusPollingSeconds": {
         "title": "Camera/Chime Status Polling",
@@ -327,7 +331,7 @@
     },
     {
       "type": "fieldset",
-      "title": "Optional Configurations:",
+      "title": "Optional Settings",
       "expandable": false,
       "items": [
         {
@@ -335,15 +339,42 @@
           "title": "HomeKit Secure Video",
           "expandable": true,
           "items": [
-            "alarmOnEntryDelay",
             "enableHksv",
-            "media",
-            "forceRefreshRingPushCredentials",
-            "forceRefreshRingApiSession",
+            "disableHksvOnBattery",
+            "media"
+          ]
+        },
+        {
+          "type": "fieldset",
+          "title": "Motion and Doorbell",
+          "expandable": true,
+          "items": [
+            "cameraMotionNotificationSensor",
+            "doorbellPressMotion",
+            "enableCameraMotionHistory"
+          ]
+        },
+        {
+          "type": "fieldset",
+          "title": "Ring Session",
+          "expandable": true,
+          "items": [
             "automaticSessionRefresh",
             "sessionRefreshSensor",
-            "enableCameraMotionHistory",
-            "disableHksvOnBattery"
+            "forceRefreshRingPushCredentials",
+            "forceRefreshRingApiSession"
+          ]
+        },
+        {
+          "type": "fieldset",
+          "title": "Alarm and Location Mode",
+          "expandable": true,
+          "items": [
+            "alarmOnEntryDelay",
+            "nightModeBypassFor",
+            "hideAlarmSirenSwitch",
+            "showPanicButtons",
+            "locationModePollingSeconds"
           ]
         },
         {
@@ -351,17 +382,20 @@
           "title": "Accessory Visibility",
           "expandable": true,
           "items": [
-            "homeKitAccessoryTag",
             "hideLightGroups",
             "hideDoorbellSwitch",
             "hideCameraLight",
             "hideCameraMotionSensor",
-            "cameraMotionNotificationSensor",
-            "doorbellPressMotion",
             "hideCameraSirenSwitch",
-            "hideInHomeDoorbellSwitch",
-            "hideAlarmSirenSwitch",
-            "showPanicButtons",
+            "hideInHomeDoorbellSwitch"
+          ]
+        },
+        {
+          "type": "fieldset",
+          "title": "HomeKit Identity (advanced)",
+          "expandable": true,
+          "items": [
+            "homeKitAccessoryTag",
             "externalCameraIdSalt"
           ]
         },
@@ -432,22 +466,21 @@
             },
             {
               "type": "help",
-              "helpvalue": "<p>If you only want to display certain device types, you can specify a those device types here.  All other device types will be removed from HomeKit.  Example: security-panel to show your alarm, hp_cam_v1 to show floodlight cams.</p>"
+              "helpvalue": "<p>If you only want to display certain device types, you can specify those device types here.  All other device types will be removed from HomeKit.  Example: security-panel to show your alarm, hp_cam_v1 to show floodlight cams.</p>"
             }
           ]
         },
         {
           "type": "fieldset",
-          "title": "Polling & Diagnostics",
+          "title": "Cameras, Lights and Diagnostics",
           "expandable": true,
           "items": [
             "avoidSnapshotBatteryDrain",
             "beamDurationSeconds",
-            "debug",
-            "disableLogs",
             "cameraStatusPollingSeconds",
-            "locationModePollingSeconds",
-            "nightModeBypassFor"
+            "ffmpegPath",
+            "debug",
+            "disableLogs"
           ]
         }
       ]
