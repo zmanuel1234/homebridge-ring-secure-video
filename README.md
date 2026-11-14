@@ -37,14 +37,21 @@ platform names differ, so its accessories are new to HomeKit and are set up agai
 
 ## Origin and Attribution
 
-This project is based on Dusty Greif's original Ring Homebridge ecosystem:
+This is an independent project, not a GitHub fork and not maintained by the authors it builds on:
 
-- Upstream plugin and API library: [dgreif/ring](https://github.com/dgreif/ring)
-  (`homebridge-ring` and `ring-client-api`)
+- [`homebridge-ring`](https://github.com/dgreif/ring) by Dusty Greif: this plugin's accessory code
+  started from homebridge-ring 14.3.0, and it uses
+  [`ring-client-api`](https://www.npmjs.com/package/ring-client-api) 14.3.0 from npm as a
+  dependency.
+- [`homebridge-ring-hksv`](https://github.com/trinityhades/homebridge-ring-hksv) by trinityhades:
+  this plugin continues from its version 15.0.2 (HKSV recording pipeline, Ring Intercom Video).
 
-- HKSV fork: [trinityhades/homebridge-ring-hksv](https://github.com/trinityhades/homebridge-ring-hksv), whose history this repository continues
+Changes since then are listed in [CHANGELOG.md](CHANGELOG.md). Thanks to Dusty Greif, trinityhades
+and all upstream contributors.
 
-Big thanks to Dusty, trinityhades and all upstream contributors. This plugin reuses and extends that foundation.
+**Please report problems with this plugin
+[here](https://github.com/zmanuel1234/homebridge-ring-secure-video/issues), not to dgreif/ring or
+trinityhades.**
 
 ## Important Plugin Options
 
@@ -296,10 +303,25 @@ use the next time they sign in from scratch, since they share `.ring.json`.
 
 ## Disclaimer
 
-This plugin is not affiliated with Ring or Amazon.
-
-Use emergency/panic-related automations at your own risk.
+- **Unofficial.** This plugin is not affiliated with, endorsed by or supported by Ring LLC, Amazon,
+  Apple or the Homebridge project. Ring, HomeKit and other names and logos are trademarks of their
+  owners and are used only to describe what the plugin works with.
+- **Unsupported Ring API.** It talks to Ring through the same private, undocumented API the Ring app
+  uses. Ring can change or block it at any time, and features can stop working without warning.
+- **Not a safety device.** Don't rely on it for security, alarm monitoring or emergencies. Motion,
+  doorbell presses and recordings can be late or missed (for example while a live view is open, when
+  Ring stops sending push notifications, or when the Homebridge host is offline). Use the Ring app
+  for anything that matters, and use panic or emergency automations at your own risk.
+- **Your Ring sign-in.** The Ring refresh token is stored in Homebridge's `config.json` in plain
+  text and gives access to your Ring account. Protect that file and its backups, and remove the
+  token from logs or config before sharing them. Each Ring API session refresh (automatic or
+  forced) adds an entry under Control Center > Authorized Client Devices in the Ring app; remove
+  the older one there. Removing the plugin's current entry signs it out of Ring.
+- **Recordings and privacy.** HKSV recordings are processed on your Homebridge host and stored in
+  iCloud under Apple's terms. You are responsible for following local laws on recording video and
+  audio.
+- Provided as is, without warranty. See [LICENSE](LICENSE).
 
 ## License
 
-MIT
+MIT. Copyright Dusty Greif, trinityhades and contributors, and zmanuel1234; see [LICENSE](LICENSE).
