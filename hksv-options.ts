@@ -22,6 +22,12 @@ export function getHksvRecordingResolutions(config: RingPlatformConfig) {
   ]
 }
 
+/** Only auto outside lowPower asks FFmpeg which encoders it has. */
+export function hksvCodecNeedsCapabilities(config: RingPlatformConfig) {
+  const media = normalizeMediaConfig(config)
+  return media.recording.codec === 'auto' && media.profile !== 'lowPower'
+}
+
 export function selectHksvVideoCodec(
   configuredCodec: HksvVideoCodec | undefined,
   capabilities: FfmpegCapabilities | undefined,

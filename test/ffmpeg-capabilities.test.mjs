@@ -6,13 +6,13 @@ import test from 'node:test'
 import { defaultFfmpegPath } from '@homebridge/camera-utils'
 import { setFfmpegPath } from 'ring-client-api/ffmpeg'
 import {
-  getFfmpegCapabilities,
   getFfmpegOutput,
   getRecordingFfmpegPath,
   getUsableEncoders,
   getV4l2DeviceNames,
+  isV4l2VideoEncoder,
 } from '../lib/ffmpeg-capabilities.js'
-import { selectHksvVideoCodec } from '../lib/hksv-options.js'
+import { hksvCodecNeedsCapabilities, selectHksvVideoCodec } from '../lib/hksv-options.js'
 
 const listed = new Set(['libx264', 'h264_v4l2m2m', 'h264_videotoolbox'])
 const pi4 = ['bcm2835-codec-decode', 'bcm2835-codec-encode', 'bcm2835-codec-isp']
@@ -98,19 +98,16 @@ test("on this machine, the bundled FFmpeg is probed and its hardware encoders ke
   assert.match(output, /libx264/, 'the bundled FFmpeg answered')
   const names = new Set(output.split(/\s+/))
   const usable = getUsableEncoders(names)
-  if (process.platform === 'linux' && !getV4l2DeviceNames().some((n) => /encode/i.test(n))) {
+  if (process.platform === 'linux' && !getV4l2DeviceNames().some(isV4l2VideoEncoder)) {
     assert.equal(usable.has('h264_v4l2m2m'), false)
   }
   if (process.platform !== 'darwin') assert.equal(usable.has('h264_videotoolbox'), false)
 })
 
-test('a probe that fails is tried again at the next recording', async (t) => {
-  t.after(() => setFfmpegPath(undefined))
-  setFfmpegPath('/nonexistent/ffmpeg')
-  const failed = await getFfmpegCapabilities()
-  assert.equal(failed.encoders.size, 0)
-  setFfmpegPath(undefined)
-  const retried = await getFfmpegCapabilities()
-  assert.equal(retried.encoders.has('libx264'), true, 'asked the bundled FFmpeg again')
-  assert.equal(await getFfmpegCapabilities(), retried, 'a probe that worked is kept')
+test('FFmpeg is only asked when auto has to choose', () => {
+  assert.equal(hksvCodecNeedsCapabilities({}), true, 'auto in adaptive, the default')
+  assert.equal(hksvCodecNeedsCapabilities({ media: { profile: 'quality' } }), true)
+  assert.equal(hksvCodecNeedsCapabilities({ media: { profile: 'lowPower' } }), false)
+  assert.equal(hksvCodecNeedsCapabilities({ media: { recording: { codec: 'libx264' } } }), false)
+  assert.equal(hksvCodecNeedsCapabilities({ media: { recording: { codec: 'copy' } } }), false)
 })

@@ -48,7 +48,11 @@ import {
   getFfmpegCapabilities,
   type FfmpegCapabilities,
 } from './ffmpeg-capabilities.ts'
-import { getHksvRecordingResolutions, selectHksvVideoCodec } from './hksv-options.ts'
+import {
+  getHksvRecordingResolutions,
+  hksvCodecNeedsCapabilities,
+  selectHksvVideoCodec,
+} from './hksv-options.ts'
 import { hksvRecordingQueue } from './hksv-work-queue.ts'
 import {
   RingMediaIngress,
@@ -1096,7 +1100,9 @@ export class CameraSource
       updateQueuedBytes = (bytes) => queueLease.setQueuedBytes(bytes)
       throwIfClosed()
 
-      const capabilities = await getFfmpegCapabilities(),
+      const capabilities = hksvCodecNeedsCapabilities(this.config)
+          ? await getFfmpegCapabilities()
+          : undefined,
         videoArguments = this.getHksvVideoArguments(capabilities),
         videoCodecIndex = videoArguments.indexOf('-vcodec'),
         selectedVideoCodec = videoCodecIndex >= 0

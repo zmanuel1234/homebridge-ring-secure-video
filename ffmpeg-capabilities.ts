@@ -17,7 +17,13 @@ export interface FfmpegCapabilities {
   hwaccels: Set<string>
 }
 
-let cachedCapabilities: Promise<FfmpegCapabilities> | undefined
+let cachedCapabilities: Promise<FfmpegCapabilities> | undefined,
+  /** Set when the last check failed: when to ask FFmpeg again. */
+  retryAt: number | undefined,
+  reportedFailure = false
+
+/** How long a failed check is kept, so a hanging FFmpeg doesn't hold every recording. */
+export const FFMPEG_PROBE_RETRY_MS = 5 * 60_000
 
 /** The FFmpeg HKSV recordings run with: the plugin's ffmpegPath, or the bundled one. */
 export function getRecordingFfmpegPath() {
@@ -74,7 +80,7 @@ export function getV4l2DeviceNames(sysfs = '/sys/class/video4linux', dev = '/dev
  * A video encoder device: not a JPEG/image encoder (the Pi 4 has both) or an MPEG capture card's
  * ("ivtv0 encoder MPG").
  */
-function isV4l2VideoEncoder(name: string) {
+export function isV4l2VideoEncoder(name: string) {
   return /encode|-enc$/i.test(name) && !/image|jpeg|mpe?g/i.test(name)
 }
 
@@ -105,13 +111,19 @@ async function loadCapabilities(): Promise<FfmpegCapabilities> {
     getFfmpegOutput(['-hide_banner', '-hwaccels']),
   ])
 
-  if (!/Encoders:/.test(encodersOutput)) {
-    // FFmpeg didn't start or answer in time (a slow first start on a busy Pi): ask again for the
-    // next recording rather than keep recording in software until a restart.
-    cachedCapabilities = undefined
-    logError(
-      `Could not list the encoders of FFmpeg (${getRecordingFfmpegPath()}); auto records with libx264 this time`,
-    )
+  if (/Encoders:/.test(encodersOutput)) {
+    retryAt = undefined
+  } else {
+    // FFmpeg didn't start or answer in time (a slow first start on a busy Pi): ask again a little
+    // later rather than record in software until a restart.
+    retryAt = Date.now() + FFMPEG_PROBE_RETRY_MS
+    const message = `Could not list the encoders of FFmpeg (${getRecordingFfmpegPath()}); codec auto records with libx264 until it answers (asked again after ${FFMPEG_PROBE_RETRY_MS / 60_000} minutes)`
+    if (reportedFailure) {
+      logDebug(message)
+    } else {
+      reportedFailure = true
+      logError(message)
+    }
   }
 
   const capabilities = {
@@ -133,6 +145,10 @@ async function loadCapabilities(): Promise<FfmpegCapabilities> {
 }
 
 export function getFfmpegCapabilities() {
+  if (retryAt !== undefined && Date.now() >= retryAt) {
+    retryAt = undefined
+    cachedCapabilities = undefined
+  }
   cachedCapabilities ??= loadCapabilities()
   return cachedCapabilities
 }
