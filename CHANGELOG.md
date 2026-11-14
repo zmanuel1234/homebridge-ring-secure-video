@@ -2,11 +2,14 @@
 
 ## Unreleased
 
-- Motion and doorbell presses from a camera on battery (Ring power mode not set to wired) reach
-  HomeKit about 2 seconds sooner, so recordings and doorbell notifications start earlier: the
-  event is no longer held while waiting for a snapshot notification that, without Ring Protect,
-  usually doesn't come. A late snapshot is still loaded if it comes within 10 s, and nothing is
-  left waiting after that (each event used to leave a listener behind until the next snapshot).
+- Without Ring Protect, motion and doorbell presses from a camera that can't take a snapshot
+  while recording (on battery, i.e. Ring power mode not set to wired, and a few wired models)
+  reach HomeKit about 2 seconds sooner, so recordings and doorbell notifications start earlier.
+  The event was held while waiting for a notification with a snapshot, which without Ring
+  Protect usually doesn't come. If one does come within 10 s, its snapshot is loaded for later
+  requests (such as the Home app tile), not for the notification already sent. With Ring
+  Protect the event still waits up to 2 s for it, as before. Nothing is left waiting afterwards
+  (each event used to leave a listener behind until the next snapshot).
 
 ## 1.0.3 (2026-11-14)
 

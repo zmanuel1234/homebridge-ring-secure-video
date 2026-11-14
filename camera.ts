@@ -21,7 +21,7 @@ import { CameraSource, isHksvEnabled } from './camera-source.ts'
 import type { PlatformAccessory } from 'homebridge'
 import { TargetValueTimer } from './target-value-timer.ts'
 import { logError, logInfo } from 'ring-client-api/util'
-import { combineLatest, defer, EMPTY, merge, of, timer } from 'rxjs'
+import { combineLatest, defer, EMPTY, firstValueFrom, merge, of, timer } from 'rxjs'
 import type { Observable, Subscription } from 'rxjs'
 import type { PushHealthReporter } from './push-health.ts'
 
@@ -573,16 +573,20 @@ export class Camera extends BaseDataAccessory<RingCamera> {
 
   private pendingSnapshotNotification?: Subscription
 
+  /** The image uuid of the next notification that has one. */
+  private nextNotificationSnapshotUuid() {
+    return this.device.onNewNotification.pipe(
+      map((notification) => notification.img?.snapshot_uuid),
+      filter((uuid): uuid is string => Boolean(uuid)),
+      take(1),
+    )
+  }
+
   /** Loads the snapshot of the next notification that has one, if it comes within 10 s. */
   private loadSnapshotFromNextNotification() {
     this.pendingSnapshotNotification?.unsubscribe()
-    this.pendingSnapshotNotification = this.device.onNewNotification
-      .pipe(
-        map((notification) => notification.img?.snapshot_uuid),
-        filter((uuid): uuid is string => Boolean(uuid)),
-        take(1),
-        takeUntil(timer(SNAPSHOT_NOTIFICATION_WAIT_MS)),
-      )
+    this.pendingSnapshotNotification = this.nextNotificationSnapshotUuid()
+      .pipe(takeUntil(timer(SNAPSHOT_NOTIFICATION_WAIT_MS)))
       .subscribe((uuid) => {
         this.cameraSource.loadSnapshot(uuid).catch(() => {
           // the event was already sent; HomeKit keeps the last snapshot
@@ -594,18 +598,34 @@ export class Camera extends BaseDataAccessory<RingCamera> {
     eventDescription: string,
     characteristicValue: T,
   ) {
-    const imageUuid = this.device.latestNotificationSnapshotUuid
+    let imageUuid = this.device.latestNotificationSnapshotUuid
 
     /**
-     * A camera on battery can't take a snapshot while recording, and its first notification
-     * may come without an image uuid, followed by a second one with it (often never without
-     * Ring Protect). The event goes to HomeKit at once, so recordings and doorbell
-     * notifications don't wait for it; the snapshot is loaded if that notification comes.
+     * A camera that can't take a snapshot while recording (on battery, or a few wired models)
+     * may get its first notification without an image uuid, followed shortly by a second one
+     * with it. With Ring Protect that second notification comes, so the event waits up to 2 s
+     * for it, as before, and HomeKit's notification gets the new snapshot. Without Ring Protect
+     * it usually never comes, so the event goes to HomeKit at once (recordings and doorbell
+     * notifications start 2 s sooner), and a snapshot that does come within 10 s is loaded
+     * for later requests (the Home app tile).
      */
     if (!this.device.canTakeSnapshotWhileRecording && !imageUuid) {
-      this.loadSnapshotFromNextNotification()
-      logInfo(this.device.name + ' ' + eventDescription)
-      return characteristicValue
+      if (!this.device.data.subscribed) {
+        this.loadSnapshotFromNextNotification()
+        logInfo(this.device.name + ' ' + eventDescription)
+        return characteristicValue
+      }
+
+      imageUuid = await firstValueFrom(
+        this.nextNotificationSnapshotUuid().pipe(takeUntil(timer(2000))),
+        { defaultValue: undefined },
+      )
+
+      if (!imageUuid) {
+        // did not receive an image uuid and one can't be taken while recording. Proceed without a snapshot
+        logInfo(this.device.name + ' ' + eventDescription)
+        return characteristicValue
+      }
     }
 
     logInfo(
