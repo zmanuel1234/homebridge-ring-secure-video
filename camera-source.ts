@@ -43,6 +43,7 @@ import {
 } from 'werift'
 import type { StreamingSession } from 'ring-client-api/streaming/streaming-session'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { FragmentedMp4Parser } from './fragmented-mp4-parser.ts'
 import {
   getFfmpegCapabilities,
@@ -61,8 +62,9 @@ import {
 } from './ring-media-ingress.ts'
 import { normalizeMediaConfig } from './media-config.ts'
 
-const __dirname = new URL('.', import.meta.url).pathname,
-  mediaDirectory = path.join(__dirname.replace(/\/lib\/?$/, ''), 'media'),
+// The package's media folder, next to lib/. fileURLToPath, not URL.pathname, which keeps %20
+// for a space and gives /C:/... on Windows.
+const mediaDirectory = path.join(fileURLToPath(new URL('.', import.meta.url)), '..', 'media'),
   readFileAsync = promisify(readFile),
   cameraOfflinePath = path.join(mediaDirectory, 'camera-offline.jpg'),
   snapshotsBlockedPath = path.join(mediaDirectory, 'snapshots-blocked.jpg')

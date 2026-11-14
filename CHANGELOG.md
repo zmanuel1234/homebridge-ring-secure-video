@@ -9,6 +9,9 @@
   reads within 2.5 s: as "No Response" if Ring hasn't reported the mode yet (slow or unreachable
   at startup), instead of leaving the read unanswered, which made Homebridge warn that the
   plugin was slow to respond.
+- The "camera offline" and "snapshots blocked" pictures load when Homebridge is installed in a
+  path with a space or other special characters, or on Windows. The npm package no longer
+  contains the settings page's unused `tsconfig.json`.
 - Without Ring Protect, motion and doorbell presses from a camera that can't take a snapshot
   while recording (on battery, i.e. Ring power mode not set to wired, and a few wired models)
   reach HomeKit about 2 seconds sooner, so recordings and doorbell notifications start earlier.
