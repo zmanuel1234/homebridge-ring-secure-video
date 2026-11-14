@@ -77,20 +77,6 @@ export class ResourceGovernor {
     this.drain()
   }
 
-  /**
-   * Compatibility entry point for v14 callers. New platform code should call
-   * configure() once at startup instead.
-   */
-  setConcurrency(concurrency: number) {
-    this.configure({ recordingConcurrency: concurrency })
-  }
-
-  /** Compatibility API returning only an idempotent release function. */
-  async acquire(signal?: AbortSignal): Promise<() => void> {
-    const lease = await this.acquireLease({ signal })
-    return () => lease.release()
-  }
-
   acquireLease(
     request: RecordingResourceRequest = {},
   ): Promise<RecordingResourceLease> {

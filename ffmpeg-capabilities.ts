@@ -14,7 +14,6 @@ export const FFMPEG_PROBE_TIMEOUT_MS = 10_000
 export interface FfmpegCapabilities {
   /** Encoders the recording FFmpeg lists that can also work on this machine. */
   encoders: Set<string>
-  hwaccels: Set<string>
 }
 
 let cachedCapabilities: Promise<FfmpegCapabilities> | undefined,
@@ -106,10 +105,7 @@ export function getUsableEncoders(
 }
 
 async function loadCapabilities(): Promise<FfmpegCapabilities> {
-  const [encodersOutput, hwaccelsOutput] = await Promise.all([
-    getFfmpegOutput(['-hide_banner', '-encoders']),
-    getFfmpegOutput(['-hide_banner', '-hwaccels']),
-  ])
+  const encodersOutput = await getFfmpegOutput(['-hide_banner', '-encoders'])
 
   if (/Encoders:/.test(encodersOutput)) {
     retryAt = undefined
@@ -128,7 +124,6 @@ async function loadCapabilities(): Promise<FfmpegCapabilities> {
 
   const capabilities = {
     encoders: getUsableEncoders(parseNames(encodersOutput)),
-    hwaccels: parseNames(hwaccelsOutput),
   }
 
   logDebug(

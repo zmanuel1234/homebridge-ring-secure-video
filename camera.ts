@@ -19,7 +19,7 @@ import { CameraSource, isHksvEnabled } from './camera-source.ts'
 import type { PlatformAccessory } from 'homebridge'
 import { TargetValueTimer } from './target-value-timer.ts'
 import { delay, logError, logInfo } from 'ring-client-api/util'
-import { combineLatest, defer, EMPTY, firstValueFrom, from, merge, of, timer } from 'rxjs'
+import { combineLatest, defer, EMPTY, firstValueFrom, merge, of, timer } from 'rxjs'
 import type { Observable } from 'rxjs'
 import type { PushHealthReporter } from './push-health.ts'
 
@@ -324,7 +324,6 @@ export function addDoorbellPressMotion(
 }
 
 export class Camera extends BaseDataAccessory<RingCamera> {
-  private inHomeDoorbellStatus: boolean | undefined
   private cameraSource
 
   public readonly device
@@ -485,11 +484,6 @@ export class Camera extends BaseDataAccessory<RingCamera> {
     }
 
     if (device.hasInHomeDoorbell && !config.hideInHomeDoorbellSwitch) {
-      this.device.onInHomeDoorbellStatus.subscribe(
-        (data: boolean | undefined) => {
-          this.inHomeDoorbellStatus = data
-        },
-      )
       this.registerObservableCharacteristic({
         characteristicType: Characteristic.On,
         serviceType: Service.Switch,
