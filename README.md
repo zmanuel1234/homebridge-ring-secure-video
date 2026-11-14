@@ -218,12 +218,12 @@ ignores all of them. The Pi's hardware encoder uses `bitrateKbps` and `keyframeI
 | Profile (`media.profile`) | `auto` picks |
 | --- | --- |
 | `lowPower` | `copy` |
-| `adaptive` (default) or `quality` | `h264_v4l2m2m` on Linux with a hardware H.264 encoder (Raspberry Pi 4), else `h264_videotoolbox` on a Mac, else `libx264` |
+| `adaptive` (default) or `quality` | `h264_v4l2m2m` on Linux with a usable video encoder device (Raspberry Pi 4), else `h264_videotoolbox` on a Mac, else `libx264` |
 
 A hardware encoder is picked only if the FFmpeg that records has it and the computer has the
-hardware: `h264_v4l2m2m` needs a Linux video device for encoding (the Pi 4's
-`bcm2835-codec-encode`), so a Raspberry Pi 5, a PC, Docker or a NAS gets `libx264`. The log
-shows the choice for each recording:
+hardware: `h264_v4l2m2m` needs a Linux video encoder device that Homebridge can open (the Pi 4's
+`bcm2835-codec-encode`), so a Raspberry Pi 5, a PC or a NAS gets `libx264`, as does Docker unless
+the device is passed through. The log shows the choice for each recording:
 `Starting HKSV recording pipeline ... video=<codec>`.
 
 #### Settings verified on a Raspberry Pi 4

@@ -6,6 +6,7 @@ import test from 'node:test'
 import { defaultFfmpegPath } from '@homebridge/camera-utils'
 import { setFfmpegPath } from 'ring-client-api/ffmpeg'
 import {
+  getFfmpegCapabilities,
   getFfmpegOutput,
   getRecordingFfmpegPath,
   getUsableEncoders,
@@ -41,16 +42,36 @@ test("auto picks libx264 where the hardware encoder is listed but can't work", (
   )
 })
 
-test('video device names are read from sysfs', async (t) => {
+test('only encoder devices that make video count, not JPEG ones or capture cards', () => {
+  const pick = (names) => getUsableEncoders(listed, 'linux', names).has('h264_v4l2m2m')
+  assert.equal(pick(['bcm2835-codec-encode_image']), false)
+  assert.equal(pick(['coda-jpeg-encoder']), false)
+  assert.equal(pick(['ivtv0 encoder MPG', 'cx18-0 encoder MPEG']), false)
+  assert.equal(pick(['s5p-mfc-enc']), true)
+  assert.equal(pick(['qcom-venus-encoder']), true)
+})
+
+test('video device names are read from sysfs, for devices Homebridge can open', async (t) => {
   const dir = await mkdtemp(join(tmpdir(), 'v4l2-'))
   t.after(() => rm(dir, { recursive: true, force: true }))
-  for (const [device, name] of [['video10', 'bcm2835-codec-decode'], ['video11', 'bcm2835-codec-encode']]) {
-    await mkdir(join(dir, device))
-    await writeFile(join(dir, device, 'name'), `${name}\n`)
+  const sysfs = join(dir, 'sys'),
+    dev = join(dir, 'dev')
+  await mkdir(dev)
+  for (const [device, name] of [
+    ['video10', 'bcm2835-codec-decode'],
+    ['video11', 'bcm2835-codec-encode'],
+    ['video12', 'bcm2835-codec-isp'],
+  ]) {
+    await mkdir(join(sysfs, device), { recursive: true })
+    await writeFile(join(sysfs, device, 'name'), `${name}\n`)
   }
-  await mkdir(join(dir, 'video12')) // no name file
-  assert.deepEqual(getV4l2DeviceNames(dir).toSorted(), ['', 'bcm2835-codec-decode', 'bcm2835-codec-encode'])
-  assert.deepEqual(getV4l2DeviceNames(join(dir, 'missing')), [])
+  await writeFile(join(dev, 'video10'), '')
+  await writeFile(join(dev, 'video11'), '')
+  // video12 isn't in /dev, as in Docker without the device passed through
+  assert.deepEqual(getV4l2DeviceNames(sysfs, dev).toSorted(), ['bcm2835-codec-decode', 'bcm2835-codec-encode'])
+  assert.deepEqual(getV4l2DeviceNames(join(dir, 'missing'), dev), [])
+  await rm(join(dev, 'video11'))
+  assert.equal(getUsableEncoders(listed, 'linux', getV4l2DeviceNames(sysfs, dev)).has('h264_v4l2m2m'), false)
 })
 
 test('the check runs the FFmpeg that records', (t) => {
@@ -72,12 +93,24 @@ test('a hanging FFmpeg probe gives up instead of holding recordings', async (t) 
   assert.equal(output.includes('late'), false)
 })
 
-test("on this machine, the bundled FFmpeg's hardware encoders are only used where they work", async () => {
+test("on this machine, the bundled FFmpeg is probed and its hardware encoders kept only where they work", async () => {
   const output = await getFfmpegOutput(['-hide_banner', '-encoders'], defaultFfmpegPath)
+  assert.match(output, /libx264/, 'the bundled FFmpeg answered')
   const names = new Set(output.split(/\s+/))
   const usable = getUsableEncoders(names)
   if (process.platform === 'linux' && !getV4l2DeviceNames().some((n) => /encode/i.test(n))) {
     assert.equal(usable.has('h264_v4l2m2m'), false)
   }
   if (process.platform !== 'darwin') assert.equal(usable.has('h264_videotoolbox'), false)
+})
+
+test('a probe that fails is tried again at the next recording', async (t) => {
+  t.after(() => setFfmpegPath(undefined))
+  setFfmpegPath('/nonexistent/ffmpeg')
+  const failed = await getFfmpegCapabilities()
+  assert.equal(failed.encoders.size, 0)
+  setFfmpegPath(undefined)
+  const retried = await getFfmpegCapabilities()
+  assert.equal(retried.encoders.has('libx264'), true, 'asked the bundled FFmpeg again')
+  assert.equal(await getFfmpegCapabilities(), retried, 'a probe that worked is kept')
 })
