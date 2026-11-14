@@ -110,18 +110,16 @@ function createIntercomVideoProxy(device: RingIntercom): RingCamera {
         preWarmCleanup = null
       }
     })
-    // Clean up if HKSV doesn't claim it within 20 seconds
-    preWarmCleanup = setTimeout(async () => {
-      if (preWarmedCall) {
-        try {
-          const session = await preWarmedCall
-          session.stop()
-        } catch {
-          // ignore: the pre-warmed call may have already failed or ended
-        }
-        preWarmedCall = null
-        preWarmCleanup = null
-      }
+    // Clean up if HKSV doesn't claim it within 20 seconds. Taken out of the slot first, so a
+    // recording arriving while it still connects starts its own call rather than get this one
+    // stopped under it, and a newer pre-warm isn't cleared by this one's timer.
+    preWarmCleanup = setTimeout(() => {
+      if (preWarmedCall !== call) return
+      preWarmedCall = null
+      preWarmCleanup = null
+      call
+        .then((session) => session.stop())
+        .catch(() => undefined) // a failed call has nothing to stop
     }, 20000)
   })
 
@@ -345,8 +343,9 @@ export class Intercom extends BaseDataAccessory<RingIntercom> {
 
     // Pre-warm the camera WebRTC connection on every ding so HKSV recording
     // gets live video instead of black frames.
-    // Only HKSV uses the pre-warmed call: without it, it would open a Ring live call on every
-    // ding that nothing claims.
+    // Only with HKSV: recordings are what it is for (a live view opened within 20 s would also
+    // use it), and without HKSV it would open a Ring live call on every ding that usually nothing
+    // claims.
     if (
       intercomVideoProxy &&
       isHksvEnabled(config, intercomVideoProxy.operatingOnBattery)

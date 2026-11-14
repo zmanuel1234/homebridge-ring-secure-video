@@ -60,11 +60,10 @@ function fakeIntercom(deviceType, requests) {
   }
 }
 
+const mockTimers = (t) => t.mock.timers.enable({ apis: ['setInterval', 'setTimeout'] })
+
+/** Call mockTimers(t) first. */
 function setUp(t, deviceType, config = {}) {
-  if (!t.mockTimersOn) {
-    t.mock.timers.enable({ apis: ['setInterval', 'setTimeout'] })
-    t.mockTimersOn = true
-  }
   const requests = [],
     device = fakeIntercom(deviceType, requests),
     intercom = new Intercom(
@@ -76,6 +75,7 @@ function setUp(t, deviceType, config = {}) {
 }
 
 test('only Intercom Video polls Ring for dings, every 5 s', async (t) => {
+  mockTimers(t)
   const audio = setUp(t, 'intercom_handset_audio')
   t.mock.timers.tick(60_000)
   assert.equal(audio.requests.length, 0, 'audio intercoms get their dings by push')
@@ -89,7 +89,7 @@ test('only Intercom Video polls Ring for dings, every 5 s', async (t) => {
 })
 
 test('a slow ding check is not stacked or cancelled by the next one', async (t) => {
-  t.mock.timers.enable({ apis: ['setInterval', 'setTimeout'] })
+  mockTimers(t)
   const requests = [],
     device = fakeIntercom('intercom_handset_video', requests)
   let answer
@@ -130,6 +130,7 @@ test('a pre-warmed call that fails is handled, and the recording starts its own'
   process.on('unhandledRejection', onUnhandled)
   t.after(() => process.off('unhandledRejection', onUnhandled))
 
+  mockTimers(t)
   const { device } = setUp(t, 'intercom_handset_video')
   device.onDing.next()
   await new Promise((resolve) => setImmediate(resolve))
@@ -146,8 +147,32 @@ test('no pre-warmed call without HKSV', async (t) => {
     calls.push(1)
     return Promise.resolve({ stop() {} })
   })
+  mockTimers(t)
   const { device } = setUp(t, 'intercom_handset_video', { enableHksv: false })
   device.onDing.next()
   await new Promise((resolve) => setImmediate(resolve))
   assert.equal(calls.length, 0)
+})
+
+test('an unclaimed pre-warmed call is stopped after 20 s without touching a later call', async (t) => {
+  const resolvers = [],
+    cameras = [],
+    stopped = []
+  t.mock.method(RingCamera.prototype, 'startLiveCall', function () {
+    cameras.push(this)
+    return new Promise((resolve) => resolvers.push(resolve))
+  })
+  mockTimers(t)
+  const { device } = setUp(t, 'intercom_handset_video')
+  device.onDing.next()
+  await new Promise((resolve) => setImmediate(resolve))
+  t.mock.timers.tick(20_000) // the pre-warmed call is still connecting
+
+  const recording = cameras[0].startLiveCall()
+  assert.equal(resolvers.length, 2, 'a recording after 20 s starts its own call')
+  resolvers[0]({ stop: () => stopped.push('pre-warmed') })
+  resolvers[1]({ stop: () => stopped.push('recording') })
+  await recording
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.deepEqual(stopped, ['pre-warmed'])
 })
