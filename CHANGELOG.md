@@ -1,5 +1,39 @@
 # homebridge-ring-secure-video
 
+## 1.0.0-beta.6 (2026-11-13)
+
+**Changes in behaviour to check after updating:**
+
+- Requires Node.js 22 or 24 (Node 20 reached end of life in April 2026) and Homebridge 1.8 or
+  later (2.x recommended). Homebridge warns about a plugin whose requirements don't match.
+
+**New:**
+
+- **A doorbell press can start an HKSV recording** (`doorbellPressMotion`, "Doorbell Press Starts
+  a Recording", off by default). HomeKit only records when the camera's motion sensor turns on,
+  and Ring reports no motion while a live view is open, or before someone who presses and leaves
+  at once is noticed. With the setting on, on a Ring doorbell with HKSV on in the plugin
+  (`enableHksv`; by default not for doorbells on battery, see `disableHksvOnBattery`), a press
+  also turns on the camera's motion for 30 seconds (a press during a live view is not tested
+  yet). A press while motion is already on keeps it on, so it stays one recording per visit.
+  Notifications and automations on the camera's motion sensor also see it; the separate
+  notification sensor doesn't, as a press already gives a doorbell notification. No effect with
+  `hideCameraMotionSensor` on.
+
+**Docs:**
+
+- Recording codecs: what each one does and costs, which settings apply to which, and what `auto`
+  picks per profile and machine. `copy`, `h264_v4l2m2m` and `libx264` all gave complete,
+  fully playing clips on a Raspberry Pi 4 with a Ring Video Doorbell 3 Plus; the exact settings
+  are listed, and the Pi recommendation is now the `lowPower` profile with its default, `copy`.
+  On a Pi 5 (no hardware encoder), set `copy` or `libx264` rather than relying on `auto` in the
+  `adaptive` and `quality` profiles.
+- While a live view is open, Ring reports no motion, so no motion recording or notification
+  starts then (a running recording carries on until its motion ends).
+- "What it adds to homebridge-ring", supported Node.js and Homebridge versions, and a correction
+  to the automatic session refresh description: events without a person are left out only when
+  the camera alerts for people only.
+
 ## 1.0.0-beta.5 (2026-11-13)
 
 **Changes in behaviour to check after updating:**
