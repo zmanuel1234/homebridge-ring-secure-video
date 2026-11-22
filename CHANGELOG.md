@@ -1,5 +1,14 @@
 # homebridge-ring-secure-video
 
+## Unreleased
+
+- Start-up: Ring gets 60 s to send each location's devices. A location Ring never answers no
+  longer holds up the others (or the retries) until Homebridge restarts: it is reported, its
+  accessories show "No Response", and if no location answers, connecting is retried.
+- Start-up: while the plugin keeps trying to reach Ring, the Home app shows its accessories as
+  "No Response" instead of the states they had when Homebridge stopped, with controls that did
+  nothing (an alarm that seemed to arm).
+
 ## 1.1.1 (2026-11-22)
 
 - Thermostat: dragging the temperature sends Ring only the setpoint the slider settles on (after
