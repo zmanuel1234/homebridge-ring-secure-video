@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Ring push notifications: the connection to Google's push service is checked every 60 s
+  instead of every 5 minutes, so one a home router dropped silently is reconnected within about
+  2 minutes, instead of after 10 minutes or, if only the system notices, hours
+  (dgreif/ring#1810).
+- Ring sometimes sends an all-zero placeholder as a notification's snapshot id. It no longer
+  holds up the event while loading a snapshot that Ring refuses, and no longer makes a battery
+  camera wait 2 s for snapshots with its events (dgreif/ring#1906).
 - On Node.js 26, signing in to Ring and renewing the Ring token need undici 7.27.1 or newer:
   ring-client-api 14.3.0 accepts any undici 7.x, and an older one can't read Ring's compressed
   answers on Node 26, so every token renewal fails and Ring devices stop responding
