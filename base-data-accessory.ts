@@ -19,6 +19,9 @@ import type {
 import { CharacteristicEventTypes } from 'homebridge'
 import { logError } from 'ring-client-api/util'
 
+// How long a level set from HomeKit is shown while waiting for Ring to report it
+export const LEVEL_TARGET_TIMEOUT_MS = 30_000
+
 export abstract class BaseDataAccessory<
   T extends RingDevice | RingCamera | RingChime | RingIntercom,
 > extends BaseAccessory<T> {
@@ -125,30 +128,48 @@ export abstract class BaseDataAccessory<
     requestUpdate?: () => any
   }) {
     let targetLevel: number | undefined,
+      targetTimeout: ReturnType<typeof setTimeout> | undefined,
       levelRequestId = 0
+
+    // Ring's levels are 0-1, so 57 % comes back as 56.99999999999999: rounded, as HomeKit's are
+    const getLevel = (data: T['data']) => Math.round(getValue(data)),
+      clearTarget = () => {
+        clearTimeout(targetTimeout)
+        targetTimeout = undefined
+        targetLevel = undefined
+      }
 
     const updateValue = this.registerCharacteristic({
       characteristicType,
       serviceType,
       getValue: (data) => {
-        const newLevel = getValue(data)
+        const newLevel = getLevel(data)
 
         if (newLevel === targetLevel) {
-          targetLevel = undefined
+          clearTarget()
         }
 
         return targetLevel === undefined ? newLevel : targetLevel
       },
       setValue: async (level: number) => {
         const requestId = ++levelRequestId
+        clearTarget()
         targetLevel = level
+        // If Ring never reports the level (it ignored or changed the request), Ring's level is
+        // shown again, rather than the request until the next one
+        targetTimeout = setTimeout(() => {
+          if (requestId === levelRequestId) {
+            clearTarget()
+            updateValue(getLevel(this.device.data))
+          }
+        }, LEVEL_TARGET_TIMEOUT_MS)
 
         try {
           await setValue(level)
         } catch (e) {
           if (requestId === levelRequestId) {
-            targetLevel = undefined
-            updateValue(getValue(this.device.data))
+            clearTarget()
+            updateValue(getLevel(this.device.data))
           }
           throw e
         }
