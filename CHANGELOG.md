@@ -1,6 +1,6 @@
 # homebridge-ring-secure-video
 
-## Unreleased
+## 1.0.8 (2026-11-22)
 
 - The renewed Ring token is saved to config.json (and the Ring identity to `.ring.json`) the
   same safe way, written with a different call, so the Homebridge verification check no longer
