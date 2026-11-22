@@ -6,6 +6,7 @@ import { ReplaySubject, Subject } from 'rxjs'
 import {
   CameraSource,
   getHksvRecordingFormatArguments,
+  getHksvFragmentDurationArguments,
   getMaxRecordingSeconds,
   getReturnAudioPrepareStreamRequest,
   HKSV_RECORDING_MOVFLAGS,
@@ -685,7 +686,7 @@ function recordingSource(session, onTranscoder) {
       session,
       release() {},
       createTranscoder: async (options) => {
-        onTranscoder(options.stdoutCallback)
+        onTranscoder(options.stdoutCallback, options)
         return { stop() {}, exited: Promise.resolve() }
       },
     }),
@@ -738,4 +739,31 @@ test('a recording request while recording is off is refused at once', async () =
     within(source.handleRecordingStreamRequest(10).next(), 1_000),
     isHdsError(hapNodejs.HDSProtocolSpecificErrorReason.NOT_ALLOWED),
   )
+})
+
+test('a copied recording is cut at keyframes only; a transcoded one also every fragment length', () => {
+  // with -frag_duration FFmpeg also cuts between keyframes, and a copied recording's keyframes
+  // come from Ring, so some fragments wouldn't start with one
+  assert.deepEqual(getHksvFragmentDurationArguments('copy', 4_000), [])
+  assert.deepEqual(getHksvFragmentDurationArguments('libx264', 4_000), [
+    '-frag_duration',
+    '4000000',
+  ])
+  assert.deepEqual(getHksvFragmentDurationArguments('h264_v4l2m2m', 4_000), [
+    '-frag_duration',
+    '4000000',
+  ])
+})
+
+test("a copied recording's FFmpeg output has no -frag_duration", async () => {
+  let output
+  const source = recordingSource(fakeSession(), (feed, options) => (output = options.output))
+  source.config = { media: { recording: { codec: 'copy', maxDurationSeconds: 0 } } }
+  const generator = source.handleRecordingStreamRequest(11),
+    first = generator.next()
+  while (!output) await delay(5)
+  assert.equal(output.includes('-frag_duration'), false)
+  assert.ok(output.includes('-movflags'))
+  source.closeRecordingStream(11, 'done')
+  assert.equal((await within(first, 1_000)).done, true)
 })

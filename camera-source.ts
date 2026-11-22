@@ -536,6 +536,17 @@ export const HKSV_RECORDING_MOVFLAGS =
   'frag_keyframe+empty_moov+default_base_moof+delay_moov'
 
 /**
+ * FFmpeg cuts a fragment at each keyframe (frag_keyframe) and, with -frag_duration, also once a
+ * fragment is that long, even between keyframes, and HomeKit needs each fragment to start with
+ * one. A copied recording has only Ring's keyframes, plus those requested every fragment
+ * length, so it is cut at keyframes only. A transcoded one sets its own keyframe interval (-g)
+ * and keeps -frag_duration, as before.
+ */
+export function getHksvFragmentDurationArguments(videoCodec: string, fragmentLengthMs: number) {
+  return videoCodec === 'copy' ? [] : ['-frag_duration', `${fragmentLengthMs * 1000}`]
+}
+
+/**
  * Whether a camera gets HomeKit Secure Video. Unset settings mean what the settings form shows:
  * HKSV on, except for cameras running on battery (each recording opens a Ring live call, which
  * drains it). A battery model that is wired, like many doorbells, counts as wired.
@@ -1245,8 +1256,7 @@ export class CameraSource
         output: [
           '-movflags',
           HKSV_RECORDING_MOVFLAGS,
-          '-frag_duration',
-          `${fragmentLengthMs * 1000}`,
+          ...getHksvFragmentDurationArguments(selectedVideoCodec, fragmentLengthMs),
           '-fflags',
           '+genpts',
           '-reset_timestamps',
