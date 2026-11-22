@@ -292,6 +292,7 @@ function clearRefreshPending(storagePath: string, update: PushRecoveryState = {}
  * (its `rt`). Saving one would make every later start fail with invalid_grant until signing in
  * again, while the token it replaces may still work (dgreif/ring#1886). A token that isn't
  * ring-client-api's JSON form (an old plain refresh token) can't be checked and counts as valid.
+ * ring-client-api 15 throws instead of emitting such a token; this stays as a second check.
  */
 export function hasRingRefreshToken(token: string) {
   try {
@@ -445,7 +446,7 @@ export class RingPlatform implements DynamicPlatformPlugin {
 
     if (pushReceiverFix.result === 'failed') {
       this.log.warn(
-        `Could not fix Ring push notifications (${pushReceiverFix.detail}); instant motion and doorbell events may not arrive`,
+        `Could not set Ring's push notification heartbeat (${pushReceiverFix.detail}); a dropped push connection may go unnoticed for up to 10 minutes`,
       )
     } else {
       this.log.info(`Ring push notifications: ${pushReceiverFix.detail}`)

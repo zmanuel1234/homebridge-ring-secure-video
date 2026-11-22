@@ -1,5 +1,26 @@
 # homebridge-ring-secure-video
 
+## Unreleased
+
+- **ring-client-api 15.0.0-beta.0** (from 14.3.0), a beta of the library the plugin talks to Ring
+  through:
+  - Live view: Ring's keepalive "ping" is answered, so Ring should no longer end a live view
+    after about 30 s for lack of an answer (dgreif/ring#1834), and partial ICE candidates are
+    accepted.
+  - Signing in: an error page from Ring (such as "406 Not Acceptable") is reported as such instead
+    of a TypeError, and a Ring answer without a refresh token never replaces a working one.
+  - werift 0.26.0 (WebRTC): no longer uses `ip` (a high-severity advisory, with no fix in `ip`)
+    or the `@peculiar/asn1-*` packages, whose `private_key_*.js` file names the Homebridge
+    verification check reported as suspicious file access. `npm audit` finds no vulnerability.
+  - undici 8, which reads Ring's compressed answers on Node 26 by itself; the plugin's own undici
+    7 requirement from 1.0.7 is gone.
+  - @eneris/push-receiver 4.4.0, which decrypts Google's current push format: the plugin no
+    longer replaces it with 4.3.1. It still makes the push client check its connection every
+    60 s.
+- Node.js 22 needs 22.19 or later (as ring-client-api 15 does); 24 and 26 are unchanged.
+- The settings page's sign-in shows Ring's reason when the 2FA step fails, not only "Please check
+  the code and try again".
+
 ## 1.0.8 (2026-11-22)
 
 - The renewed Ring token is saved to config.json (and the Ring identity to `.ring.json`) the

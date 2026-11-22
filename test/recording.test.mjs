@@ -355,7 +355,7 @@ test('does not start, and does not crash, without a configuration block', async 
   assert.deepEqual(listeners, [], 'nothing is started')
 })
 
-test('ring-client-api loads the full @eneris/push-receiver 4.3.1 when the plugin starts', async () => {
+test("ring-client-api's push client checks its connection every 60 s and decrypts current pushes", async () => {
   const { execFileSync } = await import('node:child_process')
   const { fileURLToPath } = await import('node:url')
   // A fresh process that loads the plugin's entry the way Homebridge does.
@@ -365,35 +365,18 @@ test('ring-client-api loads the full @eneris/push-receiver 4.3.1 when the plugin
     { encoding: 'utf8' },
   )
   assert.deepEqual(JSON.parse(output.trim().split('\n').at(-1)), {
-    result: 'replaced',
-    sameClient: true,
-    loggerQuietened: true,
-    oldVersionFails: true,
-    decrypts: true,
+    result: 'heartbeat',
+    version: '4.4.0',
     heartbeatIntervalMs: 60_000,
     heartbeatClass: 'PushReceiverWithHeartbeat',
+    decrypts: true,
   })
 })
 
-test("falls back to 4.3.1's decrypt when ring-client-api's push-receiver is already loaded", async () => {
-  const { createRequire } = await import('node:module')
-  const { fileURLToPath } = await import('node:url')
-  const { encryptedPush } = await import('./push-message.mjs')
-  await import('ring-client-api') // already loaded: too late to replace the package
+test("the push heartbeat isn't applied once ring-client-api's push client is loaded", async () => {
+  await import('ring-client-api') // already loaded: too late to replace the class it imported
   const { applyPushReceiverFix } = await import('../lib/push-receiver-fix.js')
-  const ringRequire = createRequire(fileURLToPath(import.meta.resolve('ring-client-api')))
-  const loadedPath = ringRequire.resolve('@eneris/push-receiver/dist/utils/decrypt.js')
-  assert.ok(ringRequire.cache[loadedPath], "ring-client-api's push client loaded its 4.3.0 decrypt")
-
-  const fix = applyPushReceiverFix()
-  assert.equal(fix.result, 'decrypt-patched', fix.detail)
-  const { message, keys, payload } = encryptedPush(ringRequire('http_ece'))
-  assert.equal(
-    ringRequire.cache[loadedPath].exports,
-    ringRequire('@eneris/push-receiver/dist/utils/decrypt.js'),
-    'the module patched is the one in the cache',
-  )
-  assert.deepEqual(ringRequire.cache[loadedPath].exports.default(message, keys), payload)
+  assert.equal(applyPushReceiverFix().result, 'already-loaded')
 })
 
 test('a plugin update does not force a Ring push or session refresh', async () => {
