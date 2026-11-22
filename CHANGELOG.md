@@ -1,5 +1,15 @@
 # homebridge-ring-secure-video
 
+## Unreleased
+
+- Start-up: Ring gets 60 s to send each location's devices. A location Ring never answers no
+  longer holds up the others (or the retries) until Homebridge restarts: it is reported, its
+  accessories show "No Response", and if no location answers, connecting is retried.
+- Start-up: when Ring can't be reached (an error from Ring, or no answer within 30 s, as with no
+  network), the Home app shows the Ring accessories as "No Response" until it can, instead of the
+  states they had when Homebridge stopped, with controls that did nothing (an alarm that seemed
+  to arm).
+
 ## 1.1.1 (2026-11-22)
 
 - Thermostat: dragging the temperature sends Ring only the setpoint the slider settles on (after

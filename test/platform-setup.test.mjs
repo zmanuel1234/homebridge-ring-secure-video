@@ -4,7 +4,13 @@ import { Subject } from 'rxjs'
 import * as hapNodejs from '@homebridge/hap-nodejs'
 import { RingDevice } from 'ring-client-api'
 import { setHap } from '../lib/hap.js'
-import { getRetryDelayMs, isPermanentRingError, RingPlatform } from '../lib/ring-platform.js'
+import {
+  CONNECT_GRACE_MS,
+  GET_DEVICES_TIMEOUT_MS,
+  getRetryDelayMs,
+  isPermanentRingError,
+  RingPlatform,
+} from '../lib/ring-platform.js'
 
 setHap(hapNodejs)
 
@@ -62,7 +68,14 @@ function fakeLocation(name, getDevices) {
 
 function platformWith(locations, cached = [], { getLocations } = {}) {
   const events = {},
-    log = { info() {}, warn() {}, debug() {}, errors: [], error(m) { this.errors.push(String(m)) } },
+    log = {
+      info() {},
+      debug() {},
+      warnings: [],
+      warn(m) { this.warnings.push(String(m)) },
+      errors: [],
+      error(m) { this.errors.push(String(m)) },
+    },
     calls = { registered: [], unregistered: [], published: [], disconnects: 0, created: 0 },
     api = {
       on: (event, handler) => (events[event] = handler),
@@ -157,6 +170,39 @@ test('a location whose connection failed once is not asked again (Ring would nev
   assert.deepEqual(platformCalls.registered.map((a) => a.displayName), ['Front Door Sensor'])
   assert.ok(log.errors.some((e) => e.includes('location "Cabin": ticket 503')))
   assert.equal(calls, 1)
+})
+
+test("a location Ring never sends devices for doesn't hold up the others", async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const location = fakeRingLocation()
+  const { platform, log, calls } = platformWith([
+    fakeLocation('Cabin', () => new Promise(() => {})),
+    fakeLocation('Home', async () => [contactSensor('good', 'Front Door Sensor', location)]),
+  ])
+
+  const connecting = platform.connectToApi()
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.deepEqual(calls.registered, [], 'waits for Ring meanwhile')
+  t.mock.timers.tick(GET_DEVICES_TIMEOUT_MS)
+  await connecting
+
+  assert.deepEqual(calls.registered.map((a) => a.displayName), ['Front Door Sensor'])
+  assert.ok(
+    log.errors.some((e) => e.includes('location "Cabin": Ring sent no devices for location "Cabin" within 60 s')),
+  )
+})
+
+test('when Ring sends no devices for any location, connecting is retried', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const { platform, log, calls } = platformWith([fakeLocation('Home', () => new Promise(() => {}))])
+
+  const connecting = platform.connectWithRetry()
+  await new Promise((resolve) => setImmediate(resolve))
+  t.mock.timers.tick(GET_DEVICES_TIMEOUT_MS)
+  await connecting
+
+  assert.match(log.errors.at(-1), /within 60 s\). Trying again in 30 s/)
+  assert.equal(calls.disconnects, 1, 'with a new connection')
 })
 
 test('connecting is retried when Ring cannot be reached, with a fresh connection each time', async (t) => {
@@ -274,6 +320,103 @@ test("when no location's devices can be loaded, connecting is retried", async (t
   await new Promise((resolve) => setImmediate(resolve))
   assert.equal(calls.created, 2)
   assert.deepEqual(calls.registered.map((a) => a.displayName), ['Front Door Sensor'])
+})
+
+test("while Ring can't be reached at start-up, cached accessories show No Response", async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const location = fakeRingLocation(),
+    cached = new PlatformAccessory('Door', hapNodejs.uuid.generate('good'))
+  cached.addService(hapNodejs.Service.ContactSensor)
+  let failures = 1
+  const { platform } = platformWith(
+    [],
+    [cached],
+    {
+      getLocations: async () => {
+        if (failures-- > 0) throw new Error('Ring returned 503')
+        return [fakeLocation('Home', async () => [contactSensor('good', 'Door', location)])]
+      },
+    },
+  )
+  const state = () =>
+    cached
+      .getService(hapNodejs.Service.ContactSensor)
+      .getCharacteristic(hapNodejs.Characteristic.ContactSensorState)
+      .handleGetRequest()
+
+  await platform.connectWithRetry()
+  await assert.rejects(state, (e) => e === hapNodejs.HAPStatus.SERVICE_COMMUNICATION_FAILURE)
+
+  t.mock.timers.tick(30_000)
+  for (let i = 0; i < 5; i++) await new Promise((resolve) => setImmediate(resolve))
+  assert.equal(await state(), hapNodejs.Characteristic.ContactSensorState.CONTACT_DETECTED, "Ring's state once connected")
+})
+
+// A cached contact sensor for the device contactSensor('good', ...) sets up.
+function cachedDoor() {
+  const cached = new PlatformAccessory('Door', hapNodejs.uuid.generate('good'))
+  cached.addService(hapNodejs.Service.ContactSensor)
+  const state = () =>
+    cached
+      .getService(hapNodejs.Service.ContactSensor)
+      .getCharacteristic(hapNodejs.Characteristic.ContactSensorState)
+      .handleGetRequest()
+  return { cached, state }
+}
+const noResponse = (e) => e === hapNodejs.HAPStatus.SERVICE_COMMUNICATION_FAILURE
+
+test('with no answer from Ring at all (no network), cached accessories show No Response after 30 s', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const location = fakeRingLocation(),
+    { cached, state } = cachedDoor()
+  // ring-client-api retries a request that gets no answer by itself, without an error
+  let answer
+  const { platform, log } = platformWith([], [cached], {
+    getLocations: () => new Promise((resolve) => (answer = resolve)),
+  })
+
+  const connecting = platform.connectWithRetry()
+  t.mock.timers.tick(CONNECT_GRACE_MS - 1)
+  assert.equal(await state(), hapNodejs.Characteristic.ContactSensorState.CONTACT_DETECTED, 'not yet')
+  t.mock.timers.tick(1)
+  await assert.rejects(state, noResponse)
+  assert.deepEqual(log.warnings, [
+    'The Home app shows the Ring accessories as "No Response" until Ring can be reached.',
+  ])
+
+  answer([fakeLocation('Home', async () => [contactSensor('good', 'Door', location)])])
+  await connecting
+  assert.equal(await state(), hapNodejs.Characteristic.ContactSensorState.CONTACT_DETECTED)
+})
+
+test('a quick connection leaves cached accessories alone', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const location = fakeRingLocation(),
+    { cached, state } = cachedDoor()
+  const { platform, log } = platformWith(
+    [fakeLocation('Home', async () => [contactSensor('good', 'Door', location)])],
+    [cached],
+  )
+
+  await platform.connectWithRetry()
+  t.mock.timers.tick(CONNECT_GRACE_MS)
+  assert.equal(await state(), hapNodejs.Characteristic.ContactSensorState.CONTACT_DETECTED)
+  assert.deepEqual(log.warnings, [])
+})
+
+test('with an error a restart must follow, the No Response notice says so', async () => {
+  const { cached, state } = cachedDoor()
+  const { platform, log } = platformWith([], [cached], {
+    getLocations: async () => {
+      throw new Error('Your version of Node.js is too old to support this plugin')
+    },
+  })
+
+  await platform.connectWithRetry()
+  await assert.rejects(state, noResponse)
+  assert.deepEqual(log.warnings, [
+    'The Home app shows the Ring accessories as "No Response" until this is fixed and Homebridge restarts.',
+  ])
 })
 
 test('a kept accessory that could not be set up shows No Response', async () => {
