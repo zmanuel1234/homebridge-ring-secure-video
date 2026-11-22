@@ -11,8 +11,8 @@
 - Motion check: motion Ring sent no notification for because motion was snoozed (or, with
   people-only alerts, because no person was seen) no longer makes the plugin check Ring's history
   every 20 s again.
-- Switches, lights and similar controls: for 10 s after a change, the Home app reading the value back gets the value
-  just set, as it already did through updates.
+- Camera light and siren, and chime snooze and nightlight switches: for 10 s after a change, the
+  Home app reading the value back gets the value just set, as it already did through updates.
 - HKSV: an unused piece of recording state is removed, and the recording stall timeout gets a test.
 - README: remove or disable `homebridge-ring` first; Homebridge reporting that the child bridge
   ended during an automatic session refresh is expected.

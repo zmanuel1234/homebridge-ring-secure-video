@@ -112,7 +112,8 @@ tested).
 If you use `homebridge-ring` or `homebridge-ring-hksv`, remove or disable it first: this plugin
 exposes the same Ring devices, and with both running each device shows up twice in the Home app
 and both answer Ring's events. The settings have the same names, so your `homebridge-ring`
-settings and refresh token can be copied into this plugin's platform block.
+settings and refresh token can be copied into this plugin's platform block (keeping
+`"platform": "Ring Secure Video"`, not `homebridge-ring`'s `"Ring"`).
 
 If Homebridge is installed globally:
 
