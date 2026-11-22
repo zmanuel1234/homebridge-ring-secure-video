@@ -4,8 +4,9 @@
 
 - **ring-client-api 15.0.0-beta.0** (from 14.3.0), a beta of the library the plugin talks to Ring
   through:
-  - Live view: Ring's keepalive "ping" is answered, so Ring no longer ends a live view after
-    about 30 s for lack of an answer (dgreif/ring#1834), and partial ICE candidates are accepted.
+  - Live view: Ring's keepalive "ping" is answered, so Ring should no longer end a live view
+    after about 30 s for lack of an answer (dgreif/ring#1834), and partial ICE candidates are
+    accepted.
   - Signing in: an error page from Ring (such as "406 Not Acceptable") is reported as such instead
     of a TypeError, and a Ring answer without a refresh token never replaces a working one.
   - werift 0.26.0 (WebRTC): no longer uses `ip` (a high-severity advisory, with no fix in `ip`)
@@ -17,6 +18,8 @@
     longer replaces it with 4.3.1. It still makes the push client check its connection every
     60 s.
 - Node.js 22 needs 22.19 or later (as ring-client-api 15 does); 24 and 26 are unchanged.
+- The settings page's sign-in shows Ring's reason when the 2FA step fails, not only "Please check
+  the code and try again".
 
 ## 1.0.8 (2026-11-22)
 
