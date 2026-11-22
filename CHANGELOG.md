@@ -1,6 +1,10 @@
 # homebridge-ring-secure-video
 
-## 1.1.0-beta.1 (2026-11-22)
+## 1.1.0 (2026-11-22)
+
+Tested as 1.1.0-beta.1 on a Raspberry Pi 4 with a Ring Video Doorbell 3 Plus and Ring Alarm: motion
+and doorbell press recordings, an 86 s live view, the alarm slider. It still uses ring-client-api
+15.0.0-beta.0.
 
 - **ring-client-api 15.0.0-beta.0** (from 14.3.0), a beta of the library the plugin talks to Ring
   through:
@@ -20,6 +24,10 @@
 - Node.js 22 needs 22.19 or later (as ring-client-api 15 does); 24 and 26 are unchanged.
 - The settings page's sign-in shows Ring's reason when the 2FA step fails, not only "Please check
   the code and try again".
+
+## 1.1.0-beta.1 (2026-11-22)
+
+Pre-release of 1.1.0, with the same changes.
 
 ## 1.0.8 (2026-11-22)
 
