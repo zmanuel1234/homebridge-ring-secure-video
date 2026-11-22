@@ -74,6 +74,9 @@ export class SecurityPanel extends BaseDeviceAccessory {
       serviceType: Service.SecuritySystem,
       getValue: (data) => this.getTargetState(data),
       setValue: (value) => this.setTargetState(value),
+      // the panel shows Ring's state once a change is done (showRingAlarmState); meanwhile a
+      // Ring update in the old mode would move the slider back while it settles
+      trackSetValue: false,
     })
 
     this.getService(Service.SecuritySystem)

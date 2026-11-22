@@ -35,6 +35,7 @@ export abstract class BaseDataAccessory<
     getValue,
     setValue,
     setValueDebounceTime = 0,
+    trackSetValue = true,
     name,
     requestUpdate,
     serviceSubType,
@@ -46,6 +47,13 @@ export abstract class BaseDataAccessory<
     getValue: (data: T['data']) => any
     setValue?: (data: any) => any
     setValueDebounceTime?: number
+    /**
+     * Whether a value set from HomeKit counts as the one shown, so that Ring's next report of
+     * another value (e.g. the old one, if Ring didn't act on the request) reaches HomeKit even if
+     * Ring reported that value before. Off for a characteristic that shows Ring's value itself
+     * once a request is done.
+     */
+    trackSetValue?: boolean
     requestUpdate?: () => any
   }) {
     const service = this.getService(serviceType, name, serviceSubType),
@@ -98,6 +106,9 @@ export abstract class BaseDataAccessory<
           newValue: CharacteristicValue,
           callback: CharacteristicSetCallback,
         ) => {
+          if (trackSetValue) {
+            onValue.next(newValue)
+          }
           Promise.resolve(setValue(newValue)).catch(logError)
           callback()
         },
