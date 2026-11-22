@@ -10,6 +10,21 @@ import { hap } from './hap.ts'
 import type { RingPlatformConfig } from './config.ts'
 import type { PlatformAccessory } from 'homebridge'
 import { logError, logInfo } from 'ring-client-api/util'
+import type { Subscription } from 'rxjs'
+import { filter } from 'rxjs'
+
+// How long HomeKit alarm requests must stop before the last one is sent to Ring (see setTargetState)
+export const ALARM_TARGET_SETTLE_MS = 1000
+// How long to wait for Ring to report the new mode after a command
+export const ALARM_COMMAND_TIMEOUT_MS = 20_000
+// How long after ring-client-api reports a failure Ring may still report the new mode
+export const ALARM_MODE_GRACE_MS = 5000
+
+const alarmModeNames: Record<AlarmMode, string> = {
+  all: 'armed (Away)',
+  some: 'armed (Home)',
+  none: 'disarmed',
+}
 
 function isValidNightModeBypass(mode?: AlarmMode) {
   return mode && (mode === 'all' || mode === 'some')
@@ -128,7 +143,47 @@ export class SecurityPanel extends BaseDeviceAccessory {
     this.accessory.context.targetingNightMode = value
   }
 
-  async setTargetState(state: any) {
+  // A HomeKit target the plugin hasn't sent to Ring yet, its timer, and the Ring command being
+  // sent (one at a time). Left unset by the constructor, so they start out undefined.
+  private pendingTargetState?: number
+  private pendingTargetTimer?: ReturnType<typeof setTimeout>
+  private pendingTargetWaiters?: (() => void)[]
+  private sendingTargetState?: Promise<void>
+
+  /**
+   * A HomeKit request to change the alarm mode. A slider in a HomeKit app sends a value for every
+   * mode it passes (Off to Home passes Away), so requests are collected until none has come for
+   * ALARM_TARGET_SETTLE_MS, and only the last one is sent to Ring. Resolves once that one is done.
+   */
+  setTargetState(state: any) {
+    this.pendingTargetState = state
+    clearTimeout(this.pendingTargetTimer)
+
+    return new Promise<void>((resolve) => {
+      ;(this.pendingTargetWaiters ??= []).push(resolve)
+      this.pendingTargetTimer = setTimeout(() => {
+        const target = this.pendingTargetState,
+          waiters = this.pendingTargetWaiters ?? []
+        this.pendingTargetState = undefined
+        this.pendingTargetTimer = undefined
+        this.pendingTargetWaiters = undefined
+
+        // after any Ring command still being sent, so each one checks Ring's answer to itself
+        const sending = (this.sendingTargetState ?? Promise.resolve())
+          .then(() => this.sendTargetState(target))
+          .catch((e) => logError(e))
+        this.sendingTargetState = sending
+        void sending.then(() => {
+          if (this.sendingTargetState === sending) {
+            this.sendingTargetState = undefined
+          }
+          waiters.forEach((done) => done())
+        })
+      }, ALARM_TARGET_SETTLE_MS)
+    })
+  }
+
+  private async sendTargetState(state: any) {
     const {
         Characteristic: { SecuritySystemTargetState: State },
       } = hap,
@@ -151,36 +206,105 @@ export class SecurityPanel extends BaseDeviceAccessory {
       }
     }
 
-    const bypassContactSensors = bypass
-        ? (await location.getDevices()).filter((device) => {
-            return (
-              device.deviceType === RingDeviceType.ContactSensor &&
-              device.data.faulted
-            )
-          })
-        : [],
-      bypassSensorZids = bypassContactSensors.map((sensor) => sensor.id),
-      bypassSensorNames = bypassContactSensors.map((sensor) => sensor.name),
-      bypassLog = bypassSensorNames.length
-        ? ' - Bypassing Sensors: ' + bypassSensorNames.join(', ')
-        : ''
+    const mode: AlarmMode =
+      state === State.AWAY_ARM ? 'all' : state === State.DISARM ? 'none' : 'some'
 
+    // Ring sends no update when the mode doesn't change, so a command would never be confirmed
+    if (!bypass && this.device.data.mode === mode) {
+      logInfo(`${this.device.name} is already ${alarmModeNames[mode]}`)
+      this.showRingAlarmState()
+      return
+    }
+
+    let commandError: any
     try {
-      if (state === State.AWAY_ARM) {
+      const bypassContactSensors = bypass
+          ? (await location.getDevices()).filter((device) => {
+              return (
+                device.deviceType === RingDeviceType.ContactSensor &&
+                device.data.faulted
+              )
+            })
+          : [],
+        bypassSensorZids = bypassContactSensors.map((sensor) => sensor.id),
+        bypassSensorNames = bypassContactSensors.map((sensor) => sensor.name),
+        bypassLog = bypassSensorNames.length
+          ? ' - Bypassing Sensors: ' + bypassSensorNames.join(', ')
+          : ''
+
+      let command: Promise<void>
+      if (mode === 'all') {
         logInfo(`Arming (Away) ${this.device.name}${bypassLog}`)
-        await location.armAway(bypassSensorZids)
-      } else if (state === State.DISARM) {
+        command = location.armAway(bypassSensorZids)
+      } else if (mode === 'none') {
         logInfo(`Disarming ${this.device.name}`)
-        await location.disarm()
+        command = location.disarm()
       } else {
         logInfo(`Arming (Home) ${this.device.name}${bypassLog}`)
-        await location.armHome(bypassSensorZids)
+        command = location.armHome(bypassSensorZids)
       }
+
+      // ring-client-api waits for Ring's next update only: it reports a failure if that update
+      // shows another mode, even when the requested one follows, and waits forever if Ring sends
+      // none. So the command is done once Ring reports the mode; after ring-client-api's failure,
+      // the mode gets a few more seconds; and after any other error, none.
+      let reportedModeSubscription: Subscription | undefined
+      const timers: ReturnType<typeof setTimeout>[] = [],
+        after = (ms: number) =>
+          new Promise<void>((resolve) => {
+            timers.push(setTimeout(resolve, ms))
+          }),
+        modeReported = new Promise<void>((resolve) => {
+          reportedModeSubscription = this.device.onData
+            .pipe(filter((data) => data.mode === mode))
+            .subscribe(() => resolve())
+        }),
+        commandFailed = command.then(
+          () => undefined,
+          (e: any) => {
+            commandError = e
+            return /Failed to set alarm mode/.test(e?.message)
+              ? after(ALARM_MODE_GRACE_MS)
+              : undefined
+          },
+        )
+      await Promise.race([
+        modeReported,
+        commandFailed,
+        after(ALARM_COMMAND_TIMEOUT_MS),
+      ])
+      timers.forEach((timer) => clearTimeout(timer))
+      reportedModeSubscription?.unsubscribe()
     } catch (e: any) {
-      logError(e)
-      this.getService(hap.Service.SecuritySystem)
-        .getCharacteristic(hap.Characteristic.SecuritySystemTargetState)
-        .updateValue(this.getTargetState(this.device.data))
+      commandError = e
     }
+
+    const reportedMode = this.device.data.mode as AlarmMode | undefined
+    if (reportedMode !== mode) {
+      logError(
+        `Ring didn't change ${this.device.name} to ${alarmModeNames[mode]}: it is ${
+          (reportedMode && alarmModeNames[reportedMode]) || 'in an unknown mode'
+        }.${mode === 'none' ? '' : ' An open sensor may need bypassing, which can only be done in the Ring app.'}`,
+      )
+      // ring-client-api's own "Failed to set alarm mode" says no more than the line above
+      if (commandError && !/Failed to set alarm mode/.test(commandError?.message)) {
+        logError(commandError)
+      }
+    }
+
+    this.showRingAlarmState()
+  }
+
+  // Both states from Ring's data: also after a command that wasn't sent or brought no update
+  // from Ring (e.g. Night to Home in the same Ring mode), so the Home app doesn't stay at "Arming"
+  private showRingAlarmState() {
+    const service = this.getService(hap.Service.SecuritySystem),
+      { data } = this.device
+    service
+      .getCharacteristic(hap.Characteristic.SecuritySystemTargetState)
+      .updateValue(this.getTargetState(data))
+    service
+      .getCharacteristic(hap.Characteristic.SecuritySystemCurrentState)
+      .updateValue(this.getCurrentState(data))
   }
 }

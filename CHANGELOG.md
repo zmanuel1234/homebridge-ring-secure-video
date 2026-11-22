@@ -1,5 +1,18 @@
 # homebridge-ring-secure-video
 
+## Unreleased
+
+- Changing the Ring Alarm mode from HomeKit sends Ring one command, about 1 s after the last
+  request. A slider in a HomeKit app sends a request for every mode it passes (Off to Home passes
+  Away), and each one went to Ring as a command: one drag could send dozens, and briefly arm
+  Away. Commands go to Ring one at a time, and a mode Ring is already in isn't sent again. A
+  command is done once Ring reports the requested mode, and an error is logged only if it doesn't
+  (within 5 s of ring-client-api reporting a failure, or 20 s if Ring sends nothing). Before,
+  commands overtaking each other were each logged as "Failed to set alarm mode… Sensors may
+  require bypass", even when the alarm did change. Afterwards the Home app shows the alarm's
+  state as Ring reports it, also when nothing was sent (e.g. Night to Home in the same Ring
+  mode), instead of staying at "Arming".
+
 ## 1.0.4 (2026-11-14)
 
 - A live view that stops by itself (HomeKit stopped sending for a few seconds, or for about 20 s if
