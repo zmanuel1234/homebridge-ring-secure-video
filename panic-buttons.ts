@@ -108,7 +108,7 @@ export class PanicButtons extends BaseDataAccessory<RingDevice> {
     })
   }
 
-  initBase() {
+  override initBase() {
     const { Characteristic, Service } = hap
 
     this.registerCharacteristic({

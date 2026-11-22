@@ -4,6 +4,7 @@ import { hap } from './hap.ts'
 import type { RingPlatformConfig } from './config.ts'
 import { logError, logInfo } from 'ring-client-api/util'
 import { BaseAccessory } from './base-accessory.ts'
+import { logRejection } from './log-rejection.ts'
 import { firstValueFrom, of } from 'rxjs'
 import type {
   PlatformAccessory,
@@ -102,7 +103,7 @@ export class LocationModeSwitch extends BaseAccessory<Location> {
 
     currentState.on(
       CharacteristicEventTypes.GET,
-      async (callback: CharacteristicGetCallback) => {
+      logRejection(`Reading the ${location.name} mode`, async (callback: CharacteristicGetCallback) => {
         location.getLocationMode().catch((e) => {
           logError('Failed to retrieve location mode for ' + location.name)
           logError(e)
@@ -120,12 +121,12 @@ export class LocationModeSwitch extends BaseAccessory<Location> {
         }
 
         callback(null, state)
-      },
+      }),
     )
 
     targetState.on(
       CharacteristicEventTypes.GET,
-      async (callback: CharacteristicGetCallback) => {
+      logRejection(`Reading the ${location.name} target mode`, async (callback: CharacteristicGetCallback) => {
         if (this.targetState !== undefined) {
           callback(null, this.targetState)
           return
@@ -135,12 +136,12 @@ export class LocationModeSwitch extends BaseAccessory<Location> {
         } catch (e: any) {
           callback(e)
         }
-      },
+      }),
     )
 
     targetState.on(
       CharacteristicEventTypes.SET,
-      async (
+      logRejection(`Setting the ${location.name} mode`, async (
         state: CharacteristicValue,
         callback: CharacteristicSetCallback,
       ) => {
@@ -199,7 +200,7 @@ export class LocationModeSwitch extends BaseAccessory<Location> {
             targetState.updateValue(current)
           }
         }
-      },
+      }),
     )
 
     targetState.setProps({

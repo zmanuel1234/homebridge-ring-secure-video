@@ -894,7 +894,33 @@ export class CameraSource
     return this.cachedSnapshot
   }
 
-  async handleSnapshotRequest(
+  // HAP calls the next three and ignores what they return: they run the async work and log a
+  // rejection instead of leaving it unhandled.
+  handleSnapshotRequest(
+    request: SnapshotRequest,
+    callback: SnapshotRequestCallback,
+  ) {
+    this.snapshotRequest(request, callback).catch((e: unknown) => {
+      logError(`Snapshot request failed for ${this.ringCamera.name}`)
+      logError(e)
+    })
+  }
+
+  prepareStream(request: PrepareStreamRequest, callback: PrepareStreamCallback) {
+    this.prepare(request, callback).catch((e: unknown) => {
+      logError(`Stream setup failed for ${this.ringCamera.name}`)
+      logError(e)
+    })
+  }
+
+  handleStreamRequest(request: StreamingRequest, callback: StreamRequestCallback) {
+    this.streamRequest(request, callback).catch((e: unknown) => {
+      logError(`Stream request failed for ${this.ringCamera.name}`)
+      logError(e)
+    })
+  }
+
+  private async snapshotRequest(
     _request: SnapshotRequest,
     callback: SnapshotRequestCallback,
   ) {
@@ -916,7 +942,7 @@ export class CameraSource
     }
   }
 
-  async prepareStream(
+  private async prepare(
     request: PrepareStreamRequest,
     callback: PrepareStreamCallback,
   ) {
@@ -980,7 +1006,7 @@ export class CameraSource
     }
   }
 
-  async handleStreamRequest(
+  private async streamRequest(
     request: StreamingRequest,
     callback: StreamRequestCallback,
   ) {

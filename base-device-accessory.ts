@@ -54,11 +54,11 @@ function hasBatteryStatus({ batteryStatus }: RingDeviceData) {
 }
 
 export abstract class BaseDeviceAccessory extends BaseDataAccessory<RingDevice> {
-  abstract readonly device: RingDevice
-  abstract readonly accessory: PlatformAccessory
-  abstract readonly config: RingPlatformConfig
+  abstract override readonly device: RingDevice
+  abstract override readonly accessory: PlatformAccessory
+  abstract override readonly config: RingPlatformConfig
 
-  initBase() {
+  override initBase() {
     const {
         device: { data: initialData },
         device,

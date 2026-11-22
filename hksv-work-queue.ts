@@ -1,4 +1,3 @@
-/* eslint-disable no-use-before-define */
 /**
  * Global, bounded scheduler for the expensive parts of HKSV recording.
  *
