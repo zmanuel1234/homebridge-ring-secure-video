@@ -1,10 +1,11 @@
 # homebridge-ring-secure-video
 
-## Unreleased
+## 1.2.1 (2026-11-22)
 
 - A failure in a camera's snapshot, stream setup or stream request, or in reading or setting the
   location mode (including re-reading it after a failed change, when Ring can't be reached), is now
-  logged instead of becoming an unhandled promise rejection. Nothing else changes.
+  logged instead of becoming an unhandled promise rejection (which Node can treat as a crash).
+  Nothing else changes.
 - Development only: the same ESLint setup, Dependabot settings and TypeScript version (6.0) as the
   author's other plugins.
 
