@@ -334,6 +334,18 @@ export function addDoorbellPressMotion(
   )
 }
 
+/**
+ * A notification's snapshot uuid, or undefined if it has none. Ring sometimes sends an all-zero
+ * placeholder (00000000000000000000000000000000), which Ring answers with "400 uuid is zero":
+ * treated as none, so an event isn't held up loading it, and a camera doesn't learn from it
+ * that snapshots come with its notifications (dgreif/ring#1906).
+ */
+export function getUsableSnapshotUuid(uuid?: string | null) {
+  // as ring-client-api's cleanSnapshotUuid: the part before any ":" is the uuid
+  const cleanUuid = uuid?.replace(/:.*$/, '')
+  return cleanUuid && !/^[0-]+$/.test(cleanUuid) ? uuid! : undefined
+}
+
 export class Camera extends BaseDataAccessory<RingCamera> {
   private cameraSource
 
@@ -587,7 +599,7 @@ export class Camera extends BaseDataAccessory<RingCamera> {
   /** The image uuid of the next notification that has one. */
   private nextNotificationSnapshotUuid() {
     return this.device.onNewNotification.pipe(
-      map((notification) => notification.img?.snapshot_uuid),
+      map((notification) => getUsableSnapshotUuid(notification.img?.snapshot_uuid)),
       filter((uuid): uuid is string => Boolean(uuid)),
       take(1),
     )
@@ -619,7 +631,7 @@ export class Camera extends BaseDataAccessory<RingCamera> {
     eventDescription: string,
     characteristicValue: T,
   ) {
-    let imageUuid = this.device.latestNotificationSnapshotUuid
+    let imageUuid = getUsableSnapshotUuid(this.device.latestNotificationSnapshotUuid)
 
     /**
      * A camera that can't take a snapshot while recording (on battery, or a few wired models)
