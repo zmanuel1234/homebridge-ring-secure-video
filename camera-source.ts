@@ -536,6 +536,15 @@ export const HKSV_RECORDING_MOVFLAGS =
   'frag_keyframe+empty_moov+default_base_moof+delay_moov'
 
 /**
+ * How long a recording may go without FFmpeg output before it counts as stalled: longer than
+ * the longest fragment (3 fragment lengths for copy, see getHksvFragmentDurationArguments), with
+ * time for FFmpeg and Ring's connection; at least 20 s, at most 60 s.
+ */
+export function getHksvStallTimeoutMs(fragmentLengthMs: number) {
+  return Math.min(Math.max(fragmentLengthMs * 3 + 5000, 20_000), 60_000)
+}
+
+/**
  * FFmpeg cuts a fragment at each keyframe (frag_keyframe) and, with -frag_duration, also once a
  * fragment is that long, even between keyframes, and HomeKit needs each fragment to start with
  * one. A copied recording has only Ring's keyframes, plus those requested every fragment
@@ -595,7 +604,6 @@ export class CameraSource
 
   private recordingActive = false
   private recordingConfiguration?: CameraRecordingConfiguration
-  private closedRecordingStreams = new Set<number>()
   private recordingWaiters = new Map<number, () => void>()
   private activeRecordingSessions = new Map<number, () => void>()
 
@@ -1045,7 +1053,6 @@ export class CameraSource
     configuration: CameraRecordingConfiguration | undefined,
   ) {
     this.recordingConfiguration = configuration
-    this.closedRecordingStreams.clear()
     this.recordingWaiters.forEach((wake) => wake())
     this.recordingWaiters.clear()
 
@@ -1073,8 +1080,6 @@ export class CameraSource
       // open (and answering further requests "busy") until its close timeout
       throw new hap.HDSProtocolError(hap.HDSProtocolSpecificErrorReason.NOT_ALLOWED)
     }
-
-    this.closedRecordingStreams.delete(streamId)
 
     const recordingConfiguration = this.recordingConfiguration
     const packetQueue: RecordingPacket[] = []
@@ -1115,7 +1120,6 @@ export class CameraSource
 
         shouldSendEndOfStream ||= sendEndOfStream
         closed = true
-        this.closedRecordingStreams.add(streamId)
         this.activeRecordingSessions.delete(streamId)
         if (!sendEndOfStream) {
           // HomeKit has already closed this stream. Do not keep yielding
@@ -1171,12 +1175,7 @@ export class CameraSource
     let maxRecordingTimer: ReturnType<typeof setTimeout> | undefined
     let stallTimer: ReturnType<typeof setTimeout> | undefined
     let releaseQueueSlot: (() => void) | undefined
-    // Longer than the longest fragment (3 fragment lengths for copy, see
-    // getHksvFragmentDurationArguments), with time for FFmpeg and Ring's connection
-    const stallTimeoutMs = Math.min(
-      Math.max(fragmentLengthMs * 3 + 5000, 20_000),
-      60_000,
-    )
+    const stallTimeoutMs = getHksvStallTimeoutMs(fragmentLengthMs)
 
     const resetStallTimer = () => {
       if (stallTimer) {
@@ -1410,7 +1409,6 @@ export class CameraSource
       `HKSV recording stream closed for ${this.ringCamera.name} (streamId=${streamId}, reason=${String(reason)})`,
     )
 
-    this.closedRecordingStreams.add(streamId)
     this.activeRecordingSessions.get(streamId)?.()
     this.recordingWaiters.get(streamId)?.()
     this.activeRecordingSessions.delete(streamId)

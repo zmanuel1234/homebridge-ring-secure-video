@@ -17,7 +17,6 @@ test('shutting down a camera ends its live views, recordings and Ring call', () 
       a: { stop: () => ended.push('live view a') },
       b: { stop: () => ended.push('live view b') },
     },
-    closedRecordingStreams: new Set(),
     recordingWaiters: new Map(),
     activeRecordingSessions: new Map([[1, () => ended.push('recording 1')]]),
     mediaIngress: { shutdown: () => ended.push('ring call') },
