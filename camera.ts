@@ -107,13 +107,16 @@ export function getHistoryMotionEvents(
           return EMPTY
         }
         lastCheckAt = now
-        // Checked recently and frequently: anything new is recent, whatever the clocks say
-        // (a Pi clock ahead of Ring's would otherwise make every event look too old).
-        const checkedJustBefore = !pushWorks && now - lastSuccessAt <= pollSeconds * 1000 + 30_000
 
         return defer(() => device.getEvents({ limit: 10, kind: 'motion' })).pipe(
           mergeMap(({ events }) => {
-            const checkedAt = Date.now()
+            const checkedAt = Date.now(),
+              // Checked recently and frequently: anything new is recent, whatever the clocks say
+              // (a Pi clock ahead of Ring's would otherwise make every event look too old). By
+              // when the answer came: ring-client-api retries a request that gets no answer
+              // (no network) until it gets one, which can be long after the last check.
+              checkedJustBefore =
+                !pushWorks && checkedAt - lastSuccessAt <= pollSeconds * 1000 + 30_000
             failureCount = 0
             nextCheckAt = 0
             lastSuccessAt = checkedAt

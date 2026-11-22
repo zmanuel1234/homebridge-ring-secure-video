@@ -27,6 +27,8 @@ export const controlCenterDisplayName = 'homebridge-ring-secure-video'
 
 export interface RingPlatformConfig extends RingApiOptions {
   alarmOnEntryDelay?: boolean
+  /** Seconds the alarm mode set from HomeKit must stay unchanged before it is sent to Ring. */
+  alarmModeChangeDelaySeconds?: number
   enableHksv?: boolean
   forceRefreshRingPushCredentials?: boolean
   forceRefreshRingApiSession?: boolean

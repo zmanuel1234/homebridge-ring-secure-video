@@ -64,6 +64,8 @@ const checkedElsewhere = {
   automaticSessionRefresh: 'ring-platform.ts: unset counts as on (!== false), like the default true',
   sessionRefreshSensor: 'ring-platform.ts: unset counts as off (truthy check), like the default false',
   doorbellPressMotion: 'camera.ts: unset counts as off (truthy check), like the default false',
+  alarmModeChangeDelaySeconds:
+    'security-panel.ts: unset is 1 s, like the default 1 (security-panel.test.mjs checks it)',
 }
 test('every form default is checked', () => {
   const covered = new Set(['enableHksv', 'disableHksvOnBattery', 'media'])

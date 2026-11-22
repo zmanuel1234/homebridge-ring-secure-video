@@ -13,8 +13,15 @@ import { logError, logInfo } from 'ring-client-api/util'
 import type { Subscription } from 'rxjs'
 import { filter } from 'rxjs'
 
-// How long HomeKit alarm requests must stop before the last one is sent to Ring (see setTargetState)
+// How long HomeKit alarm requests must stop before the last one is sent to Ring (see
+// setTargetState), unless alarmModeChangeDelaySeconds sets it (0 to 5 s)
 export const ALARM_TARGET_SETTLE_MS = 1000
+
+export function getAlarmTargetSettleMs({ alarmModeChangeDelaySeconds: seconds }: RingPlatformConfig) {
+  return typeof seconds === 'number' && Number.isFinite(seconds) && seconds >= 0 && seconds <= 5
+    ? Math.round(seconds * 1000)
+    : ALARM_TARGET_SETTLE_MS
+}
 // How long to wait for Ring to report the new mode after a command
 export const ALARM_COMMAND_TIMEOUT_MS = 20_000
 // How long after ring-client-api reports a failure Ring may still report the new mode
@@ -74,6 +81,9 @@ export class SecurityPanel extends BaseDeviceAccessory {
       serviceType: Service.SecuritySystem,
       getValue: (data) => this.getTargetState(data),
       setValue: (value) => this.setTargetState(value),
+      // the panel shows Ring's state once a change is done (showRingAlarmState); meanwhile a
+      // Ring update in the old mode would move the slider back while it settles
+      trackSetValue: false,
     })
 
     this.getService(Service.SecuritySystem)
@@ -153,7 +163,8 @@ export class SecurityPanel extends BaseDeviceAccessory {
   /**
    * A HomeKit request to change the alarm mode. A slider in a HomeKit app sends a value for every
    * mode it passes (Off to Home passes Away), so requests are collected until none has come for
-   * ALARM_TARGET_SETTLE_MS, and only the last one is sent to Ring. Resolves once that one is done.
+   * getAlarmTargetSettleMs (1 s by default), and only the last one is sent to Ring. Resolves once
+   * that one is done.
    */
   setTargetState(state: any) {
     this.pendingTargetState = state
@@ -179,7 +190,7 @@ export class SecurityPanel extends BaseDeviceAccessory {
           }
           waiters.forEach((done) => done())
         })
-      }, ALARM_TARGET_SETTLE_MS)
+      }, getAlarmTargetSettleMs(this.config))
     })
   }
 

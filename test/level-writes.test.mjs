@@ -7,6 +7,7 @@ import { intervalProvider } from 'rxjs/internal/scheduler/intervalProvider'
 import * as hapNodejs from '@homebridge/hap-nodejs'
 import { setHap } from '../lib/hap.js'
 import { Fan } from '../lib/fan.js'
+import { LEVEL_TARGET_TIMEOUT_MS } from '../lib/base-data-accessory.js'
 
 setHap(hapNodejs)
 
@@ -122,4 +123,28 @@ test('a successful write keeps the requested speed', async (t) => {
   onData.next({ ...data, level: 0.7 })
   await settle(t, 0)
   assert.equal(speed.value, 70)
+})
+
+test("a level that doesn't survive Ring's 0-1 round trip still matches, so later changes show", async (t) => {
+  useMockTimers(t)
+  const { speed, onData, data } = fan(async () => {})
+  await write(speed, 57)
+  await settle(t, 500)
+  onData.next({ ...data, level: 0.57 }) // 0.57 * 100 is 56.99999999999999
+  await settle(t, 0)
+  assert.equal(speed.value, 57)
+
+  onData.next({ ...data, level: 0.3 }) // changed at the device or in the Ring app
+  await settle(t, 0)
+  assert.equal(speed.value, 30, 'the request no longer hides what Ring reports')
+})
+
+test('a level Ring never reports is replaced by the one it does, after 30 s', async (t) => {
+  useMockTimers(t)
+  const { speed } = fan(async () => {}) // Ring accepts the request but its level stays 50
+  await write(speed, 80)
+  await settle(t, 500)
+  assert.equal(speed.value, 80, 'the request is shown while Ring may still report it')
+  await settle(t, LEVEL_TARGET_TIMEOUT_MS)
+  assert.equal(speed.value, 50)
 })

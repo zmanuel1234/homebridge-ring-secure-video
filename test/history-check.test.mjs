@@ -237,3 +237,23 @@ test('a failed check is retried later instead of every 20 s', async (t) => {
   await at(60)
   assert.equal(camera.requests, 2)
 })
+
+test('a check answered only after a network gap gives no motion for old events', async (t) => {
+  const camera = fakeCamera()
+  const { motion, at } = run(t, camera)
+
+  await at(30) // checked every 20 s, nothing new
+  // the network goes: ring-client-api retries the next request until it gets an answer
+  let answer
+  camera.getEvents = () => {
+    camera.requests++
+    return new Promise((resolve) => (answer = resolve))
+  }
+  await at(45)
+  assert.ok(answer, 'a check is waiting for an answer')
+  camera.events.push(motionEvent(31, 50)) // motion during the gap, with no push
+  await at(50 + 10 * 60)
+  answer({ events: [...camera.events].reverse() }) // the network is back, 10 minutes later
+  await at(50 + 10 * 60 + 5)
+  assert.deepEqual(motion, [], 'the event is 10 minutes old: an empty doorway')
+})
