@@ -1,6 +1,6 @@
 # homebridge-ring-secure-video
 
-## Unreleased
+## 1.2.0 (2026-11-22)
 
 - Start-up: Ring gets 60 s to send each location's devices. A location Ring never answers no
   longer holds up the others (or the retries) until Homebridge restarts: it is reported, its
