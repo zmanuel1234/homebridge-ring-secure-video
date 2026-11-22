@@ -74,6 +74,22 @@ export abstract class BaseDataAccessory<
       clearTimeout(setValueShownTimer)
       setValueShownTimer = undefined
     }
+    // shows a value set from HomeKit for holdMs, unless Ring reports it sooner
+    const holdSetValue = (newValue: CharacteristicValue, holdMs: number) => {
+      endSetValueHold()
+      setValueRequested = newValue
+      setValueShownUntil = Date.now() + holdMs
+      onValue.next(newValue)
+      // Ring never reported the request: its latest value, even if it came meanwhile
+      setValueShownTimer = setTimeout(() => {
+        endSetValueHold()
+        try {
+          onValue.next(getValue(device.data))
+        } catch (e) {
+          logError(e)
+        }
+      }, holdMs)
+    }
 
     if (requestUpdate) {
       // Only register for GET if an async request should be made to get an updated value
@@ -102,7 +118,12 @@ export abstract class BaseDataAccessory<
           newValue: CharacteristicValue,
           callback: CharacteristicSetCallback,
         ) => {
-          onValue.next(newValue)
+          if (trackSetValue) {
+            // held until Ring has had as long to report it as an undebounced value
+            holdSetValue(newValue, setValueDebounceTime + SET_VALUE_SHOWN_MS)
+          } else {
+            onValue.next(newValue)
+          }
           onValueToSet.next(newValue)
           callback()
         },
@@ -123,19 +144,7 @@ export abstract class BaseDataAccessory<
           callback: CharacteristicSetCallback,
         ) => {
           if (trackSetValue) {
-            endSetValueHold()
-            setValueRequested = newValue
-            setValueShownUntil = Date.now() + SET_VALUE_SHOWN_MS
-            onValue.next(newValue)
-            // Ring never reported the request: its latest value, even if it came meanwhile
-            setValueShownTimer = setTimeout(() => {
-              endSetValueHold()
-              try {
-                onValue.next(getValue(device.data))
-              } catch (e) {
-                logError(e)
-              }
-            }, SET_VALUE_SHOWN_MS)
+            holdSetValue(newValue, SET_VALUE_SHOWN_MS)
           }
           Promise.resolve(setValue(newValue)).catch(logError)
           callback()
@@ -225,6 +234,8 @@ export abstract class BaseDataAccessory<
         }
       },
       setValueDebounceTime: 500,
+      // the target level above is its own hold
+      trackSetValue: false,
       requestUpdate,
     })
   }

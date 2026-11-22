@@ -68,7 +68,7 @@ function thermostat() {
   const target = hap
     .getService(hapNodejs.Service.Thermostat)
     .getCharacteristic(hapNodejs.Characteristic.TargetTemperature)
-  return { target, calls }
+  return { target, calls, onData }
 }
 
 async function settle(t, ms) {
@@ -90,4 +90,24 @@ test('a temperature slider sends Ring only the setpoint it settles on', async (t
 
   await settle(t, 500)
   assert.deepEqual(calls, [{ device: { v1: { setPoint: 23 } } }])
+})
+
+test("a Ring report still on the old setpoint doesn't move the slider back", async (t) => {
+  useMockTimers(t)
+  const { target, calls, onData } = thermostat()
+
+  await target.handleSetRequest(23)
+  await settle(t, 100)
+  // another field changed; Ring hasn't acted on the request yet
+  onData.next({ ...onData.value, state: 'heating' })
+  assert.equal(target.value, 23, 'while the slider settles')
+
+  await settle(t, 500)
+  assert.equal(calls.length, 1)
+  onData.next({ ...onData.value, state: 'idle' })
+  assert.equal(target.value, 23, 'once sent, before Ring confirms')
+
+  // Ring never takes the setpoint: its own is shown again after the hold
+  await settle(t, 10_000)
+  assert.equal(target.value, 20)
 })
