@@ -1,6 +1,6 @@
 # homebridge-ring-secure-video
 
-## Unreleased
+## 1.0.7 (2026-11-22)
 
 - Ring push notifications: the connection to Google's push service is checked every 60 s
   instead of every 5 minutes, so one a home router dropped silently is reconnected within about
