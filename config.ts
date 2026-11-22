@@ -250,4 +250,3 @@ export function rotateSystemId(homebridgeStoragePath: string) {
   return systemId
 }
 
-export const debug = process.env.RING_DEBUG === 'true'
