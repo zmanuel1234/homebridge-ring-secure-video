@@ -1,5 +1,29 @@
 # homebridge-ring-secure-video
 
+## Unreleased
+
+- New setting `alarmModeChangeDelaySeconds` (Alarm and Location Mode): how long an alarm mode
+  chosen in HomeKit must stay unchanged before it is sent to Ring, 0 to 5 s, 1 by default (as
+  in 1.0.5). Shorter shows the change in the Home app sooner, but a slow drag of the slider could
+  then send a mode passed on the way, such as Away.
+- An HKSV recording that ends before HomeKit could be told so (the Ring call failing or ending
+  before a fragment, or a new recording configuration) now ends with an error, so HomeKit frees
+  the stream at once. Before, HomeKit kept it for 12 s and answered "busy" to the next recording
+  request, so a second motion or doorbell press in that time wasn't recorded.
+- With the `copy` recording codec, recording fragments are cut at keyframes only. FFmpeg also cut
+  one every fragment length, even between keyframes, so when Ring's keyframe came late the next
+  fragment didn't start with one, which HomeKit can drop or show garbled.
+- Motion from Ring's event history: after a network or DNS outage, motion from during the outage
+  no longer counts as new (a clip of an empty doorway). Whether an event is recent is now judged
+  by when Ring answered, not when the check started.
+- Brightness, fan speed and the keypad's volume: a level set from HomeKit that Ring reports back
+  slightly differently (57 % comes back as 56.99…) or not at all no longer hides later changes
+  made at the device or in the Ring app. Ring's level is rounded, and a request Ring hasn't
+  reported within 30 s gives way to the level Ring reports.
+- A switch, outlet, valve, the alarm's Siren switch or a panic button that Ring didn't act on now
+  shows Ring's state again at Ring's next report, instead of staying as requested (e.g. the
+  siren shown on while silent).
+
 ## 1.0.5 (2026-11-22)
 
 - Changing the Ring Alarm mode from HomeKit sends Ring one command, about 1 s after the last
