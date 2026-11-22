@@ -12,6 +12,7 @@ import zlib from 'node:zlib'
 // resolves packages as ring-client-api's own files do
 const requireFromRingClientApi = createRequire(import.meta.resolve('ring-client-api'))
 
+// 7.x only: ring-client-api 14.3.0 needs undici 7 (update this with ring-client-api 15)
 const atLeast7271 = (version) => {
   const [major, minor, patch] = version.split('.').map(Number)
   return major === 7 && (minor > 27 || (minor === 27 && patch >= 1))
