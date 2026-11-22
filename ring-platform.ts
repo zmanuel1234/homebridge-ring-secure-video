@@ -292,6 +292,7 @@ function clearRefreshPending(storagePath: string, update: PushRecoveryState = {}
  * (its `rt`). Saving one would make every later start fail with invalid_grant until signing in
  * again, while the token it replaces may still work (dgreif/ring#1886). A token that isn't
  * ring-client-api's JSON form (an old plain refresh token) can't be checked and counts as valid.
+ * ring-client-api 15 throws instead of emitting such a token; this stays as a second check.
  */
 export function hasRingRefreshToken(token: string) {
   try {

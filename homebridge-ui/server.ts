@@ -79,8 +79,11 @@ class PluginUiServer extends HomebridgePluginUiServer {
 
       return { refreshToken: authResponse.refresh_token }
     } catch (e: any) {
-      console.error('Incorrect 2fa Code')
-      throw new RequestError('Please check the code and try again', e)
+      // Usually a wrong or expired code, but Ring's reason (e.g. an error page, or an answer
+      // without a refresh token) is shown too
+      const reason = getErrorMessage(e)
+      console.error(`Failed to get a Ring refresh token with the 2fa code: ${reason}`)
+      throw new RequestError(`Please check the code and try again (${reason})`, e)
     }
   }
 }

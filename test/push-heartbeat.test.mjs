@@ -11,7 +11,7 @@ class FakePushReceiver {
 
 test('the push client checks its connection every 60 s unless told otherwise', () => {
   const PushReceiver = withPushHeartbeat(FakePushReceiver)
-  // as ring-client-api 14.3.0 creates it: no heartbeat given
+  // as ring-client-api creates it: no heartbeat given
   const receiver = new PushReceiver({ credentials: { fcm: {} }, debug: false })
   assert.equal(PUSH_HEARTBEAT_INTERVAL_MS, 60_000)
   assert.deepEqual(receiver.config, {
