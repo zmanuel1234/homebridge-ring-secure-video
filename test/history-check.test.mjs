@@ -257,3 +257,28 @@ test('a check answered only after a network gap gives no motion for old events',
   await at(50 + 10 * 60 + 5)
   assert.deepEqual(motion, [], 'the event is 10 minutes old: an empty doorway')
 })
+
+test('motion while snoozed keeps the 5-minute checks (Ring sends no push then)', async (t) => {
+  const camera = fakeCamera()
+  const { at } = run(t, camera)
+
+  await trustPush(camera, at)
+  await at(600)
+  camera.data = { motion_snooze: { scheduled: false } } // motion alerts snoozed in the Ring app
+  camera.events.push(motionEvent(41, 600)) // no push: it's snoozed
+  const requests = camera.requests
+  await at(600 + 30 * 60)
+  assert.ok(camera.requests <= requests + 8, `${camera.requests - requests} checks in 30 minutes`)
+})
+
+test('an unexplained missed push still switches back to 20 s checks', async (t) => {
+  const camera = fakeCamera()
+  const { at } = run(t, camera)
+
+  await trustPush(camera, at)
+  await at(600)
+  camera.events.push(motionEvent(42, 600)) // no push, not snoozed
+  const requests = camera.requests
+  await at(600 + 30 * 60)
+  assert.ok(camera.requests > requests + 30, `${camera.requests - requests} checks in 30 minutes`)
+})

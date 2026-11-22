@@ -179,13 +179,17 @@ export function getHistoryMotionEvents(
                   : missed.filter(
                     (event) => !peopleOnly || event.cv_properties?.person_detected !== false,
                   )
-              if (unexplained.length) pushHealth?.recordMissed(unexplained.length)
-              matchedInARow = 0
-              if (pushWorks) {
-                pushWorks = false
-                logInfo(
-                  `${device.name}: Ring event history shows motion no push notification reported; checking it every ${pollSeconds} s again`,
-                )
+              // Explained misses leave the checks as they are: switching to 20 s checks for
+              // every snoozed event would only cost Ring requests for the rest of the snooze.
+              if (unexplained.length) {
+                pushHealth?.recordMissed(unexplained.length)
+                matchedInARow = 0
+                if (pushWorks) {
+                  pushWorks = false
+                  logInfo(
+                    `${device.name}: Ring event history shows motion no push notification reported; checking it every ${pollSeconds} s again`,
+                  )
+                }
               }
             } else if (judged.length) {
               // One per check: a single push can match several events.
