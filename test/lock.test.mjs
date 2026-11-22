@@ -84,13 +84,13 @@ async function lockAccessory(initial) {
     addService: (...a) => hap.addService(...a),
     removeService: (s) => hap.removeService(s),
   }
-  new Lock(device, accessory, { disableLogs: true })
+  const lock = new Lock(device, accessory, { disableLogs: true })
   const service = hap.getService(hapNodejs.Service.LockMechanism)
   const read = async () => ({
     current: await service.getCharacteristic(hapNodejs.Characteristic.LockCurrentState).handleGetRequest(),
     target: await service.getCharacteristic(Target).handleGetRequest(),
   })
-  return { onData, read, service, commands }
+  return { onData, read, service, commands, lock }
 }
 
 test('a lock that jams and is then unlocked by hand shows unlocked, not "Locking…"', async () => {
@@ -127,9 +127,10 @@ test('a lock command Ring never reports gives up after 30 s and shows the lock a
 
 test('a lock command Ring reports in time leaves no timeout behind', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] })
-  const { onData, read, service } = await lockAccessory('locked')
+  const { onData, read, service, lock } = await lockAccessory('locked')
   await service.getCharacteristic(Target).handleSetRequest(Target.UNSECURED)
   onData.next({ locked: 'unlocked' })
+  assert.equal(lock.targetTimer, undefined)
   t.mock.timers.tick(LOCK_TARGET_TIMEOUT_MS)
   assert.deepEqual(await read(), { current: 0, target: 0 })
 })
