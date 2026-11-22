@@ -1055,7 +1055,9 @@ export class CameraSource
       logDebug(
         `HKSV recording request ignored for ${this.ringCamera.name} because recording is not active or configured`,
       )
-      return
+      // an error, not a return: HAP-NodeJS then closes the stream at once instead of keeping it
+      // open (and answering further requests "busy") until its close timeout
+      throw new hap.HDSProtocolError(hap.HDSProtocolSpecificErrorReason.NOT_ALLOWED)
     }
 
     this.closedRecordingStreams.delete(streamId)
@@ -1064,7 +1066,9 @@ export class CameraSource
     const packetQueue: RecordingPacket[] = []
     let waitForPacket: (() => void) | undefined,
       queuedBytes = 0,
-      closed = false
+      closed = false,
+      // HomeKit (or Homebridge shutting down) closed the stream, so it needn't be told it ended
+      closedByHomeKit = false
 
     const fragmentLengthMs =
         recordingConfiguration.mediaContainerConfiguration.fragmentLength,
@@ -1134,14 +1138,18 @@ export class CameraSource
         wake()
       }
 
-    const abortRecordingStream = () => closeSession()
+    const closeSessionForHomeKit = () => {
+        closedByHomeKit = true
+        closeSession()
+      },
+      abortRecordingStream = closeSessionForHomeKit
     signal?.addEventListener('abort', abortRecordingStream, { once: true })
     if (signal?.aborted) {
       abortRecordingStream()
     }
 
     this.recordingWaiters.set(streamId, closeSession)
-    this.activeRecordingSessions.set(streamId, closeSession)
+    this.activeRecordingSessions.set(streamId, closeSessionForHomeKit)
 
     let sourceSession: MediaIngressLease | undefined
     let liveCall: StreamingSession | undefined
@@ -1291,8 +1299,8 @@ export class CameraSource
 
       // The init segment goes to HomeKit at once; each fragment is held until the next one
       // arrives, so the last fragment can carry isLast when the recording ends. HAP-NodeJS
-      // sends nothing for an empty packet, so an empty isLast packet never reaches HomeKit,
-      // which then waits and times the stream out.
+      // sends nothing for an empty packet, so a recording that ends with no fragment left to
+      // carry isLast ends with an error instead (below).
       let initSegmentSent = false
 
       while (
@@ -1319,12 +1327,7 @@ export class CameraSource
         }
 
         if (closed && shouldSendEndOfStream && !sentEndOfStream) {
-          sentEndOfStream = true
-          yield {
-            data: Buffer.alloc(0),
-            isLast: true,
-          }
-          continue
+          break
         }
 
         await new Promise<void>((resolve) => {
@@ -1365,6 +1368,14 @@ export class CameraSource
 
       updateQueuedBytes?.(0)
       releaseQueueSlot?.()
+    }
+
+    // Ended without isLast, and not by HomeKit: a failed start, the Ring call ending before a
+    // fragment, or a new recording configuration. Returning would leave HAP-NodeJS waiting for
+    // HomeKit to close the stream (it can't, it wasn't told it ended) and answer the next
+    // recording request "busy" until its close timeout; an error makes it close the stream now.
+    if (!sentEndOfStream && !closedByHomeKit && !signal?.aborted) {
+      throw new hap.HDSProtocolError(hap.HDSProtocolSpecificErrorReason.UNEXPECTED_FAILURE)
     }
   }
 

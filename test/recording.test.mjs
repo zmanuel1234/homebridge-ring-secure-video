@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
+import * as hapNodejs from '@homebridge/hap-nodejs'
 import { ReplaySubject, Subject } from 'rxjs'
 import {
   CameraSource,
@@ -15,6 +16,9 @@ import { ResourceGovernor } from '../lib/hksv-work-queue.js'
 import { ManagedFfmpegProcess } from '../lib/managed-ffmpeg-process.js'
 import { normalizeMediaConfig } from '../lib/media-config.js'
 import { RingMediaIngress } from '../lib/ring-media-ingress.js'
+import { setHap } from '../lib/hap.js'
+
+setHap(hapNodejs)
 
 function box(type, length = 8) {
   const value = Buffer.alloc(length)
@@ -659,4 +663,79 @@ test('drives the separate notification motion sensor from the camera motion even
   setUpMotionNotificationSensor(accessory, 'Front Door Motion', '12345-motion', motion).unsubscribe()
   assert.equal(accessory.services.filter((s) => s.UUID === Service.MotionSensor.UUID).length, 1)
   subscription.unsubscribe()
+})
+
+// A recording source whose Ring call is `session`; `feed` receives FFmpeg's output callback.
+function recordingSource(session, onTranscoder) {
+  const source = Object.create(CameraSource.prototype)
+  source.ringCamera = { id: 'end-camera', name: 'end camera' }
+  source.config = { media: { recording: { codec: 'libx264', maxDurationSeconds: 0 } } }
+  source.controller = {}
+  source.recordingActive = true
+  source.recordingConfiguration = {
+    videoCodec: { resolution: [1280, 720, 30], parameters: { bitRate: 800 } },
+    audioCodec: { samplerate: 1, bitrate: 24 },
+    mediaContainerConfiguration: { fragmentLength: 4_000 },
+  }
+  source.closedRecordingStreams = new Set()
+  source.recordingWaiters = new Map()
+  source.activeRecordingSessions = new Map()
+  source.mediaIngress = {
+    acquire: async () => ({
+      session,
+      release() {},
+      createTranscoder: async (options) => {
+        onTranscoder(options.stdoutCallback)
+        return { stop() {}, exited: Promise.resolve() }
+      },
+    }),
+  }
+  return source
+}
+
+const isHdsError = (reason) => (e) =>
+  e instanceof hapNodejs.HDSProtocolError && e.reason === reason
+
+test('a recording that ends before any fragment ends with an error, so HAP frees the stream', async () => {
+  const session = fakeSession()
+  let feed
+  const generator = recordingSource(session, (f) => (feed = f)).handleRecordingStreamRequest(8)
+  const first = generator.next()
+  while (!feed) await delay(5)
+
+  feed(Buffer.concat([box('ftyp'), box('moov')]))
+  assert.equal((await within(first, 1_000)).value.isLast, false, 'init segment')
+
+  // the Ring call ends before a fragment: nothing can carry isLast, and HAP-NodeJS sends
+  // nothing for an empty packet
+  const next = generator.next()
+  session.stop()
+  await assert.rejects(
+    within(next, 1_000),
+    isHdsError(hapNodejs.HDSProtocolSpecificErrorReason.UNEXPECTED_FAILURE),
+  )
+})
+
+test('a recording HomeKit closes ends without an error', async () => {
+  const session = fakeSession()
+  let feed
+  const source = recordingSource(session, (f) => (feed = f)),
+    generator = source.handleRecordingStreamRequest(9),
+    first = generator.next()
+  while (!feed) await delay(5)
+  feed(Buffer.concat([box('ftyp'), box('moov')]))
+  await within(first, 1_000)
+
+  const next = generator.next()
+  source.closeRecordingStream(9, 'HomeKit closed it')
+  assert.equal((await within(next, 1_000)).done, true)
+})
+
+test('a recording request while recording is off is refused at once', async () => {
+  const source = recordingSource(fakeSession(), () => {})
+  source.recordingActive = false
+  await assert.rejects(
+    within(source.handleRecordingStreamRequest(10).next(), 1_000),
+    isHdsError(hapNodejs.HDSProtocolSpecificErrorReason.NOT_ALLOWED),
+  )
 })
