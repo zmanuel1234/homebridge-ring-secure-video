@@ -8,6 +8,7 @@ import {
   ALARM_COMMAND_TIMEOUT_MS,
   ALARM_MODE_GRACE_MS,
   ALARM_TARGET_SETTLE_MS,
+  getAlarmTargetSettleMs,
   SecurityPanel,
 } from '../lib/security-panel.js'
 
@@ -272,4 +273,30 @@ test("a command Ring confirms ends without waiting, and doesn't leave the mode w
   await done
   assert.deepEqual(commands, ['all'])
   assert.equal(device.onData.observed, false)
+})
+
+test('alarmModeChangeDelaySeconds sets the wait: 0.5 s sends after half a second', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const { panel, commands } = fakePanel('none')
+  panel.config = { alarmModeChangeDelaySeconds: 0.5 }
+
+  panel.setTargetState(State.AWAY_ARM)
+  const done = panel.setTargetState(State.STAY_ARM)
+  t.mock.timers.tick(499)
+  await settle()
+  assert.deepEqual(commands, [])
+  t.mock.timers.tick(1)
+  await done
+  assert.deepEqual(commands, ['some'])
+})
+
+test('the alarm wait is 1 s unless set to a number from 0 to 5', () => {
+  assert.equal(ALARM_TARGET_SETTLE_MS, 1000)
+  assert.equal(getAlarmTargetSettleMs({}), 1000)
+  assert.equal(getAlarmTargetSettleMs({ alarmModeChangeDelaySeconds: 0 }), 0)
+  assert.equal(getAlarmTargetSettleMs({ alarmModeChangeDelaySeconds: 0.5 }), 500)
+  assert.equal(getAlarmTargetSettleMs({ alarmModeChangeDelaySeconds: 5 }), 5000)
+  for (const invalid of [-1, 6, '0.5', null, Number.NaN]) {
+    assert.equal(getAlarmTargetSettleMs({ alarmModeChangeDelaySeconds: invalid }), 1000, String(invalid))
+  }
 })

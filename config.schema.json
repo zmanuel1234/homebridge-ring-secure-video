@@ -257,6 +257,15 @@
           }
         ]
       },
+      "alarmModeChangeDelaySeconds": {
+        "title": "Alarm Mode Change Delay",
+        "type": "number",
+        "default": 1,
+        "minimum": 0,
+        "maximum": 5,
+        "placeholder": "1",
+        "description": "Seconds an alarm mode chosen in HomeKit must stay unchanged before it is sent to Ring. A slider in a HomeKit app passes other modes on the way (Off to Home passes Away), and only the mode it settles on is sent. 1 by default; a shorter delay makes the Home app show the change sooner, but a slow drag could then send a mode passed on the way, such as Away. 0 sends each mode at once."
+      },
       "avoidSnapshotBatteryDrain": {
         "title": "Avoid Snapshot Battery Drain",
         "type": "boolean",
@@ -372,6 +381,7 @@
           "items": [
             "alarmOnEntryDelay",
             "nightModeBypassFor",
+            "alarmModeChangeDelaySeconds",
             "hideAlarmSirenSwitch",
             "showPanicButtons",
             "locationModePollingSeconds"

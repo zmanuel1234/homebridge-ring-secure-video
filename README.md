@@ -66,6 +66,7 @@ trinityhades.**
 | `hideDoorbellSwitch` / `hideCameraMotionSensor` / `hideCameraSirenSwitch` | Hides specific HomeKit-exposed services |
 | `cameraMotionNotificationSensor` | Adds a separate "<camera> Motion" sensor per camera for instant motion notifications (see below) |
 | `doorbellPressMotion` | For Ring doorbells with HKSV recording on: a press also turns on the camera's motion for 30 seconds, so HKSV records the visitor even when Ring reported no motion (during a live view, or a quick press-and-leave). One recording per visit, not two. Notifications and automations on the camera's motion sensor also see it; the separate notification sensor does not. No effect with `hideCameraMotionSensor`. Off by default |
+| `alarmModeChangeDelaySeconds` | Seconds an alarm mode chosen in HomeKit must stay unchanged before it is sent to Ring (0–5, default 1). A slider in a HomeKit app passes other modes on the way (Off to Home passes Away); only the mode it settles on is sent. A shorter delay shows the change sooner, but a slow drag could then send a mode passed on the way, such as Away. `0` sends each mode at once |
 | `showPanicButtons` | Adds panic switches (use with caution) |
 | `ffmpegPath` | Override FFmpeg binary path |
 | `debug` | Enables additional logging |
