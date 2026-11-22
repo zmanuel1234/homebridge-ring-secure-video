@@ -4,6 +4,7 @@ import { BehaviorSubject } from 'rxjs'
 import * as hapNodejs from '@homebridge/hap-nodejs'
 import { setHap } from '../lib/hap.js'
 import { Switch } from '../lib/switch.js'
+import { SET_VALUE_SHOWN_MS } from '../lib/base-data-accessory.js'
 
 setHap(hapNodejs)
 
@@ -37,7 +38,8 @@ function ringSwitch(setInfo = async () => {}) {
 
 const tick = () => new Promise((resolve) => setImmediate(resolve))
 
-test('a switch Ring left off shows off again at its next report', async () => {
+test('a switch Ring left off shows off again at its next report', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] })
   const { on, onData, data } = ringSwitch()
   assert.equal(on.value, false)
 
@@ -45,7 +47,37 @@ test('a switch Ring left off shows off again at its next report', async () => {
   await tick()
   assert.equal(on.value, true, 'shown as requested meanwhile')
 
+  t.mock.timers.tick(SET_VALUE_SHOWN_MS)
   onData.next({ ...data }) // Ring's next report: still off
+  await tick()
+  assert.equal(on.value, false)
+})
+
+test("a report sent before Ring acted on the request doesn't flip the switch back", async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] })
+  const { on, onData, data } = ringSwitch()
+
+  await on.handleSetRequest(true)
+  onData.next({ ...data }) // a report from before the request: still off
+  await tick()
+  assert.equal(on.value, true)
+
+  onData.next({ ...data, on: true }) // Ring turned it on
+  t.mock.timers.tick(SET_VALUE_SHOWN_MS)
+  await tick()
+  assert.equal(on.value, true)
+})
+
+test("Ring's only report during the hold is shown once it ends", async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] })
+  const { on, onData, data } = ringSwitch()
+
+  await on.handleSetRequest(true) // Ring doesn't act on it, and reports only once, at once
+  onData.next({ ...data })
+  await tick()
+  assert.equal(on.value, true)
+
+  t.mock.timers.tick(SET_VALUE_SHOWN_MS)
   await tick()
   assert.equal(on.value, false)
 })

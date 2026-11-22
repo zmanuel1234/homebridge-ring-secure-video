@@ -9,7 +9,7 @@ import type {
   RingIntercom,
 } from 'ring-client-api'
 import type { RingPlatformConfig } from './config.ts'
-import { debounceTime, distinctUntilChanged, map } from 'rxjs/operators'
+import { debounceTime, distinctUntilChanged, filter, map } from 'rxjs/operators'
 import type {
   PlatformAccessory,
   CharacteristicValue,
@@ -19,6 +19,8 @@ import type {
 import { CharacteristicEventTypes } from 'homebridge'
 import { logError } from 'ring-client-api/util'
 
+// How long a value set from HomeKit (not debounced) is shown before Ring's reports count again
+export const SET_VALUE_SHOWN_MS = 5000
 // How long a level set from HomeKit is shown while waiting for Ring to report it
 export const LEVEL_TARGET_TIMEOUT_MS = 30_000
 
@@ -50,8 +52,9 @@ export abstract class BaseDataAccessory<
     /**
      * Whether a value set from HomeKit counts as the one shown, so that Ring's next report of
      * another value (e.g. the old one, if Ring didn't act on the request) reaches HomeKit even if
-     * Ring reported that value before. Off for a characteristic that shows Ring's value itself
-     * once a request is done.
+     * Ring reported that value before; reports in the first SET_VALUE_SHOWN_MS don't, as they
+     * may predate the request. Off for a characteristic that shows Ring's value itself once a
+     * request is done.
      */
     trackSetValue?: boolean
     requestUpdate?: () => any
@@ -60,6 +63,10 @@ export abstract class BaseDataAccessory<
       characteristic = service.getCharacteristic(characteristicType),
       { device } = this,
       onValue = new Subject<CharacteristicValue>()
+    // Until when Ring's reports don't replace a value just set from HomeKit (one sent before
+    // Ring acted on the request would show the old value for a moment)
+    let setValueShownUntil = 0,
+      setValueShownTimer: ReturnType<typeof setTimeout> | undefined
 
     if (requestUpdate) {
       // Only register for GET if an async request should be made to get an updated value
@@ -107,7 +114,17 @@ export abstract class BaseDataAccessory<
           callback: CharacteristicSetCallback,
         ) => {
           if (trackSetValue) {
+            setValueShownUntil = Date.now() + SET_VALUE_SHOWN_MS
             onValue.next(newValue)
+            // then Ring's latest value, in case its only report came meanwhile
+            clearTimeout(setValueShownTimer)
+            setValueShownTimer = setTimeout(() => {
+              try {
+                onValue.next(getValue(device.data))
+              } catch (e) {
+                logError(e)
+              }
+            }, SET_VALUE_SHOWN_MS)
           }
           Promise.resolve(setValue(newValue)).catch(logError)
           callback()
@@ -116,7 +133,10 @@ export abstract class BaseDataAccessory<
     }
 
     merge(
-      (this.device.onData as Observable<T['data']>).pipe(map(getValue)),
+      (this.device.onData as Observable<T['data']>).pipe(
+        map(getValue),
+        filter(() => Date.now() >= setValueShownUntil),
+      ),
       onValue,
     )
       .pipe(distinctUntilChanged())
