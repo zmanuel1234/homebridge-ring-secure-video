@@ -15,6 +15,7 @@ import {
   rmSync,
   statSync,
   writeFileSync,
+  writeSync,
 } from 'fs'
 import type { Stats } from 'fs'
 import type { API } from 'homebridge'
@@ -129,8 +130,13 @@ export function writeFileAtomic(filePath: string, contents: string) {
   try {
     const fd = openSync(temporary, 'wx', 0o600)
     try {
-      // Unlike writeSync, this writes everything or throws (e.g. ENOSPC on a full disk).
-      writeFileSync(fd, contents)
+      // writeSync may write part of it at a time; it throws on an error (e.g. ENOSPC on a full
+      // disk). Not writeFileSync(fd): the Homebridge verification check logs a write to a file
+      // descriptor as a write to a file named after its number, in the current folder.
+      const data = Buffer.from(contents)
+      for (let written = 0; written < data.length; ) {
+        written += writeSync(fd, data, written, data.length - written)
+      }
       // Owner and group first: changing them clears setuid/setgid bits set by a chmod.
       if (previous && uid === 0) {
         fchownSync(fd, previous.uid, previous.gid)

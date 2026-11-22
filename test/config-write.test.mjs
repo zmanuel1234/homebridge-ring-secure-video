@@ -96,12 +96,11 @@ test('a full disk leaves the old file untouched (no cut-short file is put in pla
   await inTempDir(async (dir) => {
     const file = join(dir, 'config.json')
     await writeFile(file, 'old')
-    mockFs(t, 'writeFileSync', (original, target, ...rest) => {
-      if (typeof target === 'number') {
-        original(target, 'cut sh')
-        throw errno('ENOSPC')
-      }
-      return original(target, ...rest)
+    let calls = 0
+    mockFs(t, 'writeSync', (original, fd, buffer, offset) => {
+      // the first part is written, then the disk is full
+      if (calls++) throw errno('ENOSPC')
+      return original(fd, buffer, offset, 6)
     })
     assert.throws(() => writeFileAtomic(file, 'new contents'), { code: 'ENOSPC' })
     assert.equal(await readFile(file, 'utf8'), 'old')
@@ -199,5 +198,19 @@ test('the Ring system id file is created once and then reused', async () => {
     const first = getSystemId(dir)
     assert.equal(getSystemId(dir), first)
     assert.deepEqual(await readdir(dir), ['.ring.json'])
+  })
+})
+
+test('a file written a few bytes at a time is written whole', async (t) => {
+  await inTempDir(async (dir) => {
+    const file = join(dir, 'config.json')
+    await writeFile(file, 'old')
+    const contents = JSON.stringify({ platforms: [{ refreshToken: 'x'.repeat(5000) }] })
+    // writeSync may write less than asked for; the rest must still be written
+    mockFs(t, 'writeSync', (original, fd, buffer, offset, length) =>
+      original(fd, buffer, offset, Math.min(length, 3)),
+    )
+    writeFileAtomic(file, contents)
+    assert.equal(await readFile(file, 'utf8'), contents)
   })
 })
