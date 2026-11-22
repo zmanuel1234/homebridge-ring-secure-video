@@ -4,8 +4,7 @@
 
 - Ring push notifications: the connection to Google's push service is checked every 60 s
   instead of every 5 minutes, so one a home router dropped silently is reconnected within about
-  2 minutes, instead of after 10 minutes or, if only the system notices, hours
-  (dgreif/ring#1810).
+  2 minutes instead of 10 (dgreif/ring#1810).
 - Ring sometimes sends an all-zero placeholder as a notification's snapshot id. It no longer
   holds up the event while loading a snapshot that Ring refuses, and no longer makes a battery
   camera wait 2 s for snapshots with its events (dgreif/ring#1906).

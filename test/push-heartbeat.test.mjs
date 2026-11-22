@@ -23,4 +23,6 @@ test('the push client checks its connection every 60 s unless told otherwise', (
 
   // a heartbeat ring-client-api sets itself (as upstream's #1810 does) is kept
   assert.equal(new PushReceiver({ heartbeatIntervalMs: 30_000 }).config.heartbeatIntervalMs, 30_000)
+  // left out explicitly, it is still 60 s (push-receiver would otherwise send none at all)
+  assert.equal(new PushReceiver({ heartbeatIntervalMs: undefined }).config.heartbeatIntervalMs, 60_000)
 })

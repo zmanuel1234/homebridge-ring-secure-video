@@ -33,5 +33,6 @@ console.log(
     decrypts: JSON.stringify(fixedDecrypt(message, keys)) === JSON.stringify(payload),
     // the class ring-client-api's `import { PushReceiver }` gets
     heartbeatIntervalMs: loaded.PushReceiver.heartbeatIntervalMs,
+    heartbeatClass: loaded.PushReceiver.name,
   }),
 )

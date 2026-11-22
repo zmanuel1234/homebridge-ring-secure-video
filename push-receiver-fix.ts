@@ -29,8 +29,7 @@ export type PushReceiverFixResult = 'replaced' | 'decrypt-patched' | 'not-needed
  * How often the push client checks its connection to Google's push service when nothing else
  * arrives: it sends a heartbeat after this long without data, and reconnects after twice this
  * long. push-receiver's default is 5 minutes (so 10 before reconnecting), and ring-client-api
- * keeps it; a connection a home router dropped silently could then go unnoticed for that long,
- * or much longer if the system's TCP keepalive (2 hours on Linux) is all that notices
+ * keeps it; a connection a home router dropped silently could then go unnoticed for that long
  * (dgreif/ring#1810).
  */
 export const PUSH_HEARTBEAT_INTERVAL_MS = 60_000
@@ -43,7 +42,10 @@ export function withPushHeartbeat<T extends PushReceiverClass>(PushReceiver: T):
     static heartbeatIntervalMs = PUSH_HEARTBEAT_INTERVAL_MS
 
     constructor(...[config]: any[]) {
-      super({ heartbeatIntervalMs: PUSH_HEARTBEAT_INTERVAL_MS, ...config })
+      super({
+        ...config,
+        heartbeatIntervalMs: config?.heartbeatIntervalMs ?? PUSH_HEARTBEAT_INTERVAL_MS,
+      })
     }
   }
 }
