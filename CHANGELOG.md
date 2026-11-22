@@ -17,14 +17,16 @@
 - Motion from Ring's event history: after a network or DNS outage, motion from during the outage
   no longer counts as new (a clip of an empty doorway). Whether an event is recent is now judged
   by when Ring answered, not when the check started.
-- Brightness, fan speed and the volume of Ring Alarm devices (keypad, base station): a level set from HomeKit that Ring reports back
-  slightly differently (57 % comes back as 56.99…) or not at all no longer hides later changes
-  made at the device or in the Ring app. Ring's level is rounded, and a request Ring hasn't
-  reported within 30 s gives way to the level Ring reports.
+- Brightness, fan speed and volume (Ring Alarm devices such as the keypad, and chimes): a level
+  set from HomeKit that Ring reports back slightly differently (57 % comes back as 56.99…) or
+  not at all no longer hides later changes made at the device or in the Ring app. Ring's level
+  is rounded, and a request Ring hasn't reported within 30 s gives way to the level Ring
+  reports.
 - A switch or other control set from HomeKit that Ring didn't act on (e.g. a switch, outlet or
-  valve, a camera's light or siren, the alarm's Siren switch, a panic button, a thermostat) now
-  shows Ring's state again 5 s after the request, or at Ring's next report after that, instead
-  of staying as requested (e.g. the siren shown on while silent).
+  valve, the alarm's Siren switch, a panic button, a thermostat) now shows Ring's state again
+  10 s after the request, or at Ring's next report after that, instead of staying as requested
+  (e.g. the siren shown on while silent). Until Ring reports the request, or for those 10 s,
+  Ring's other reports don't flip it back, as they may predate the request.
 
 ## 1.0.5 (2026-11-22)
 
