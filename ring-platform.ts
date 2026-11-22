@@ -30,7 +30,6 @@ import { SmokeCoListener } from './smoke-co-listener.ts'
 import type { RingPlatformConfig } from './config.ts'
 import {
   controlCenterDisplayName,
-  debug,
   getSystemId,
   rotateSystemId,
   updateHomebridgeConfig,
@@ -735,7 +734,6 @@ export class RingPlatform implements DynamicPlatformPlugin {
           securityPanel = devices.find(
             (x) => x.deviceType === RingDeviceType.SecurityPanel,
           ),
-          debugPrefix = debug ? 'TEST ' : '',
           hapDevices = allDevices.map((device) => {
             const isCamera = device instanceof RingCamera,
               isIntercomVideo =
@@ -821,8 +819,8 @@ export class RingPlatform implements DynamicPlatformPlugin {
             name,
             AccessoryClass,
           }) => {
-            const uuid = hap.uuid.generate(debugPrefix + id),
-              displayName = debugPrefix + name
+            const uuid = hap.uuid.generate(id),
+              displayName = name
             try {
 
               if (
@@ -902,7 +900,7 @@ export class RingPlatform implements DynamicPlatformPlugin {
                 accessory instanceof Camera &&
                 accessory.motionDetected
               ) {
-                const sensorUuid = getMotionNotificationSensorUuid(debugPrefix + id),
+                const sensorUuid = getMotionNotificationSensorUuid(id),
                   sensorName = `${displayName} Motion`
                 let sensorAccessory = this.homebridgeAccessories[sensorUuid]
 
@@ -936,7 +934,7 @@ export class RingPlatform implements DynamicPlatformPlugin {
               // Keep it (and a motion sensor it had) in HomeKit rather than removing it as stale.
               activeAccessoryIds.push(
                 uuid,
-                getMotionNotificationSensorUuid(debugPrefix + id),
+                getMotionNotificationSensorUuid(id),
               )
             }
           },
@@ -947,7 +945,7 @@ export class RingPlatform implements DynamicPlatformPlugin {
     // Opens after an automatic session refresh, so the Home app can notify.
     if (this.pushHealth && config.sessionRefreshSensor) {
       const sensorUuid = getSessionRefreshSensorUuid(
-          `${debug ? 'TEST ' : ''}ring-secure-video${accessoryIdSuffix}`,
+          `ring-secure-video${accessoryIdSuffix}`,
         ),
         sensorName = `Ring Session Refreshed${accessoryNameSuffix}`
       let sensorAccessory = this.homebridgeAccessories[sensorUuid]

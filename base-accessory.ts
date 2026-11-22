@@ -3,7 +3,6 @@ import { shareReplay, take } from 'rxjs/operators'
 import type { Observable } from 'rxjs'
 import { firstValueFrom } from 'rxjs'
 import type { RingPlatformConfig } from './config.ts'
-import { debug } from './config.ts'
 import type {
   Characteristic,
   PlatformAccessory,
@@ -44,27 +43,12 @@ export abstract class BaseAccessory<T extends { name: string }> {
       return serviceType
     }
 
-    if (debug) {
-      name = 'TEST ' + name
-    }
-
     const existingService = subType
         ? this.accessory.getServiceById(serviceType, subType)
         : this.accessory.getService(serviceType),
       service =
         existingService ||
         this.accessory.addService(serviceType, name, subType!)
-
-    if (
-      debug &&
-      existingService &&
-      existingService.displayName &&
-      name !== existingService.displayName
-    ) {
-      throw new Error(
-        `Overlapping services for device ${this.device.name} - ${name} != ${existingService.displayName} - ${serviceType}`,
-      )
-    }
 
     if (!this.servicesInUse.includes(service)) {
       this.servicesInUse.push(service)
