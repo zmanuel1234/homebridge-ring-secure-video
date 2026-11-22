@@ -445,7 +445,7 @@ export class RingPlatform implements DynamicPlatformPlugin {
 
     if (pushReceiverFix.result === 'failed') {
       this.log.warn(
-        `Could not fix Ring push notifications (${pushReceiverFix.detail}); instant motion and doorbell events may not arrive`,
+        `Could not set Ring's push notification heartbeat (${pushReceiverFix.detail}); a dropped push connection may go unnoticed for up to 10 minutes`,
       )
     } else {
       this.log.info(`Ring push notifications: ${pushReceiverFix.detail}`)
