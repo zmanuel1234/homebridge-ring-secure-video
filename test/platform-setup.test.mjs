@@ -314,6 +314,36 @@ test("when no location's devices can be loaded, connecting is retried", async (t
   assert.deepEqual(calls.registered.map((a) => a.displayName), ['Front Door Sensor'])
 })
 
+test("while Ring can't be reached at start-up, cached accessories show No Response", async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const location = fakeRingLocation(),
+    cached = new PlatformAccessory('Door', hapNodejs.uuid.generate('good'))
+  cached.addService(hapNodejs.Service.ContactSensor)
+  let failures = 1
+  const { platform } = platformWith(
+    [],
+    [cached],
+    {
+      getLocations: async () => {
+        if (failures-- > 0) throw new Error('Ring returned 503')
+        return [fakeLocation('Home', async () => [contactSensor('good', 'Door', location)])]
+      },
+    },
+  )
+  const state = () =>
+    cached
+      .getService(hapNodejs.Service.ContactSensor)
+      .getCharacteristic(hapNodejs.Characteristic.ContactSensorState)
+      .handleGetRequest()
+
+  await platform.connectWithRetry()
+  await assert.rejects(state, (e) => e === hapNodejs.HAPStatus.SERVICE_COMMUNICATION_FAILURE)
+
+  t.mock.timers.tick(30_000)
+  for (let i = 0; i < 5; i++) await new Promise((resolve) => setImmediate(resolve))
+  assert.equal(await state(), hapNodejs.Characteristic.ContactSensorState.CONTACT_DETECTED, "Ring's state once connected")
+})
+
 test('a kept accessory that could not be set up shows No Response', async () => {
   const location = fakeRingLocation(),
     broken = { id: 'broken', name: 'Broken Sensor', deviceType: 'sensor.contact', data: {} },

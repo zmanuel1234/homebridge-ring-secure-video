@@ -436,6 +436,17 @@ function getDevicesInTime(location: { name: string; getDevices: () => Promise<Ri
   return Promise.race([location.getDevices(), timeout]).finally(() => clearTimeout(timer))
 }
 
+/** Undoes markNotResponding, so that the accessory's own handlers answer HomeKit again. */
+function markResponding(accessory: PlatformAccessory) {
+  for (const service of accessory.services) {
+    if (service.UUID === hap.Service.AccessoryInformation.UUID) continue
+    for (const characteristic of service.characteristics) {
+      characteristic.removeOnGet()
+      characteristic.removeOnSet()
+    }
+  }
+}
+
 /** 30 s, 1 min, 2 min, ... up to 10 min between attempts to reach Ring at startup. */
 export function getRetryDelayMs(attempt: number) {
   return Math.min(30_000 * 2 ** attempt, 600_000)
@@ -542,6 +553,8 @@ export class RingPlatform implements DynamicPlatformPlugin {
   private retryTimer?: ReturnType<typeof setTimeout>
   private shuttingDown = false
   private devicesSetUp = false
+  // The cached accessories show "No Response" until Ring can be reached
+  private cachedNotResponding = false
   private ringApi?: RingApi
   private pushHealth?: PushHealthMonitor
   private gotNewToken = false
@@ -585,6 +598,12 @@ export class RingPlatform implements DynamicPlatformPlugin {
       await this.connectToApi()
     } catch (e) {
       const message = describeError(e)
+      if (!this.shuttingDown && !this.devicesSetUp && !this.cachedNotResponding) {
+        // Rather than the values they had when Homebridge stopped, and controls that do nothing
+        this.cachedNotResponding = true
+        Object.values(this.homebridgeAccessories).forEach(markNotResponding)
+        this.log.warn('The Home app shows the Ring accessories as "No Response" until Ring can be reached.')
+      }
       if (this.shuttingDown || this.devicesSetUp || isPermanentRingError(e)) {
         this.log.error(`Error connecting to Ring: ${message}`)
         return
@@ -733,6 +752,10 @@ export class RingPlatform implements DynamicPlatformPlugin {
     }
     this.devicesSetUp = true
     this.ringApi = ringApi
+    if (this.cachedNotResponding) {
+      this.cachedNotResponding = false
+      Object.values(this.homebridgeAccessories).forEach(markResponding)
+    }
 
     const cachedAccessoryIds = Object.keys(this.homebridgeAccessories),
       platformAccessories: PlatformAccessory[] = [],
