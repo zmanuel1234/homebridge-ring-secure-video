@@ -5,6 +5,9 @@ import { hap } from './hap.ts'
 import type { RingPlatformConfig } from './config.ts'
 import type { PlatformAccessory } from 'homebridge'
 
+// How long a lock/unlock request from HomeKit is shown while waiting for Ring to report it
+export const LOCK_TARGET_TIMEOUT_MS = 30_000
+
 function getCurrentState({ locked }: RingDeviceData) {
   const {
     Characteristic: { LockCurrentState: State },
@@ -24,6 +27,8 @@ function getCurrentState({ locked }: RingDeviceData) {
 
 export class Lock extends BaseDeviceAccessory {
   private targetState: any
+  private targetTimer?: ReturnType<typeof setTimeout>
+  private showTarget?: (value: any) => void
 
   public readonly device
   public readonly accessory
@@ -52,7 +57,7 @@ export class Lock extends BaseDeviceAccessory {
         skip(1),
       )
       .subscribe(() => {
-        this.targetState = undefined
+        this.clearTargetState()
       })
 
     this.registerCharacteristic({
@@ -62,14 +67,14 @@ export class Lock extends BaseDeviceAccessory {
         const state = getCurrentState(data)
 
         if (state === this.targetState) {
-          this.targetState = undefined
+          this.clearTargetState()
         }
 
         return state
       },
     })
 
-    this.registerCharacteristic({
+    this.showTarget = this.registerCharacteristic({
       characteristicType: Characteristic.LockTargetState,
       serviceType: Service.LockMechanism,
       getValue: (data) => this.getTargetState(data),
@@ -83,10 +88,27 @@ export class Lock extends BaseDeviceAccessory {
       } = hap,
       command = state === State.SECURED ? 'lock' : 'unlock'
 
-    this.targetState =
-      state === getCurrentState(this.device.data) ? undefined : state
+    this.clearTargetState()
+    if (state !== getCurrentState(this.device.data)) {
+      this.targetState = state
+      // If Ring never reports a new state (the command was lost, or the lock ignored it), the
+      // lock's state is shown again, instead of "Locking…" or "Unlocking…" until the next one
+      this.targetTimer = setTimeout(() => {
+        this.targetTimer = undefined
+        this.targetState = undefined
+        this.showTarget?.(this.getTargetState(this.device.data))
+      }, LOCK_TARGET_TIMEOUT_MS)
+      // nothing to wait for when Homebridge stops
+      this.targetTimer.unref?.()
+    }
 
     return this.device.sendCommand(`lock.${command}`)
+  }
+
+  private clearTargetState() {
+    clearTimeout(this.targetTimer)
+    this.targetTimer = undefined
+    this.targetState = undefined
   }
 
   getTargetState(data: RingDeviceData) {

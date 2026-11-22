@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import * as hapNodejs from '@homebridge/hap-nodejs'
 import { setHap } from '../lib/hap.js'
-import { Lock } from '../lib/lock.js'
+import { Lock, LOCK_TARGET_TIMEOUT_MS } from '../lib/lock.js'
 
 setHap(hapNodejs)
 const { LockTargetState: Target } = hapNodejs.Characteristic
@@ -108,5 +108,28 @@ test('an unlock from HomeKit is pending until Ring reports it, then settles', as
   assert.deepEqual(commands, ['lock.unlock'])
   assert.deepEqual(await read(), { current: 1, target: 0 }, 'unlocking…')
   onData.next({ locked: 'unlocked' })
+  assert.deepEqual(await read(), { current: 0, target: 0 })
+})
+
+test('a lock command Ring never reports gives up after 30 s and shows the lock again', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const { read, service, commands } = await lockAccessory('locked')
+  const target = service.getCharacteristic(Target)
+  await target.handleSetRequest(Target.UNSECURED)
+  assert.deepEqual(commands, ['lock.unlock'])
+  assert.deepEqual(await read(), { current: 1, target: 0 }, 'unlocking…')
+
+  // Ring reports nothing: the command was lost
+  t.mock.timers.tick(LOCK_TARGET_TIMEOUT_MS)
+  assert.deepEqual(await read(), { current: 1, target: 1 }, 'locked, as Ring last reported')
+  assert.equal(target.value, 1, 'HomeKit is told')
+})
+
+test('a lock command Ring reports in time leaves no timeout behind', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const { onData, read, service } = await lockAccessory('locked')
+  await service.getCharacteristic(Target).handleSetRequest(Target.UNSECURED)
+  onData.next({ locked: 'unlocked' })
+  t.mock.timers.tick(LOCK_TARGET_TIMEOUT_MS)
   assert.deepEqual(await read(), { current: 0, target: 0 })
 })
