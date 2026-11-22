@@ -11,9 +11,10 @@
   so the stream is freed at once; a recording request while recording is off is refused at once.
   Before, Homebridge kept the stream open for up to 12 s and answered "busy" to the next
   recording request, so a second motion or doorbell press in that time wasn't recorded.
-- With the `copy` recording codec, recording fragments are cut at keyframes only. FFmpeg also cut
-  one every fragment length, even between keyframes, so when Ring's keyframe came late the next
-  fragment didn't start with one, which HomeKit can drop or show garbled.
+- With the `copy` recording codec, recording fragments are cut at keyframes, unless Ring sends
+  none for 3 fragment lengths (12 s). FFmpeg also cut one every fragment length, even between
+  keyframes, so when Ring's keyframe came late the next fragment didn't start with one, which
+  HomeKit can drop or show garbled.
 - Motion from Ring's event history: after a network or DNS outage, motion from during the outage
   no longer counts as new (a clip of an empty doorway). Whether an event is recent is now judged
   by when Ring answered, not when the check started.

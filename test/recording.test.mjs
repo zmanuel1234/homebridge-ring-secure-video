@@ -741,10 +741,10 @@ test('a recording request while recording is off is refused at once', async () =
   )
 })
 
-test('a copied recording is cut at keyframes only; a transcoded one also every fragment length', () => {
-  // with -frag_duration FFmpeg also cuts between keyframes, and a copied recording's keyframes
-  // come from Ring, so some fragments wouldn't start with one
-  assert.deepEqual(getHksvFragmentDurationArguments('copy', 4_000), [])
+test("a copied recording's fragments are cut at keyframes, up to 3 fragment lengths", () => {
+  // with one fragment length FFmpeg cut between Ring's keyframes, so some fragments didn't start
+  // with one; with no limit a fragment would grow until Ring's next keyframe
+  assert.deepEqual(getHksvFragmentDurationArguments('copy', 4_000), ['-frag_duration', '12000000'])
   assert.deepEqual(getHksvFragmentDurationArguments('libx264', 4_000), [
     '-frag_duration',
     '4000000',
@@ -755,14 +755,14 @@ test('a copied recording is cut at keyframes only; a transcoded one also every f
   ])
 })
 
-test("a copied recording's FFmpeg output has no -frag_duration", async () => {
+test("a copied recording's FFmpeg output allows fragments of 3 fragment lengths", async () => {
   let output
   const source = recordingSource(fakeSession(), (feed, options) => (output = options.output))
   source.config = { media: { recording: { codec: 'copy', maxDurationSeconds: 0 } } }
   const generator = source.handleRecordingStreamRequest(11),
     first = generator.next()
   while (!output) await delay(5)
-  assert.equal(output.includes('-frag_duration'), false)
+  assert.equal(output[output.indexOf('-frag_duration') + 1], '12000000')
   assert.ok(output.includes('-movflags'))
   source.closeRecordingStream(11, 'done')
   assert.equal((await within(first, 1_000)).done, true)

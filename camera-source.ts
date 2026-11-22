@@ -539,11 +539,14 @@ export const HKSV_RECORDING_MOVFLAGS =
  * FFmpeg cuts a fragment at each keyframe (frag_keyframe) and, with -frag_duration, also once a
  * fragment is that long, even between keyframes, and HomeKit needs each fragment to start with
  * one. A copied recording has only Ring's keyframes, plus those requested every fragment
- * length, so it is cut at keyframes only. A transcoded one sets its own keyframe interval (-g)
- * and keeps -frag_duration, as before.
+ * length, so it gets 3 fragment lengths: cut at keyframes, unless Ring sends none for that
+ * long (then a fragment without one beats one that grows until the recording stalls or its
+ * queue limit is reached). A transcoded one sets its own keyframe interval (-g) and keeps one
+ * fragment length, as before.
  */
 export function getHksvFragmentDurationArguments(videoCodec: string, fragmentLengthMs: number) {
-  return videoCodec === 'copy' ? [] : ['-frag_duration', `${fragmentLengthMs * 1000}`]
+  const maxFragmentMs = videoCodec === 'copy' ? fragmentLengthMs * 3 : fragmentLengthMs
+  return ['-frag_duration', `${maxFragmentMs * 1000}`]
 }
 
 /**
@@ -1078,7 +1081,7 @@ export class CameraSource
     let waitForPacket: (() => void) | undefined,
       queuedBytes = 0,
       closed = false,
-      // HomeKit (or Homebridge shutting down) closed the stream, so it needn't be told it ended
+      // HomeKit closed the stream (or Homebridge is shutting down), so it needn't be told it ended
       closedByHomeKit = false
 
     const fragmentLengthMs =
