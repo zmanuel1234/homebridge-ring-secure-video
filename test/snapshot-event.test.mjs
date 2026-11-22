@@ -4,7 +4,7 @@ import { Subject } from 'rxjs'
 import * as hapNodejs from '@homebridge/hap-nodejs'
 import { useLogger } from 'ring-client-api/util'
 import { setHap } from '../lib/hap.js'
-import { Camera, SNAPSHOT_NOTIFICATION_WAIT_MS } from '../lib/camera.js'
+import { Camera, getUsableSnapshotUuid, SNAPSHOT_NOTIFICATION_WAIT_MS } from '../lib/camera.js'
 import { CameraSource } from '../lib/camera-source.js'
 
 setHap(hapNodejs)
@@ -186,4 +186,36 @@ test('a camera whose snapshots come 3 s after its events stops waiting after 3 o
   await settle()
   assert.equal(value, 5)
   camera.pendingSnapshotNotification?.unsubscribe()
+})
+
+const zeroUuid = '00000000000000000000000000000000'
+
+test("Ring's all-zero placeholder snapshot uuid counts as none", () => {
+  assert.equal(getUsableSnapshotUuid(zeroUuid), undefined)
+  assert.equal(getUsableSnapshotUuid(`${zeroUuid}:1234`), undefined)
+  assert.equal(getUsableSnapshotUuid('00000000-0000-0000-0000-000000000000'), undefined)
+  assert.equal(getUsableSnapshotUuid(''), undefined)
+  assert.equal(getUsableSnapshotUuid(undefined), undefined)
+  assert.equal(getUsableSnapshotUuid('a1b2c3:1234'), 'a1b2c3:1234')
+})
+
+test('an event with an all-zero snapshot uuid goes at once and loads nothing', async () => {
+  // wired: it would load the notification's snapshot before sending the event
+  const { camera, loaded } = fakeCamera({ onBattery: false, snapshotUuid: zeroUuid })
+  const value = await camera.loadSnapshotForEvent('Detected Motion', true)
+  assert.equal(value, true)
+  assert.deepEqual(loaded, [undefined], 'a new snapshot, as without a uuid')
+})
+
+test('an all-zero snapshot uuid after an event teaches no wait and loads nothing', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'setInterval'] })
+  const { camera, loaded } = fakeCamera({ onBattery: true })
+  await camera.loadSnapshotForEvent('Detected Motion', true)
+  camera.device.onNewNotification.next({ img: { snapshot_uuid: zeroUuid } })
+  await settle()
+  assert.deepEqual(loaded, [])
+  assert.equal(camera.snapshotNotificationsArrive, false, 'events still go at once')
+  camera.device.onNewNotification.next({ img: { snapshot_uuid: 'real' } })
+  await settle()
+  assert.deepEqual(loaded, ['real'], 'a real one that follows is still loaded')
 })
