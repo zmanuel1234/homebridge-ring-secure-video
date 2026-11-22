@@ -1,24 +1,32 @@
 import assert from 'node:assert/strict'
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 
 // Patterns the Homebridge verification check (homebridge/plugins) flags for manual review in a
 // plugin's built code, which this plugin has no reason to contain.
-const lib = new URL('../lib/', import.meta.url).pathname
+const root = fileURLToPath(new URL('..', import.meta.url))
 
-async function builtFiles(dir = lib) {
+// What the check reads: the .js, .ts and .json files of the installed package
+async function builtFiles(dir = join(root, 'lib')) {
   const files = []
   for (const entry of await readdir(dir, { withFileTypes: true })) {
     const path = join(dir, entry.name)
     if (entry.isDirectory()) files.push(...(await builtFiles(path)))
-    else if (entry.name.endsWith('.js')) files.push(path)
+    else if (/\.(?:js|ts|json)$/.test(entry.name)) files.push(path)
   }
   return files
 }
 
+const packageFiles = async () => [
+  ...(await builtFiles()),
+  join(root, 'config.schema.json'),
+  join(root, 'package.json'),
+]
+
 test('the built plugin reads no environment variables or .env files', async () => {
-  for (const file of await builtFiles()) {
+  for (const file of await packageFiles()) {
     assert.doesNotMatch(await readFile(file, 'utf8'), /\.env/, file)
   }
 })

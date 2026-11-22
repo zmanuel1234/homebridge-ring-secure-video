@@ -6,8 +6,8 @@
   same safe way, written with a different call, so the Homebridge verification check no longer
   reports it as a write outside the storage folder.
 - The `RING_DEBUG=true` environment variable (from homebridge-ring, for running a test copy of
-  the plugin: "TEST " before accessory names and HomeKit ids) is gone; `homeKitAccessoryTag`
-  does the same as a setting. Without it set, nothing changes.
+  the plugin: "TEST " before accessory names and HomeKit ids) is gone; the
+  `homeKitAccessoryTag` setting serves the same purpose. Without it set, nothing changes.
 
 ## 1.0.7 (2026-11-22)
 

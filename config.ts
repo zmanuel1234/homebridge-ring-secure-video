@@ -135,7 +135,9 @@ export function writeFileAtomic(filePath: string, contents: string) {
       // descriptor as a write to a file named after its number, in the current folder.
       const data = Buffer.from(contents)
       for (let written = 0; written < data.length; ) {
-        written += writeSync(fd, data, written, data.length - written)
+        const count = writeSync(fd, data, written, data.length - written)
+        if (!count) throw new Error(`Nothing was written to ${temporary}`)
+        written += count
       }
       // Owner and group first: changing them clears setuid/setgid bits set by a chmod.
       if (previous && uid === 0) {
