@@ -4,7 +4,12 @@ import { Subject } from 'rxjs'
 import * as hapNodejs from '@homebridge/hap-nodejs'
 import { RingDevice } from 'ring-client-api'
 import { setHap } from '../lib/hap.js'
-import { getRetryDelayMs, isPermanentRingError, RingPlatform } from '../lib/ring-platform.js'
+import {
+  GET_DEVICES_TIMEOUT_MS,
+  getRetryDelayMs,
+  isPermanentRingError,
+  RingPlatform,
+} from '../lib/ring-platform.js'
 
 setHap(hapNodejs)
 
@@ -157,6 +162,39 @@ test('a location whose connection failed once is not asked again (Ring would nev
   assert.deepEqual(platformCalls.registered.map((a) => a.displayName), ['Front Door Sensor'])
   assert.ok(log.errors.some((e) => e.includes('location "Cabin": ticket 503')))
   assert.equal(calls, 1)
+})
+
+test("a location Ring never sends devices for doesn't hold up the others", async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const location = fakeRingLocation()
+  const { platform, log, calls } = platformWith([
+    fakeLocation('Cabin', () => new Promise(() => {})),
+    fakeLocation('Home', async () => [contactSensor('good', 'Front Door Sensor', location)]),
+  ])
+
+  const connecting = platform.connectToApi()
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.deepEqual(calls.registered, [], 'waits for Ring meanwhile')
+  t.mock.timers.tick(GET_DEVICES_TIMEOUT_MS)
+  await connecting
+
+  assert.deepEqual(calls.registered.map((a) => a.displayName), ['Front Door Sensor'])
+  assert.ok(
+    log.errors.some((e) => e.includes('location "Cabin": Ring sent no devices for location "Cabin" within 60 s')),
+  )
+})
+
+test('when Ring sends no devices for any location, connecting is retried', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const { platform, log, calls } = platformWith([fakeLocation('Home', () => new Promise(() => {}))])
+
+  const connecting = platform.connectWithRetry()
+  await new Promise((resolve) => setImmediate(resolve))
+  t.mock.timers.tick(GET_DEVICES_TIMEOUT_MS)
+  await connecting
+
+  assert.match(log.errors.at(-1), /within 60 s\). Trying again in 30 s/)
+  assert.equal(calls.disconnects, 1, 'with a new connection')
 })
 
 test('connecting is retried when Ring cannot be reached, with a fresh connection each time', async (t) => {

@@ -412,6 +412,30 @@ function markNotResponding(accessory: PlatformAccessory) {
   }
 }
 
+/**
+ * How long Ring may take to send a location's devices when the plugin connects (usually a few
+ * seconds). Without a limit, a location whose connection Ring never answers would hold up every
+ * other location, and the retries, until Homebridge restarts.
+ */
+export const GET_DEVICES_TIMEOUT_MS = 60_000
+
+function getDevicesInTime(location: { name: string; getDevices: () => Promise<RingDevice[]> }) {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () =>
+        reject(
+          new Error(
+            `Ring sent no devices for location "${location.name}" within ${GET_DEVICES_TIMEOUT_MS / 1000} s`,
+          ),
+        ),
+      GET_DEVICES_TIMEOUT_MS,
+    )
+    timer.unref?.()
+  })
+  return Promise.race([location.getDevices(), timeout]).finally(() => clearTimeout(timer))
+}
+
 /** 30 s, 1 min, 2 min, ... up to 10 min between attempts to reach Ring at startup. */
 export function getRetryDelayMs(attempt: number) {
   return Math.min(30_000 * 2 ** attempt, 600_000)
@@ -693,9 +717,7 @@ export class RingPlatform implements DynamicPlatformPlugin {
       // connecting to the alarm, say), a retry with a new connection may do better, and nothing
       // has been set up yet. A location that fails while others work is reported below.
       // Loaded once: after a failed connection, ring-client-api's getDevices() waits forever.
-      loadedDevices = await Promise.allSettled(
-        locations.map((location) => location.getDevices()),
-      )
+      loadedDevices = await Promise.allSettled(locations.map(getDevicesInTime))
       const firstFailure = loadedDevices.find((result) => result.status === 'rejected')
       if (firstFailure && loadedDevices.every((result) => result.status === 'rejected')) {
         throw firstFailure.reason
