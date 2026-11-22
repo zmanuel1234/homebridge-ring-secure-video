@@ -1,5 +1,14 @@
 # homebridge-ring-secure-video
 
+## Unreleased
+
+- On Node.js 26, signing in to Ring and renewing the Ring token need undici 7.27.1 or newer:
+  ring-client-api 14.3.0 accepts any undici 7.x, and an older one can't read Ring's compressed
+  answers on Node 26, so every token renewal fails and Ring devices stop responding
+  (dgreif/ring#1876, #1884). The plugin now asks for undici 7.27.1 or newer itself, so it
+  never runs with an older one. New installs already got a newer one; this only guards setups
+  that reuse an older copy.
+
 ## 1.0.6 (2026-11-22)
 
 - New setting `alarmModeChangeDelaySeconds` (Alarm and Location Mode): how long an alarm mode
