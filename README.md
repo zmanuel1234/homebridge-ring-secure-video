@@ -23,8 +23,9 @@ Everything `homebridge-ring` exposes is here too, with the same settings, plus:
   (`enableCameraMotionHistory`), checked often only until push is seen to work.
 - **Automatic recovery when Ring stops sending push notifications** (`automaticSessionRefresh`),
   with an optional "Ring Session Refreshed" sensor (`sessionRefreshSensor`) to tell you.
-- **A fix for dropped push notifications**: the push library ring-client-api ships (4.3.0) can drop
-  them; 4.3.1 is used instead.
+- **A push connection that recovers quickly**: Ring's push client checks its connection every 60 s
+  instead of every 5 minutes, so one a home router dropped silently is restored within about
+  2 minutes.
 - **A second visit is not missed**: a new Ring motion alert while the last one is still active
   (ring-client-api keeps each active for 65 s) is reported to HomeKit as new motion, so it is
   recorded and notified.
@@ -40,7 +41,7 @@ This is an independent project, not a GitHub fork and not maintained by the auth
 
 - [`homebridge-ring`](https://github.com/dgreif/ring) by Dusty Greif: this plugin's accessory code
   started from homebridge-ring 14.3.0, and it uses
-  [`ring-client-api`](https://www.npmjs.com/package/ring-client-api) 14.3.0 from npm as a
+  [`ring-client-api`](https://www.npmjs.com/package/ring-client-api) from npm (15.0.0-beta.0) as a
   dependency.
 - [`homebridge-ring-hksv`](https://github.com/trinityhades/homebridge-ring-hksv) by trinityhades:
   this plugin continues from its version 15.0.2 (HKSV recording pipeline, Ring Intercom Video).
@@ -105,7 +106,7 @@ Without `media.profile`, the profile is `adaptive`, so a config that only had
 
 ## Installation
 
-Requires Node.js 22, 24 or 26 and Homebridge 1.8 or later (tested with 2.5; 1.8 is supported but not
+Requires Node.js 22 (22.19 or later), 24 or 26 and Homebridge 1.8 or later (tested with 2.5; 1.8 is supported but not
 tested). If Homebridge is installed globally:
 
 ```bash
