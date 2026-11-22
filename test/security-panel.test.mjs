@@ -367,3 +367,62 @@ test('a newer request keeps showing while an older change finishes', async (t) =
   assert.equal(panel.getShownTargetState({ mode: 'all' }), State.DISARM, 'still the newer request')
   assert.deepEqual(shown.target, [State.DISARM])
 })
+
+// A panel on a real HAP accessory, whose arm commands Ring never acts on.
+function hapPanel() {
+  const onData = new BehaviorSubject({ mode: 'none' }),
+    device = {
+      name: 'Alarm',
+      zid: 'zid-alarm',
+      onData,
+      get data() {
+        return onData.value
+      },
+      location: {
+        armHome: () => new Promise(() => {}),
+        armAway: () => new Promise(() => {}),
+        disarm: async () => {},
+        getDevices: async () => [],
+      },
+    },
+    hap = new hapNodejs.Accessory('Alarm', hapNodejs.uuid.generate(`alarm-${Math.random()}`)),
+    accessory = {
+      displayName: 'Alarm',
+      UUID: hap.UUID,
+      context: {},
+      getService: (s) => hap.getService(s),
+      getServiceById: (s, sub) => hap.getServiceById(s, sub),
+      addService: (...a) => hap.addService(...a),
+      removeService: (s) => hap.removeService(s),
+    }
+  new SecurityPanel(device, accessory, { hideAlarmSirenSwitch: true })
+  const service = hap.getService(hapNodejs.Service.SecuritySystem)
+  return {
+    onData,
+    target: service.getCharacteristic(hapNodejs.Characteristic.SecuritySystemTargetState),
+    current: service.getCharacteristic(hapNodejs.Characteristic.SecuritySystemCurrentState),
+  }
+}
+
+test('after a change Ring never made, the target follows Ring again', async (t) => {
+  for (const oldModeReport of [false, true]) {
+    t.mock.timers.reset()
+    t.mock.timers.enable({ apis: ['setTimeout'] })
+    const { onData, target, current } = hapPanel()
+
+    await target.handleSetRequest(State.STAY_ARM)
+    t.mock.timers.tick(ALARM_TARGET_SETTLE_MS)
+    await settle()
+    if (oldModeReport) onData.next({ mode: 'none', other: 1 })
+    assert.equal(target.value, State.STAY_ARM, `in progress (${oldModeReport})`)
+
+    t.mock.timers.tick(ALARM_COMMAND_TIMEOUT_MS)
+    for (let i = 0; i < 20; i++) await settle()
+    assert.equal(target.value, State.DISARM, `back to Ring's mode (${oldModeReport})`)
+
+    // armed Home from the keypad or the Ring app
+    onData.next({ mode: 'some' })
+    assert.equal(current.value, Current.STAY_ARM, `current (${oldModeReport})`)
+    assert.equal(target.value, State.STAY_ARM, `target (${oldModeReport})`)
+  }
+})

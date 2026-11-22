@@ -76,7 +76,7 @@ export class SecurityPanel extends BaseDeviceAccessory {
       getValue: (data) => this.getCurrentState(data),
     })
 
-    this.registerCharacteristic({
+    this.showTargetState = this.registerCharacteristic({
       characteristicType: Characteristic.SecuritySystemTargetState,
       serviceType: Service.SecuritySystem,
       getValue: (data) => this.getShownTargetState(data),
@@ -166,6 +166,10 @@ export class SecurityPanel extends BaseDeviceAccessory {
   private pendingTargetTimer?: ReturnType<typeof setTimeout>
   private pendingTargetWaiters?: (() => void)[]
   private sendingTargetState?: Promise<void>
+  // Shows a target through the characteristic's updates, so that they know what HomeKit shows
+  // (a direct updateValue would leave them holding the request, and drop Ring's next report of
+  // the same state as a repeat)
+  private showTargetState?: (value: number) => void
 
   /**
    * A HomeKit request to change the alarm mode. A slider in a HomeKit app sends a value for every
@@ -177,6 +181,8 @@ export class SecurityPanel extends BaseDeviceAccessory {
     this.pendingTargetState = state
     this.requestedTargetState = state
     this.targetRequests = (this.targetRequests ?? 0) + 1
+    // HomeKit shows the request already: so the updates know it, and show Ring's state after it
+    this.showTargetState?.(state)
     clearTimeout(this.pendingTargetTimer)
 
     return new Promise<void>((resolve) => {
@@ -195,7 +201,7 @@ export class SecurityPanel extends BaseDeviceAccessory {
           .catch((e) => {
             logError(e)
             // so the slider doesn't stay at the request
-            if (request === this.targetRequests) this.requestedTargetState = undefined
+            this.showRingAlarmState(request)
           })
         this.sendingTargetState = sending
         void sending.then(() => {
@@ -336,10 +342,13 @@ export class SecurityPanel extends BaseDeviceAccessory {
       this.requestedTargetState = undefined
     }
     const service = this.getService(hap.Service.SecuritySystem),
-      { data } = this.device
-    service
-      .getCharacteristic(hap.Characteristic.SecuritySystemTargetState)
-      .updateValue(this.getShownTargetState(data))
+      { data } = this.device,
+      target = this.getShownTargetState(data)
+    if (this.showTargetState) {
+      this.showTargetState(target)
+    } else {
+      service.getCharacteristic(hap.Characteristic.SecuritySystemTargetState).updateValue(target)
+    }
     service
       .getCharacteristic(hap.Characteristic.SecuritySystemCurrentState)
       .updateValue(this.getCurrentState(data))
