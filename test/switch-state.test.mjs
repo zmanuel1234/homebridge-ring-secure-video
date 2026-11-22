@@ -89,3 +89,26 @@ test('a switch Ring turned on stays on', async () => {
   await tick()
   assert.equal(on.value, true)
 })
+
+test("once Ring reports the request, Ring's next change shows at once", async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] })
+  const { on, onData, data } = ringSwitch()
+
+  await on.handleSetRequest(true)
+  onData.next({ ...data, on: true }) // Ring turned it on
+  onData.next({ ...data, on: false }) // and off again at the switch, a second later
+  await tick()
+  assert.equal(on.value, false)
+})
+
+test('a slow confirmation within the hold does not flip the switch back', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] })
+  const { on, onData, data } = ringSwitch()
+
+  await on.handleSetRequest(true)
+  t.mock.timers.tick(SET_VALUE_SHOWN_MS - 1000) // slow, but within the hold
+  onData.next({ ...data, on: true })
+  t.mock.timers.tick(1000)
+  await tick()
+  assert.equal(on.value, true)
+})
