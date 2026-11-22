@@ -28,14 +28,14 @@ test('after a forced push refresh, every new token is saved, not only the first'
       const save = createRefreshTokenSaver(api, 'T0', true)
       // ring-client-api started from a modified token (S0) that was never in config.json.
       save({ oldRefreshToken: 'S0', newRefreshToken: 'T1' })
-      let [other, ring] = await read()
+      const [, ring] = await read()
       assert.equal(ring.refreshToken, 'T1')
       assert.equal(ring.forceRefreshRingPushCredentials, false)
 
       save({ oldRefreshToken: 'T1', newRefreshToken: 'T2' })
       save({ oldRefreshToken: 'T2', newRefreshToken: 'T3' })
-      ;[other, ring] = await read()
-      assert.equal(ring.refreshToken, 'T3')
+      const [other, renewed] = await read()
+      assert.equal(renewed.refreshToken, 'T3')
       assert.equal(other.refreshToken, 'other', 'other plugins are left alone')
     },
   )
