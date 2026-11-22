@@ -21,6 +21,7 @@
     "@homebridge/plugin-ui-utils": "^2.3.0",
     "ring-client-api": "14.3.0",
     "rxjs": "^7.8.2",
+    "undici": "^7.27.1",
     "werift": "0.22.4"
   },
   "devDependencies": {

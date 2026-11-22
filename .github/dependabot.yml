@@ -14,6 +14,10 @@ updates:
       # so npm can't install a newer major alongside it. Moved by hand once it supports one.
       - dependency-name: typescript
         update-types: ['version-update:semver-major']
+      # ring-client-api 14.3.0 pairs an undici 7 Agent with Node's own fetch; undici 8 doesn't
+      # work that way on Node 22/24 (dgreif/ring#1851). Moved with ring-client-api 15.
+      - dependency-name: undici
+        update-types: ['version-update:semver-major']
     groups:
       minor-and-patch:
         update-types: [minor, patch]
