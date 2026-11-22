@@ -1,6 +1,6 @@
 # homebridge-ring-secure-video
 
-## Unreleased
+## 1.1.1 (2026-11-22)
 
 - Thermostat: dragging the temperature sends Ring only the setpoint the slider settles on (after
   0.5 s), not every step along the way.
