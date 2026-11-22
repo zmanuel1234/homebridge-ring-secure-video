@@ -447,6 +447,13 @@ function markResponding(accessory: PlatformAccessory) {
   }
 }
 
+/**
+ * How long the cached accessories keep their last states while the first connection to Ring is
+ * under way (usually a few seconds). ring-client-api retries a request that gets no answer at all
+ * (no network, say) by itself, without reporting an error, so this doesn't wait for one.
+ */
+export const CONNECT_GRACE_MS = 30_000
+
 /** 30 s, 1 min, 2 min, ... up to 10 min between attempts to reach Ring at startup. */
 export function getRetryDelayMs(attempt: number) {
   return Math.min(30_000 * 2 ** attempt, 600_000)
@@ -514,6 +521,7 @@ export class RingPlatform implements DynamicPlatformPlugin {
     this.api.on('shutdown', () => {
       this.shuttingDown = true
       clearTimeout(this.retryTimer)
+      clearTimeout(this.connectGraceTimer)
       this.sessionRefreshSensor?.stop()
       shutDownCameraSources()
       try {
@@ -555,6 +563,7 @@ export class RingPlatform implements DynamicPlatformPlugin {
   private devicesSetUp = false
   // The cached accessories show "No Response" until Ring can be reached
   private cachedNotResponding = false
+  private connectGraceTimer?: ReturnType<typeof setTimeout>
   private ringApi?: RingApi
   private pushHealth?: PushHealthMonitor
   private gotNewToken = false
@@ -594,16 +603,15 @@ export class RingPlatform implements DynamicPlatformPlugin {
    * were being set up (which would set them up twice), and anything after shutdown.
    */
   async connectWithRetry(attempt = 0): Promise<void> {
+    if (attempt === 0) {
+      this.connectGraceTimer = setTimeout(() => this.markCachedNotResponding(), CONNECT_GRACE_MS)
+      this.connectGraceTimer.unref?.()
+    }
     try {
       await this.connectToApi()
     } catch (e) {
       const message = describeError(e)
-      if (!this.shuttingDown && !this.devicesSetUp && !this.cachedNotResponding) {
-        // Rather than the values they had when Homebridge stopped, and controls that do nothing
-        this.cachedNotResponding = true
-        Object.values(this.homebridgeAccessories).forEach(markNotResponding)
-        this.log.warn('The Home app shows the Ring accessories as "No Response" until Ring can be reached.')
-      }
+      this.markCachedNotResponding(isPermanentRingError(e))
       if (this.shuttingDown || this.devicesSetUp || isPermanentRingError(e)) {
         this.log.error(`Error connecting to Ring: ${message}`)
         return
@@ -620,6 +628,22 @@ export class RingPlatform implements DynamicPlatformPlugin {
         void this.connectWithRetry(attempt + 1)
       }, delay)
     }
+  }
+
+  /**
+   * Until Ring is reached, the cached accessories show "No Response" rather than the states they
+   * had when Homebridge stopped, with controls that do nothing (an alarm that seems to arm).
+   */
+  private markCachedNotResponding(permanent = false) {
+    clearTimeout(this.connectGraceTimer)
+    if (this.shuttingDown || this.devicesSetUp || this.cachedNotResponding) return
+    this.cachedNotResponding = true
+    Object.values(this.homebridgeAccessories).forEach(markNotResponding)
+    this.log.warn(
+      `The Home app shows the Ring accessories as "No Response" ${
+        permanent ? 'until this is fixed and Homebridge restarts' : 'until Ring can be reached'
+      }.`,
+    )
   }
 
   // A separate method so tests can stand in for Ring.
@@ -752,6 +776,7 @@ export class RingPlatform implements DynamicPlatformPlugin {
     }
     this.devicesSetUp = true
     this.ringApi = ringApi
+    clearTimeout(this.connectGraceTimer)
     if (this.cachedNotResponding) {
       this.cachedNotResponding = false
       Object.values(this.homebridgeAccessories).forEach(markResponding)
