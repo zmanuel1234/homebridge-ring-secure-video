@@ -1,7 +1,8 @@
-// Shared ESLint setup for homebridge-comelit-doorbell, homebridge-ring-secure-video and
-// wyze-robovac-matterbridge: keep the three copies the same apart from the "This repository" block.
+// Shared ESLint setup for homebridge-brother-printer, homebridge-comelit-doorbell,
+// homebridge-ir-patio-heater, homebridge-ring-secure-video and wyze-robovac-matterbridge: keep the
+// copies the same apart from the "This repository" block.
 //
-// It checks for bugs, not formatting. TypeScript files get typescript-eslint's type-aware rules,
+// It checks for bugs, not formatting. The files in tsFiles get typescript-eslint's type-aware rules,
 // mainly the promise checks: a promise that is neither awaited nor given a .catch() turns a
 // failure into an unhandled rejection, which can stop the whole bridge.
 import js from '@eslint/js';
@@ -35,7 +36,10 @@ export default tseslint.config(
     },
     rules: {
       // Promises
-      '@typescript-eslint/no-floating-promises': 'error',
+      '@typescript-eslint/no-floating-promises': ['error', {
+        // node:test runs test() and describe() itself; their promises need no handling.
+        allowForKnownSafeCalls: [{ from: 'package', package: 'node:test', name: ['test', 'it', 'describe', 'suite'] }],
+      }],
       '@typescript-eslint/no-misused-promises': 'error',
       '@typescript-eslint/await-thenable': 'error',
       // Not require-await: `async` without `await` is how a function turns its throws into

@@ -1,5 +1,6 @@
-# Shared Dependabot setup for homebridge-comelit-doorbell, homebridge-ring-secure-video and
-# wyze-robovac-matterbridge: keep the three copies the same apart from the "This repository" notes.
+# Shared Dependabot setup for homebridge-brother-printer, homebridge-comelit-doorbell,
+# homebridge-ir-patio-heater, homebridge-ring-secure-video and wyze-robovac-matterbridge: keep the
+# copies the same apart from the "This repository" notes.
 # Weekly update pull requests; CI runs on each one, and each still needs a review before merging.
 #
 # This repository: werift is ignored (see below); ring-client-api and the other runtime
