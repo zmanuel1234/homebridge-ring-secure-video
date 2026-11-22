@@ -10,6 +10,10 @@ updates:
       # The plugin passes werift's RTP packets into ring-client-api's live-view code, so werift
       # must stay at the exact version ring-client-api pins. Updated together with ring-client-api.
       - dependency-name: werift
+      # typescript-eslint (the linter) caps the TypeScript versions it supports (currently <6.1),
+      # so npm can't install a newer major alongside it. Moved by hand once it supports one.
+      - dependency-name: typescript
+        update-types: ['version-update:semver-major']
     groups:
       minor-and-patch:
         update-types: [minor, patch]
