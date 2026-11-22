@@ -76,10 +76,10 @@ export class SecurityPanel extends BaseDeviceAccessory {
       getValue: (data) => this.getCurrentState(data),
     })
 
-    this.registerCharacteristic({
+    this.showTargetState = this.registerCharacteristic({
       characteristicType: Characteristic.SecuritySystemTargetState,
       serviceType: Service.SecuritySystem,
-      getValue: (data) => this.getTargetState(data),
+      getValue: (data) => this.getShownTargetState(data),
       setValue: (value) => this.setTargetState(value),
       // the panel shows Ring's state once a change is done (showRingAlarmState); meanwhile a
       // Ring update in the old mode would move the slider back while it settles
@@ -121,8 +121,11 @@ export class SecurityPanel extends BaseDeviceAccessory {
       return State.NIGHT_ARM
     }
 
-    // current mode does not match night mode target, so we are no longer targeting night mode
-    this.targetingNightMode = false
+    // current mode does not match night mode target, so we are no longer targeting night mode,
+    // unless a mode change is still in progress (Ring may report the old mode first)
+    if (this.requestedTargetState === undefined) {
+      this.targetingNightMode = false
+    }
 
     switch (mode) {
       case 'all':
@@ -155,10 +158,18 @@ export class SecurityPanel extends BaseDeviceAccessory {
 
   // A HomeKit target the plugin hasn't sent to Ring yet, its timer, and the Ring command being
   // sent (one at a time). Left unset by the constructor, so they start out undefined.
+  // requestedTargetState is HomeKit's latest request until the change it led to is done, and
+  // targetRequests counts requests, so a change can tell whether a newer one came meanwhile.
+  private requestedTargetState?: number
+  private targetRequests?: number
   private pendingTargetState?: number
   private pendingTargetTimer?: ReturnType<typeof setTimeout>
   private pendingTargetWaiters?: (() => void)[]
   private sendingTargetState?: Promise<void>
+  // Shows a target through the characteristic's updates, so that they know what HomeKit shows
+  // (a direct updateValue would leave them holding the request, and drop Ring's next report of
+  // the same state as a repeat)
+  private showTargetState?: (value: number) => void
 
   /**
    * A HomeKit request to change the alarm mode. A slider in a HomeKit app sends a value for every
@@ -168,12 +179,17 @@ export class SecurityPanel extends BaseDeviceAccessory {
    */
   setTargetState(state: any) {
     this.pendingTargetState = state
+    this.requestedTargetState = state
+    this.targetRequests = (this.targetRequests ?? 0) + 1
+    // HomeKit shows the request already: so the updates know it, and show Ring's state after it
+    this.showTargetState?.(state)
     clearTimeout(this.pendingTargetTimer)
 
     return new Promise<void>((resolve) => {
       ;(this.pendingTargetWaiters ??= []).push(resolve)
       this.pendingTargetTimer = setTimeout(() => {
         const target = this.pendingTargetState,
+          request = this.targetRequests,
           waiters = this.pendingTargetWaiters ?? []
         this.pendingTargetState = undefined
         this.pendingTargetTimer = undefined
@@ -181,8 +197,12 @@ export class SecurityPanel extends BaseDeviceAccessory {
 
         // after any Ring command still being sent, so each one checks Ring's answer to itself
         const sending = (this.sendingTargetState ?? Promise.resolve())
-          .then(() => this.sendTargetState(target))
-          .catch((e) => logError(e))
+          .then(() => this.sendTargetState(target, request))
+          .catch((e) => {
+            logError(e)
+            // so the slider doesn't stay at the request
+            this.showRingAlarmState(request)
+          })
         this.sendingTargetState = sending
         void sending.then(() => {
           if (this.sendingTargetState === sending) {
@@ -194,7 +214,7 @@ export class SecurityPanel extends BaseDeviceAccessory {
     })
   }
 
-  private async sendTargetState(state: any) {
+  private async sendTargetState(state: any, request?: number) {
     const {
         Characteristic: { SecuritySystemTargetState: State },
       } = hap,
@@ -223,7 +243,7 @@ export class SecurityPanel extends BaseDeviceAccessory {
     // Ring sends no update when the mode doesn't change, so a command would never be confirmed
     if (!bypass && this.device.data.mode === mode) {
       logInfo(`${this.device.name} is already ${alarmModeNames[mode]}`)
-      this.showRingAlarmState()
+      this.showRingAlarmState(request)
       return
     }
 
@@ -303,17 +323,32 @@ export class SecurityPanel extends BaseDeviceAccessory {
       }
     }
 
-    this.showRingAlarmState()
+    this.showRingAlarmState(request)
+  }
+
+  /**
+   * The target HomeKit shows: its latest request while the change is in progress, so a Ring
+   * update with the old mode doesn't move the slider back while it settles or the command runs.
+   */
+  getShownTargetState(data: RingDeviceData) {
+    return this.requestedTargetState ?? this.getTargetState(data)
   }
 
   // Both states from Ring's data: also after a command that wasn't sent or brought no update
   // from Ring (e.g. Night to Home in the same Ring mode), so the Home app doesn't stay at "Arming"
-  private showRingAlarmState() {
+  // (the target: unless a newer request is in progress)
+  private showRingAlarmState(request?: number) {
+    if (request === undefined || request === this.targetRequests) {
+      this.requestedTargetState = undefined
+    }
     const service = this.getService(hap.Service.SecuritySystem),
-      { data } = this.device
-    service
-      .getCharacteristic(hap.Characteristic.SecuritySystemTargetState)
-      .updateValue(this.getTargetState(data))
+      { data } = this.device,
+      target = this.getShownTargetState(data)
+    if (this.showTargetState) {
+      this.showTargetState(target)
+    } else {
+      service.getCharacteristic(hap.Characteristic.SecuritySystemTargetState).updateValue(target)
+    }
     service
       .getCharacteristic(hap.Characteristic.SecuritySystemCurrentState)
       .updateValue(this.getCurrentState(data))

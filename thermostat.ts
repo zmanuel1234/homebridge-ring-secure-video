@@ -199,6 +199,9 @@ export class Thermostat extends BaseDeviceAccessory {
 
         return this.device.setInfo({ device: { v1: { setPoint } } })
       },
+      // A temperature slider sends a value for every step it passes: only the last one, once
+      // it has settled, goes to Ring (as for brightness and fan speed)
+      setValueDebounceTime: 500,
     })
     if (this.device.data.setPointMin || this.device.data.setPointMax) {
       // Documentation: https://developers.homebridge.io/#/characteristic/TargetTemperature

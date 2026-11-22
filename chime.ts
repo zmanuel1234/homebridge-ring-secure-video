@@ -98,6 +98,8 @@ export class Chime extends BaseDataAccessory<RingChime> {
         return this.device.playSound('ding')
       },
       requestUpdate: () => device.requestUpdate(),
+      // momentary: back to off after 1 s, so a read must not answer the press for 10 s
+      trackSetValue: false,
     })
     this.registerCharacteristic({
       characteristicType: Characteristic.On,
@@ -116,6 +118,8 @@ export class Chime extends BaseDataAccessory<RingChime> {
         return this.device.playSound('motion')
       },
       requestUpdate: () => device.requestUpdate(),
+      // momentary: back to off after 1 s, so a read must not answer the press for 10 s
+      trackSetValue: false,
     })
 
     // Nightlight (if supported)

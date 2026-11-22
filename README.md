@@ -107,7 +107,15 @@ Without `media.profile`, the profile is `adaptive`, so a config that only had
 ## Installation
 
 Requires Node.js 22 (22.19 or later), 24 or 26 and Homebridge 1.8 or later (tested with 2.5; 1.8 is supported but not
-tested). If Homebridge is installed globally:
+tested).
+
+If you use `homebridge-ring` or `homebridge-ring-hksv`, remove or disable it first: this plugin
+exposes the same Ring devices, and with both running each device shows up twice in the Home app
+and both answer Ring's events. The settings have the same names, so your `homebridge-ring`
+settings and refresh token can be copied into this plugin's platform block (keeping
+`"platform": "Ring Secure Video"`, not `homebridge-ring`'s `"Ring"`).
+
+If Homebridge is installed globally:
 
 ```bash
 npm i -g homebridge-ring-secure-video
@@ -295,8 +303,9 @@ plugin does step 2 by itself when Ring's event history shows 3 motion events ove
 minutes that Ring sent no push notification for, and no push arrived in between. Events while
 motion is snoozed, and events Ring saw no person in (which Smart Alerts may keep quiet), are not
 counted. The log then says "Ring event history shows motion that Ring sent no push notification
-for", and as a child bridge it restarts (on the main bridge, the refresh waits for the next
-Homebridge restart, and is dropped if a push arrives first). It does this at most once a day, and
+for", and as a child bridge it restarts (Homebridge then logs that the child bridge process
+ended and starts it again at once, which is expected; on the main bridge, the refresh waits for
+the next Homebridge restart, and is dropped if a push arrives first). It does this at most once a day, and
 stops after 2 refreshes that brought no motion push notification, logging "Ring still sends no
 push notifications after 2 automatic Ring session refreshes": then check step 1 and Authorized
 Client Devices. If you have Ring send no motion alerts on purpose (for example in some Modes, or on

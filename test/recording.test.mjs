@@ -7,6 +7,7 @@ import {
   CameraSource,
   getHksvRecordingFormatArguments,
   getHksvFragmentDurationArguments,
+  getHksvStallTimeoutMs,
   getMaxRecordingSeconds,
   getReturnAudioPrepareStreamRequest,
   HKSV_RECORDING_MOVFLAGS,
@@ -265,7 +266,6 @@ test('honors Homebridge recording cancellation before pipeline startup', async (
   source.recordingConfiguration = {
     mediaContainerConfiguration: { fragmentLength: 4_000 },
   }
-  source.closedRecordingStreams = new Set()
   source.recordingWaiters = new Map()
   source.activeRecordingSessions = new Map()
 
@@ -571,7 +571,6 @@ test('marks the last fragment of a recording as the end of the stream', async ()
     audioCodec: { samplerate: 1, bitrate: 24 },
     mediaContainerConfiguration: { fragmentLength: 4_000 },
   }
-  source.closedRecordingStreams = new Set()
   source.recordingWaiters = new Map()
   source.activeRecordingSessions = new Map()
   source.mediaIngress = {
@@ -663,7 +662,6 @@ function recordingSource(session, onTranscoder) {
     audioCodec: { samplerate: 1, bitrate: 24 },
     mediaContainerConfiguration: { fragmentLength: 4_000 },
   }
-  source.closedRecordingStreams = new Set()
   source.recordingWaiters = new Map()
   source.activeRecordingSessions = new Map()
   source.mediaIngress = {
@@ -751,4 +749,15 @@ test("a copied recording's FFmpeg output allows fragments of 3 fragment lengths"
   assert.ok(output.includes('-movflags'))
   source.closeRecordingStream(11, 'done')
   assert.equal((await within(first, 1_000)).done, true)
+})
+
+test('a recording counts as stalled only after more than its longest fragment', () => {
+  // HomeKit's fragment lengths go from 1 to 8 s; a copied fragment can last 3 of them
+  for (const fragmentLengthMs of [1_000, 4_000, 8_000]) {
+    const timeout = getHksvStallTimeoutMs(fragmentLengthMs)
+    assert.ok(timeout >= fragmentLengthMs * 3 + 5_000, `${fragmentLengthMs} ms: ${timeout} ms`)
+    assert.ok(timeout >= 20_000 && timeout <= 60_000, `${fragmentLengthMs} ms: ${timeout} ms`)
+  }
+  assert.equal(getHksvStallTimeoutMs(4_000), 20_000)
+  assert.equal(getHksvStallTimeoutMs(8_000), 29_000)
 })
