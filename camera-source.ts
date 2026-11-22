@@ -1171,8 +1171,10 @@ export class CameraSource
     let maxRecordingTimer: ReturnType<typeof setTimeout> | undefined
     let stallTimer: ReturnType<typeof setTimeout> | undefined
     let releaseQueueSlot: (() => void) | undefined
+    // Longer than the longest fragment (3 fragment lengths for copy, see
+    // getHksvFragmentDurationArguments), with time for FFmpeg and Ring's connection
     const stallTimeoutMs = Math.min(
-      Math.max(fragmentLengthMs * 3, 20_000),
+      Math.max(fragmentLengthMs * 3 + 5000, 20_000),
       60_000,
     )
 
