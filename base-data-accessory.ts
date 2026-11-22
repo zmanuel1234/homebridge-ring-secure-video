@@ -28,9 +28,9 @@ export const LEVEL_TARGET_TIMEOUT_MS = 30_000
 export abstract class BaseDataAccessory<
   T extends RingDevice | RingCamera | RingChime | RingIntercom,
 > extends BaseAccessory<T> {
-  abstract readonly device: T
-  abstract readonly accessory: PlatformAccessory
-  abstract readonly config: RingPlatformConfig
+  abstract override readonly device: T
+  abstract override readonly accessory: PlatformAccessory
+  abstract override readonly config: RingPlatformConfig
 
   registerCharacteristic({
     characteristicType,

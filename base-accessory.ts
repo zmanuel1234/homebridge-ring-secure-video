@@ -14,6 +14,7 @@ import type {
 } from 'homebridge'
 import { CharacteristicEventTypes } from 'homebridge'
 import { logError, logInfo } from 'ring-client-api/util'
+import { logRejection } from './log-rejection.ts'
 
 function isServiceInstance(
   serviceType: WithUUID<typeof Service> | Service,
@@ -88,7 +89,7 @@ export abstract class BaseAccessory<T extends { name: string }> {
         // allow GET once a value is cached
         characteristic.on(
           CharacteristicEventTypes.GET,
-          async (callback: CharacteristicGetCallback) => {
+          logRejection(`Reading ${this.device.name}`, async (callback: CharacteristicGetCallback) => {
             try {
               const value = await firstValueFrom(onCachedValue)
               callback(null, value)
@@ -96,7 +97,7 @@ export abstract class BaseAccessory<T extends { name: string }> {
             } catch (e: any) {
               callback(e)
             }
-          },
+          }),
         )
       })
     }

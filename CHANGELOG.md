@@ -1,5 +1,13 @@
 # homebridge-ring-secure-video
 
+## Unreleased
+
+- A failure in a camera's snapshot, stream setup or stream request, or in reading or setting the
+  location mode (including re-reading it after a failed change, when Ring can't be reached), is now
+  logged instead of becoming an unhandled promise rejection. Nothing else changes.
+- Development only: the same ESLint setup, Dependabot settings and TypeScript version (6.0) as the
+  author's other plugins.
+
 ## 1.2.0 (2026-11-22)
 
 - Start-up: Ring gets 60 s to send each location's devices. A location Ring never answers no

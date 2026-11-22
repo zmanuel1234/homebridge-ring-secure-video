@@ -8,9 +8,9 @@
   "exports": "./lib/index.js",
   "scripts": {
     "build": "node -e \"require('fs').rmSync('lib', { recursive: true, force: true })\" && tsc && node -e \"require('fs').cpSync('./homebridge-ui/public', './lib/homebridge-ui/public', { recursive: true, filter: (src) => require('path').basename(src) !== 'tsconfig.json' })\"",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings=0",
     "test": "npm run build && node --test test/*.test.mjs",
-    "prepack": "npm run build",
+    "prepack": "npm run lint && npm run build",
     "dev": "concurrently -c yellow,blue --kill-others \"npm:dev:build\" \"npm:dev:run\" ",
     "dev:build": "tsc --watch --preserveWatchOutput",
     "dev:run": "RING_DEBUG=true node --watch ./node_modules/.bin/homebridge -U ./.homebridge -P ./node_modules"
@@ -24,14 +24,13 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
-    "@typescript-eslint/parser": "^8.54.0",
     "ajv": "8.20.0",
     "concurrently": "^10.0.7",
     "eslint": "10.15.0",
     "globals": "17.14.0",
     "homebridge": "^2.5.0",
     "homebridge-config-ui-x": "^5.24.0",
-    "typescript": "5.9.3",
+    "typescript": "~6.0.3",
     "typescript-eslint": "8.73.0"
   },
   "engines": {
