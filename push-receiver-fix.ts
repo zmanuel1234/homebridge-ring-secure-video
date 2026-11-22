@@ -16,11 +16,37 @@ import Module, { createRequire } from 'node:module'
  * put in place of 4.3.0's the same way. index.ts loads this module before anything that imports
  * ring-client-api, because Node fixes ring-client-api's imports as soon as it reads them.
  *
+ * The PushReceiver ring-client-api gets also checks its connection every 60 s instead of every
+ * 5 minutes (see withPushHeartbeat).
+ *
  * If ring-client-api's copy was already loaded (it can't be replaced any more), only its
  * decrypt function is swapped for 4.3.1's. Only the exact version 4.3.0 is changed; with any
  * other version (for example once ring-client-api moves on) this does nothing.
  */
 export type PushReceiverFixResult = 'replaced' | 'decrypt-patched' | 'not-needed' | 'failed'
+
+/**
+ * How often the push client checks its connection to Google's push service when nothing else
+ * arrives: it sends a heartbeat after this long without data, and reconnects after twice this
+ * long. push-receiver's default is 5 minutes (so 10 before reconnecting), and ring-client-api
+ * keeps it; a connection a home router dropped silently could then go unnoticed for that long,
+ * or much longer if the system's TCP keepalive (2 hours on Linux) is all that notices
+ * (dgreif/ring#1810).
+ */
+export const PUSH_HEARTBEAT_INTERVAL_MS = 60_000
+
+type PushReceiverClass = new (...args: any[]) => object
+
+/** A PushReceiver that sends heartbeats every PUSH_HEARTBEAT_INTERVAL_MS unless told otherwise. */
+export function withPushHeartbeat<T extends PushReceiverClass>(PushReceiver: T): T {
+  return class PushReceiverWithHeartbeat extends PushReceiver {
+    static heartbeatIntervalMs = PUSH_HEARTBEAT_INTERVAL_MS
+
+    constructor(...[config]: any[]) {
+      super({ heartbeatIntervalMs: PUSH_HEARTBEAT_INTERVAL_MS, ...config })
+    }
+  }
+}
 
 const decryptPath = '@eneris/push-receiver/dist/utils/decrypt.js'
 const loggerPath = '@eneris/push-receiver/dist/utils/logger.js'
@@ -54,13 +80,17 @@ export function applyPushReceiverFix(): {
 
     const targetLogger = ringRequire.resolve(loggerPath)
     if (!moduleCache[target] && !moduleCache[targetLogger]) {
-      ownRequire(fixed)
+      // ring-client-api imports { PushReceiver }; the package's own default export is the same
+      // class, so both become the subclass
+      const fixedExports = ownRequire(fixed) as { PushReceiver: PushReceiverClass; default: unknown }
+      fixedExports.PushReceiver = withPushHeartbeat(fixedExports.PushReceiver)
+      fixedExports.default = fixedExports.PushReceiver
       ownRequire(loggerPath)
       moduleCache[target] = moduleCache[fixed]
       moduleCache[targetLogger] = moduleCache[ownRequire.resolve(loggerPath)]
       return {
         result: 'replaced',
-        detail: `ring-client-api loads @eneris/push-receiver ${fixedVersion} instead of ${loadedVersion}`,
+        detail: `ring-client-api loads @eneris/push-receiver ${fixedVersion} instead of ${loadedVersion}, checking its connection every ${PUSH_HEARTBEAT_INTERVAL_MS / 1000} s`,
       }
     }
 

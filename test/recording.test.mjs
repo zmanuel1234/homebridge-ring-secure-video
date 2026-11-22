@@ -370,6 +370,7 @@ test('ring-client-api loads the full @eneris/push-receiver 4.3.1 when the plugin
     loggerQuietened: true,
     oldVersionFails: true,
     decrypts: true,
+    heartbeatIntervalMs: 60_000,
   })
 })
 
