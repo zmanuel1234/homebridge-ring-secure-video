@@ -14,16 +14,12 @@ updates:
       # so npm can't install a newer major alongside it. Moved by hand once it supports one.
       - dependency-name: typescript
         update-types: ['version-update:semver-major']
-      # ring-client-api 14.3.0 pairs an undici 7 Agent with Node's own fetch; undici 8 doesn't
-      # work that way on Node 22/24 (dgreif/ring#1851). Moved with ring-client-api 15.
-      - dependency-name: undici
-        update-types: ['version-update:semver-major']
     groups:
       minor-and-patch:
         update-types: [minor, patch]
-        # Their own pull requests: push-receiver carries the push fix and is tested on its own;
-        # ring-client-api decides werift's version, which has to be moved with it by hand.
-        exclude-patterns: ['@eneris/push-receiver', 'ring-client-api']
+        # Its own pull request: ring-client-api decides werift's version, which has to be moved
+        # with it by hand.
+        exclude-patterns: ['ring-client-api']
   - package-ecosystem: github-actions
     directory: /
     schedule:
