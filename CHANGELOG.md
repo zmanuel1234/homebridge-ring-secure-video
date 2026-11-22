@@ -1,6 +1,6 @@
 # homebridge-ring-secure-video
 
-## Unreleased
+## 1.0.6 (2026-11-22)
 
 - New setting `alarmModeChangeDelaySeconds` (Alarm and Location Mode): how long an alarm mode
   chosen in HomeKit must stay unchanged before it is sent to Ring, 0 to 5 s, 1 by default (as
