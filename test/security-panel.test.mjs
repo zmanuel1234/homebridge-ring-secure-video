@@ -300,3 +300,70 @@ test('the alarm wait is 1 s unless set to a number from 0 to 5', () => {
     assert.equal(getAlarmTargetSettleMs({ alarmModeChangeDelaySeconds: invalid }), 1000, String(invalid))
   }
 })
+
+test("a Ring update in the old mode doesn't move the slider back while a change is in progress", async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  let finish
+  const { panel, device, shown } = fakePanel('none', (mode, report) => {
+    return new Promise((resolve) => {
+      finish = () => {
+        report(mode)
+        resolve()
+      }
+    })
+  })
+
+  const done = panel.setTargetState(State.STAY_ARM)
+  // while the slider settles, and while the command runs, Ring reports the old mode
+  assert.equal(panel.getShownTargetState(device.data), State.STAY_ARM)
+  t.mock.timers.tick(ALARM_TARGET_SETTLE_MS)
+  await settle()
+  assert.equal(panel.getShownTargetState({ mode: 'none' }), State.STAY_ARM)
+  assert.equal(panel.getCurrentState({ mode: 'none' }), Current.DISARMED, 'current stays Ring\'s')
+
+  finish()
+  await done
+  assert.equal(panel.getShownTargetState({ mode: 'none' }), State.DISARM, "Ring's again once done")
+  assert.deepEqual(shown.target, [State.STAY_ARM])
+})
+
+test('Night stays Night when Ring reports the old mode before the new one', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const { panel, device, shown } = fakePanel('none', (mode, report) => {
+    report('none') // an update still in the old mode
+    report(mode)
+    return Promise.resolve()
+  })
+  panel.config = { nightModeBypassFor: 'some' }
+  // as the Current State characteristic does with each of Ring's updates
+  const subscription = device.onData.subscribe((data) => panel.getCurrentState(data))
+  t.after(() => subscription.unsubscribe())
+
+  const done = panel.setTargetState(State.NIGHT_ARM)
+  t.mock.timers.tick(ALARM_TARGET_SETTLE_MS)
+  await done
+  assert.equal(panel.targetingNightMode, true)
+  assert.deepEqual(shown, { target: [State.NIGHT_ARM], current: [Current.NIGHT_ARM] })
+})
+
+test('a newer request keeps showing while an older change finishes', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const finish = []
+  const { panel, shown } = fakePanel('none', (mode, report) => {
+    return new Promise((resolve) => {
+      finish.push(() => {
+        report(mode)
+        resolve()
+      })
+    })
+  })
+
+  const first = panel.setTargetState(State.AWAY_ARM)
+  t.mock.timers.tick(ALARM_TARGET_SETTLE_MS)
+  await settle()
+  panel.setTargetState(State.DISARM) // while Away is being sent
+  finish.shift()()
+  await first
+  assert.equal(panel.getShownTargetState({ mode: 'all' }), State.DISARM, 'still the newer request')
+  assert.deepEqual(shown.target, [State.DISARM])
+})
