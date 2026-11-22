@@ -81,7 +81,9 @@ export abstract class BaseDataAccessory<
         CharacteristicEventTypes.GET,
         (callback: CharacteristicGetCallback) => {
           try {
-            const value = getValue(device.data)
+            // a value just set from HomeKit stays shown for its hold, as in the pushed updates
+            const value =
+              Date.now() < setValueShownUntil ? setValueRequested : getValue(device.data)
             callback(null, value)
             requestUpdate()
           } catch (e: any) {

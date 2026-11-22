@@ -112,3 +112,54 @@ test('a slow confirmation within the hold does not flip the switch back', async 
   await tick()
   assert.equal(on.value, true)
 })
+
+// A control that asks Ring for an update on each HomeKit read (as cameras' and chimes' do).
+async function polledSwitch() {
+  const { BaseDataAccessory } = await import('../lib/base-data-accessory.js')
+  const data = { siren: 'off' },
+    onData = new BehaviorSubject(data),
+    device = {
+      name: 'Camera',
+      get data() {
+        return onData.value
+      },
+      onData,
+      requestUpdate() {},
+    },
+    hap = new hapNodejs.Accessory('Camera', hapNodejs.uuid.generate(`camera-${Math.random()}`)),
+    accessory = {
+      displayName: 'Camera',
+      UUID: hap.UUID,
+      context: {},
+      getService: (s) => hap.getService(s),
+      getServiceById: (s, sub) => hap.getServiceById(s, sub),
+      addService: (...a) => hap.addService(...a),
+      removeService: (s) => hap.removeService(s),
+    }
+  class Siren extends BaseDataAccessory {
+    constructor() {
+      super()
+      this.device = device
+      this.accessory = accessory
+      this.config = {}
+      this.registerCharacteristic({
+        characteristicType: hapNodejs.Characteristic.On,
+        serviceType: hapNodejs.Service.Switch,
+        getValue: (d) => d.siren === 'on',
+        setValue: async () => {},
+        requestUpdate: () => device.requestUpdate(),
+      })
+    }
+  }
+  new Siren()
+  return hap.getService(hapNodejs.Service.Switch).getCharacteristic(hapNodejs.Characteristic.On)
+}
+
+test('a HomeKit read during the hold answers the value just set, not the old one', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] })
+  const on = await polledSwitch()
+  await on.handleSetRequest(true)
+  assert.equal(await on.handleGetRequest(), true, 'Ring still has the old value')
+  t.mock.timers.tick(SET_VALUE_SHOWN_MS)
+  assert.equal(await on.handleGetRequest(), false, "Ring's value once the hold ends")
+})
