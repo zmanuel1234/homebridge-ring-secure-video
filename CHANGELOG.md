@@ -1,6 +1,6 @@
 # homebridge-ring-secure-video
 
-## Unreleased
+## 1.0.5 (2026-11-22)
 
 - Changing the Ring Alarm mode from HomeKit sends Ring one command, about 1 s after the last
   request. A slider in a HomeKit app sends a request for every mode it passes (Off to Home passes
