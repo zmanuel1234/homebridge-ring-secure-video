@@ -4,7 +4,10 @@ import { normalizeMediaConfig, type HksvVideoCodec } from './media-config.ts'
 
 export type { HksvVideoCodec } from './media-config.ts'
 
-export function getHksvRecordingResolutions(config: RingPlatformConfig) {
+/** [width, height, frames per second], as HAP's recording options take them. */
+export type Resolution = [number, number, number]
+
+export function getHksvRecordingResolutions(config: RingPlatformConfig): Resolution[] {
   if (normalizeMediaConfig(config).profile === 'lowPower') {
     return [
       [1280, 720, 30],

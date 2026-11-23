@@ -212,11 +212,10 @@ export function getSystemId(homebridgeStoragePath: string) {
   const filePath = join(homebridgeStoragePath, systemIdFileName)
 
   try {
-    const ringContext: RingContext = JSON.parse(
-      readFileSync(filePath).toString(),
-    )
-    if (ringContext.systemId) {
-      return ringContext.systemId
+    const saved: unknown = JSON.parse(readFileSync(filePath).toString()),
+      systemId = (saved as Partial<RingContext> | null)?.systemId
+    if (typeof systemId === 'string' && systemId) {
+      return systemId
     }
   } catch {
     // expect errors if file doesn't exist or is in a bad format

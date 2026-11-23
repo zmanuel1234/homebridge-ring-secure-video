@@ -18,6 +18,7 @@ import type {
 } from 'homebridge'
 import { CharacteristicEventTypes } from 'homebridge'
 import { logError } from 'ring-client-api/util'
+import { toError } from './errors.ts'
 
 // How long a value set from HomeKit (not debounced) is shown at most, unless Ring reports it
 // sooner, before Ring's reports count again
@@ -32,7 +33,11 @@ export abstract class BaseDataAccessory<
   abstract override readonly accessory: PlatformAccessory
   abstract override readonly config: RingPlatformConfig
 
-  registerCharacteristic({
+  /**
+   * `V` is the characteristic's value type, from `getValue` (boolean for On, number for states
+   * and levels, string for names): `setValue` gets HomeKit's writes as that type.
+   */
+  registerCharacteristic<V extends CharacteristicValue>({
     characteristicType,
     serviceType,
     getValue,
@@ -47,8 +52,9 @@ export abstract class BaseDataAccessory<
     serviceType: ServiceType
     serviceSubType?: string
     name?: string
-    getValue: (data: T['data']) => any
-    setValue?: (data: any) => any
+    /** undefined: Ring didn't report it; HomeKit keeps the last value (it can't show undefined). */
+    getValue: (data: T['data']) => V | undefined
+    setValue?: (value: V) => unknown
     setValueDebounceTime?: number
     /**
      * Whether a value set from HomeKit counts as the one shown, so that Ring's next report of
@@ -58,7 +64,7 @@ export abstract class BaseDataAccessory<
      * characteristic that shows Ring's value itself once a request is done.
      */
     trackSetValue?: boolean
-    requestUpdate?: () => any
+    requestUpdate?: () => unknown
   }) {
     const service = this.getService(serviceType, name, serviceSubType),
       characteristic = service.getCharacteristic(characteristicType),
@@ -84,7 +90,8 @@ export abstract class BaseDataAccessory<
       setValueShownTimer = setTimeout(() => {
         endSetValueHold()
         try {
-          onValue.next(getValue(device.data))
+          const value = getValue(device.data)
+          if (value !== undefined) onValue.next(value)
         } catch (e) {
           logError(e)
         }
@@ -100,17 +107,17 @@ export abstract class BaseDataAccessory<
             // a value just set from HomeKit stays shown for its hold, as in the pushed updates
             const value =
               Date.now() < setValueShownUntil ? setValueRequested : getValue(device.data)
-            callback(null, value)
+            callback(null, value ?? characteristic.value)
             requestUpdate()
-          } catch (e: any) {
-            callback(e)
+          } catch (e) {
+            callback(toError(e))
           }
         },
       )
     }
 
     if (setValue && setValueDebounceTime) {
-      const onValueToSet = new Subject<any>()
+      const onValueToSet = new Subject<V>()
 
       characteristic.on(
         CharacteristicEventTypes.SET,
@@ -124,7 +131,7 @@ export abstract class BaseDataAccessory<
           } else {
             onValue.next(newValue)
           }
-          onValueToSet.next(newValue)
+          onValueToSet.next(newValue as V) // HAP checked it against the characteristic's format
           callback()
         },
       )
@@ -146,7 +153,7 @@ export abstract class BaseDataAccessory<
           if (trackSetValue) {
             holdSetValue(newValue, SET_VALUE_SHOWN_MS)
           }
-          Promise.resolve(setValue(newValue)).catch(logError)
+          Promise.resolve(setValue(newValue as V)).catch(logError) // checked by HAP, as above
           callback()
         },
       )
@@ -155,6 +162,7 @@ export abstract class BaseDataAccessory<
     merge(
       (this.device.onData as Observable<T['data']>).pipe(
         map(getValue),
+        filter((value): value is V => value !== undefined),
         filter((value) => {
           if (Date.now() >= setValueShownUntil) return true
           // Ring reports the request: from now on its reports count again
@@ -183,8 +191,8 @@ export abstract class BaseDataAccessory<
     characteristicType: CharacteristicType
     serviceType: ServiceType
     getValue: (data: T['data']) => number
-    setValue: (data: any) => any
-    requestUpdate?: () => any
+    setValue: (value: number) => unknown
+    requestUpdate?: () => unknown
   }) {
     let targetLevel: number | undefined,
       targetTimeout: ReturnType<typeof setTimeout> | undefined,

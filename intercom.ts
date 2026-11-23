@@ -8,6 +8,28 @@ import { logError, logInfo } from 'ring-client-api/util'
 import { exhaustMap, filter, map, share, throttleTime } from 'rxjs/operators'
 import { EMPTY, interval, merge, Subject } from 'rxjs'
 import { CameraSource, isHksvEnabled } from './camera-source.ts'
+import type { RingRestClient } from 'ring-client-api/rest-client'
+import type { StreamingSession } from 'ring-client-api/streaming/streaming-session'
+
+/**
+ * The parts of ring-client-api's RingIntercom that its types mark private but that are public at
+ * run time (compiled JavaScript has no private fields here): the REST client and the doorbot URL.
+ */
+interface IntercomInternals {
+  restClient: RingRestClient
+  doorbotUrl(path: string): string
+}
+const internals = (device: RingIntercom) => device as unknown as IntercomInternals
+
+/** A ding from Ring's active-dings endpoint (the fields used here). */
+interface ActiveDing {
+  id: string | number
+  doorbot_id: string | number
+  kind: string
+}
+
+/** The camera proxy for Ring Intercom Video, with the plugin's pre-warm. */
+type IntercomVideoProxy = RingCamera & { preWarmCamera(): void }
 
 /**
  * Creates a RingCamera-compatible proxy for a Ring Intercom Video device.
@@ -17,8 +39,9 @@ import { CameraSource, isHksvEnabled } from './camera-source.ts'
  * restClient and device id (Ring's signalling server uses the same doorbot_id
  * scheme for video intercoms as for cameras).
  */
-function createIntercomVideoProxy(device: RingIntercom): RingCamera {
-  const proxy = Object.create(RingCamera.prototype) as RingCamera
+function createIntercomVideoProxy(device: RingIntercom): IntercomVideoProxy {
+  const proxy = Object.create(RingCamera.prototype) as IntercomVideoProxy
+  const { restClient, doorbotUrl } = internals(device)
 
   // RingCamera defines several properties (e.g. `name`, `id`) as getter-only on its
   // prototype. Object.assign would try to set them via the prototype setter and throw.
@@ -44,8 +67,7 @@ function createIntercomVideoProxy(device: RingIntercom): RingCamera {
     },
     metadata: {},
   })
-  // restClient is technically private in TypeScript but public in compiled JS
-  define('restClient', (device as any).restClient)
+  define('restClient', restClient)
   define('isRingEdgeEnabled', false)
   define('hasBattery', device.batteryLevel !== null)
   // Read through to the device so offline/online changes after startup are seen
@@ -73,11 +95,10 @@ function createIntercomVideoProxy(device: RingIntercom): RingCamera {
   define('model', 'Ring Intercom Video')
   // Pre-warm support: start the WebRTC call the moment a ding is detected so
   // the camera is already streaming when HKSV requests the recording.
-  let preWarmedCall: Promise<any> | null = null
+  let preWarmedCall: Promise<StreamingSession> | null = null
   let preWarmCleanup: ReturnType<typeof setTimeout> | null = null
 
-  const realStartLiveCall = () =>
-    (RingCamera.prototype.startLiveCall as any).call(proxy)
+  const realStartLiveCall = () => RingCamera.prototype.startLiveCall.call(proxy)
 
   define('startLiveCall', () => {
     if (preWarmedCall) {
@@ -96,7 +117,7 @@ function createIntercomVideoProxy(device: RingIntercom): RingCamera {
   define('preWarmCamera', () => {
     if (preWarmedCall) return
     logInfo(`${device.name}: pre-warming camera connection`)
-    const call: Promise<any> = realStartLiveCall()
+    const call = realStartLiveCall()
     preWarmedCall = call
     // Handled here, so a call that fails before anything awaits it isn't an unhandled rejection
     // (which stops Homebridge); a recording then starts its own call instead of this failed one.
@@ -128,13 +149,13 @@ function createIntercomVideoProxy(device: RingIntercom): RingCamera {
   // doesn't fire a redundant reload on every HomeKit snapshot request.
   define('getSnapshot', async (_options?: { uuid?: string }) => {
     try {
-      const snapshot = await (device as any).restClient.request({
-        url: (device as any).doorbotUrl('snapshot'),
+      const snapshot = await restClient.request<Buffer>({
+        url: doorbotUrl.call(device, 'snapshot'),
         responseType: 'buffer',
       })
-      ;(proxy as any).hasSnapshotWithinLifetime = true
+      define('hasSnapshotWithinLifetime', true)
       setTimeout(() => {
-        ;(proxy as any).hasSnapshotWithinLifetime = false
+        define('hasSnapshotWithinLifetime', false)
       }, proxy.snapshotLifeTime)
       return snapshot
     } catch {
@@ -172,7 +193,7 @@ export class Intercom extends BaseDataAccessory<RingIntercom> {
       isIntercomVideo = device.deviceType === 'intercom_handset_video'
 
     // Set up camera streaming for Ring Intercom Video before other services
-    let intercomVideoProxy: RingCamera | null = null
+    let intercomVideoProxy: IntercomVideoProxy | null = null
     if (isIntercomVideo) {
       const cameraProxy = createIntercomVideoProxy(device)
       intercomVideoProxy = cameraProxy
@@ -211,7 +232,7 @@ export class Intercom extends BaseDataAccessory<RingIntercom> {
           : interval(DING_POLL_INTERVAL_MS).pipe(
               exhaustMap(async () => {
                 try {
-                  const active: any[] = await (device as any).restClient.request({
+                  const active = await internals(device).restClient.request<ActiveDing[] | null>({
                     url: 'https://api.ring.com/clients_api/dings/active',
                   })
                   return Array.isArray(active) ? active : []
@@ -219,7 +240,7 @@ export class Intercom extends BaseDataAccessory<RingIntercom> {
                   return []
                 }
               }),
-              filter((active: any[]) => {
+              filter((active: ActiveDing[]) => {
                 const ding = active.find(
                   (d) =>
                     String(d.doorbot_id) === String(device.id) &&
@@ -352,7 +373,7 @@ export class Intercom extends BaseDataAccessory<RingIntercom> {
     ) {
       const proxy = intercomVideoProxy
       onDingDetected.subscribe(() => {
-        ;(proxy as any).preWarmCamera?.()
+        proxy.preWarmCamera()
       })
     }
 

@@ -9,7 +9,9 @@ import {
   RtpSplitter,
 } from '@homebridge/camera-utils'
 import type {
+  CameraControllerOptions,
   CameraRecordingConfiguration,
+  HDSProtocolSpecificErrorReason,
   CameraRecordingDelegate,
   CameraStreamingDelegate,
   RecordingPacket,
@@ -45,6 +47,7 @@ import type { StreamingSession } from 'ring-client-api/streaming/streaming-sessi
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { FragmentedMp4Parser } from './fragmented-mp4-parser.ts'
+import { toError } from './errors.ts'
 import {
   getFfmpegCapabilities,
   type FfmpegCapabilities,
@@ -615,7 +618,7 @@ export class CameraSource
 
     const enableHksv = isHksvEnabled(config, ringCamera.operatingOnBattery)
 
-    const controllerOptions: any = {
+    const controllerOptions: CameraControllerOptions = {
       cameraStreamCount: enableHksv ? 1 : 10,
       delegate: this,
       streamingOptions: {
@@ -668,15 +671,15 @@ export class CameraSource
         options: {
           prebufferLength,
           overrideEventTriggerOptions: [
-            (hap as any).EventTriggerOption.MOTION,
-            (hap as any).EventTriggerOption.DOORBELL,
+            hap.EventTriggerOption.MOTION,
+            hap.EventTriggerOption.DOORBELL,
           ],
           mediaContainerConfiguration: {
-            type: (hap as any).MediaContainerType.FRAGMENTED_MP4,
+            type: hap.MediaContainerType.FRAGMENTED_MP4,
             fragmentLength,
           },
           video: {
-            type: (hap as any).VideoCodecType.H264,
+            type: hap.VideoCodecType.H264,
             parameters: {
               profiles: [
                 H264Profile.BASELINE,
@@ -693,15 +696,15 @@ export class CameraSource
           },
           audio: {
             codecs: {
-              type: (hap as any).AudioRecordingCodecType.AAC_LC,
+              type: hap.AudioRecordingCodecType.AAC_LC,
               samplerate: [
-                (hap as any).AudioRecordingSamplerate.KHZ_16,
-                (hap as any).AudioRecordingSamplerate.KHZ_24,
-                (hap as any).AudioRecordingSamplerate.KHZ_32,
-                (hap as any).AudioRecordingSamplerate.KHZ_48,
+                hap.AudioRecordingSamplerate.KHZ_16,
+                hap.AudioRecordingSamplerate.KHZ_24,
+                hap.AudioRecordingSamplerate.KHZ_32,
+                hap.AudioRecordingSamplerate.KHZ_48,
               ],
               audioChannels: 1,
-              bitrateMode: (hap as any).AudioBitrate.VARIABLE,
+              bitrateMode: hap.AudioBitrate.VARIABLE,
             },
           },
         },
@@ -796,7 +799,7 @@ export class CameraSource
     return videoArguments
   }
 
-  private previousLoadSnapshotPromise?: Promise<any>
+  private previousLoadSnapshotPromise?: Promise<void>
   private previousLoadSnapshotUuid?: string
   async loadSnapshot(imageUuid?: string): Promise<void> {
     // cache a promise of the snapshot load
@@ -843,7 +846,7 @@ export class CameraSource
           imageUuid ? ' by uuid' : ''
         } (${getDurationSeconds(start)}s)`,
       )
-    } catch (e: any) {
+    } catch (e) {
       // Keep the last successful snapshot so HomeKit shows the cached image
       // instead of "No Response" when the camera is temporarily unavailable.
       logDebug(
@@ -857,8 +860,9 @@ export class CameraSource
       )
 
       // log additioanl snapshot error message if one is present
-      if (e.message && e.message.includes('Snapshot')) {
-        logDebug(e.message)
+      const message = e instanceof Error ? e.message : ''
+      if (message.includes('Snapshot')) {
+        logDebug(message)
       }
     }
   }
@@ -935,10 +939,10 @@ export class CameraSource
       // Not currently resizing the image.
       // HomeKit does a good job of resizing and doesn't seem to care if it's not right
       callback(undefined, snapshot)
-    } catch (e: any) {
+    } catch (e) {
       logError(`Error fetching snapshot for ${this.ringCamera.name}`)
       logError(e)
-      callback(e)
+      callback(toError(e))
     }
   }
 
@@ -995,14 +999,14 @@ export class CameraSource
           srtp_salt: session.videoSrtp.srtpSalt,
         },
       })
-    } catch (e: any) {
+    } catch (e) {
       logError(
         `Failed to prepare stream for ${
           this.ringCamera.name
         } (${getDurationSeconds(start)}s)`,
       )
       logError(e)
-      callback(e)
+      callback(toError(e))
     }
   }
 
@@ -1430,7 +1434,8 @@ export class CameraSource
     this.mediaIngress.shutdown()
   }
 
-  closeRecordingStream(streamId: number, reason: any) {
+  // HAP passes its reason code; the plugin's own shutdown passes text
+  closeRecordingStream(streamId: number, reason: HDSProtocolSpecificErrorReason | string | undefined) {
     logInfo(
       `HKSV recording stream closed for ${this.ringCamera.name} (streamId=${streamId}, reason=${String(reason)})`,
     )

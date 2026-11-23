@@ -15,6 +15,18 @@ const ignores = ['lib/**', 'release-*/**', 'build/**', 'json-data/**', '.turbo/*
 const extra = [
   // The settings page runs in the browser.
   { files: ['homebridge-ui/public/**'], languageOptions: { globals: globals.browser } },
+  // No `any`: values from Ring, HAP and JSON files get a type (or `unknown`, checked before use).
+  {
+    files: tsFiles,
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/no-unsafe-argument': 'error',
+      '@typescript-eslint/no-unsafe-assignment': 'error',
+      '@typescript-eslint/no-unsafe-call': 'error',
+      '@typescript-eslint/no-unsafe-member-access': 'error',
+      '@typescript-eslint/no-unsafe-return': 'error',
+    },
+  },
 ];
 // -------------------------
 

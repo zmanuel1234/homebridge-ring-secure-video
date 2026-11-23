@@ -26,6 +26,8 @@ export type PushReceiverFixResult = 'heartbeat' | 'already-loaded' | 'failed'
  */
 export const PUSH_HEARTBEAT_INTERVAL_MS = 60_000
 
+// TypeScript requires a mixin's base constructor to take `...args: any[]` (TS2545)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type PushReceiverClass = new (...args: any[]) => object
 
 /** A PushReceiver that sends heartbeats every PUSH_HEARTBEAT_INTERVAL_MS unless told otherwise. */
@@ -33,10 +35,13 @@ export function withPushHeartbeat<T extends PushReceiverClass>(PushReceiver: T):
   return class PushReceiverWithHeartbeat extends PushReceiver {
     static heartbeatIntervalMs = PUSH_HEARTBEAT_INTERVAL_MS
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the mixin's constructor, as above
     constructor(...[config]: any[]) {
       super({
-        ...config,
-        heartbeatIntervalMs: config?.heartbeatIntervalMs ?? PUSH_HEARTBEAT_INTERVAL_MS,
+        ...(config as object | undefined),
+        heartbeatIntervalMs:
+          (config as { heartbeatIntervalMs?: number } | undefined)?.heartbeatIntervalMs ??
+          PUSH_HEARTBEAT_INTERVAL_MS,
       })
     }
   }
@@ -51,7 +56,7 @@ export function applyPushReceiverFix(): {
   try {
     const ownRequire = createRequire(import.meta.url),
       ringRequire = createRequire(ownRequire.resolve('ring-client-api')),
-      version: string = ringRequire('@eneris/push-receiver/package.json').version,
+      { version } = ringRequire('@eneris/push-receiver/package.json') as { version: string },
       target = ringRequire.resolve('@eneris/push-receiver')
 
     if (moduleCache[target]) {

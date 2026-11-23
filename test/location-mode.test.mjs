@@ -80,6 +80,18 @@ test('a failed mode change is logged, not a crash, and the target goes back to t
   assert.equal(target.value, Target.STAY_ARM)
 })
 
+test('a failed mode change whose re-read of the mode fails too is logged, not a crash (1.2.1)', async (t) => {
+  const { EMPTY } = await import('rxjs')
+  const { target, unhandled, location } = setup(t, async () => {
+    // Ring unreachable: the change fails, and so does reading the mode again afterwards
+    location.onLocationMode = EMPTY
+    throw new Error('Ring API down')
+  })
+  await write(target, Target.AWAY_ARM)
+  await settle()
+  assert.deepEqual(unhandled, [], 'no unhandled rejection (it would take Homebridge down)')
+})
+
 test('the requested target is kept until Ring reports it, also for STAY_ARM (value 0)', async (t) => {
   const { calls, setLocationMode } = pending()
   const { target, current, location } = setup(t, setLocationMode)
@@ -174,4 +186,15 @@ test("HomeKit's mode reads answer No Response when Ring hasn't reported a mode y
   // once Ring reports a mode, reads answer it
   noMode.next('away')
   assert.equal(await late.getCharacteristic(Current).handleGetRequest(), Current.AWAY_ARM)
+})
+
+test("Ring's other modes: 'disabled' (modes turned off) and 'unset' (none chosen) show as Disarmed", async (t) => {
+  const { location, current, target } = setup(t, async () => undefined)
+  for (const mode of ['away', 'disabled', 'home', 'unset']) {
+    location.onLocationMode.next(mode)
+    await settle()
+    const expected = mode === 'away' ? Current.AWAY_ARM : mode === 'home' ? Current.STAY_ARM : Current.DISARMED
+    assert.equal(current.value, expected, mode)
+    assert.equal(target.value, expected === Current.DISARMED ? Target.DISARM : expected, mode)
+  }
 })

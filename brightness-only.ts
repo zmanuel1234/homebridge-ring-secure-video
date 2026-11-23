@@ -22,7 +22,8 @@ export class BrightnessOnly extends BaseDeviceAccessory {
     this.config = config
 
     const { Characteristic, Service } = hap,
-      { context } = accessory
+      // saved with the accessory: the brightness to come back to when turned on again
+      context = accessory.context as { brightness?: number }
 
     if (
       device.data.brightness !== undefined &&
@@ -37,8 +38,9 @@ export class BrightnessOnly extends BaseDeviceAccessory {
           }
 
           // store the brightness so that we can set it again if light is turned off then back on
-          context.brightness = data.brightness * 100
-          return context.brightness
+          const brightness = data.brightness * 100
+          context.brightness = brightness
+          return brightness
         },
         setValue: (brightness) => {
           if (brightness) {

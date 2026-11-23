@@ -26,9 +26,9 @@ function getCurrentState({ locked }: RingDeviceData) {
 }
 
 export class Lock extends BaseDeviceAccessory {
-  private targetState: any
+  private targetState?: number
   private targetTimer?: ReturnType<typeof setTimeout>
-  private showTarget?: (value: any) => void
+  private showTarget?: (value: number) => void
 
   public readonly device
   public readonly accessory
@@ -82,7 +82,7 @@ export class Lock extends BaseDeviceAccessory {
     })
   }
 
-  setTargetState(state: any) {
+  setTargetState(state: number) {
     const {
         Characteristic: { LockTargetState: State },
       } = hap,

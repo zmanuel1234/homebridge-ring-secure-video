@@ -15,11 +15,12 @@ import type {
 import { CharacteristicEventTypes } from 'homebridge'
 import { logError, logInfo } from 'ring-client-api/util'
 import { logRejection } from './log-rejection.ts'
+import { toError } from './errors.ts'
 
 function isServiceInstance(
   serviceType: WithUUID<typeof Service> | Service,
 ): serviceType is Service {
-  return typeof (serviceType as any) === 'object'
+  return typeof serviceType === 'object'
 }
 
 export type CharacteristicType = WithUUID<{ new (): Characteristic }>
@@ -71,9 +72,9 @@ export abstract class BaseAccessory<T extends { name: string }> {
     serviceType: ServiceType
     serviceSubType?: string
     onValue: Observable<U>
-    setValue?: (value: U) => any
+    setValue?: (value: U) => unknown
     name?: string
-    requestUpdate?: () => any
+    requestUpdate?: () => unknown
   }) {
     const service = this.getService(serviceType, name, serviceSubType),
       characteristic = service.getCharacteristic(characteristicType),
@@ -94,8 +95,8 @@ export abstract class BaseAccessory<T extends { name: string }> {
               const value = await firstValueFrom(onCachedValue)
               callback(null, value)
               requestUpdate()
-            } catch (e: any) {
-              callback(e)
+            } catch (e) {
+              callback(toError(e))
             }
           }),
         )

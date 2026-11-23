@@ -26,8 +26,8 @@ export interface PushRecoveryState {
 
 export function readPushRecoveryState(storagePath: string): PushRecoveryState {
   try {
-    const state = JSON.parse(readFileSync(join(storagePath, stateFileName)).toString())
-    return state && typeof state === 'object' ? state : {}
+    const state: unknown = JSON.parse(readFileSync(join(storagePath, stateFileName)).toString())
+    return state && typeof state === 'object' ? (state as PushRecoveryState) : {}
   } catch {
     return {}
   }
