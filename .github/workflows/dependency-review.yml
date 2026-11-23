@@ -1,0 +1,20 @@
+# Shared by homebridge-brother-printer, homebridge-comelit-doorbell, homebridge-ir-patio-heater,
+# homebridge-ring-secure-video and wyze-robovac-matterbridge: the same file in all five.
+# On every pull request: fails when the change adds a dependency with a known vulnerability of
+# moderate severity or worse (GitHub's advisory database).
+name: Dependency review
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/dependency-review-action@bbc44d14a204704ccc493733616cd1e93a0321ec # v5.0.1
+        with:
+          fail-on-severity: moderate
