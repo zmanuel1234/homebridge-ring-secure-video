@@ -7,7 +7,10 @@
   logged instead of becoming an unhandled promise rejection (which Node can treat as a crash).
   Nothing else changes.
 - Development only: the same ESLint setup, Dependabot settings and TypeScript version (6.0) as the
-  author's other plugins.
+  author's other plugins. New tests build every alarm and smart-home accessory type (contact,
+  motion, flood/freeze, water, temperature, smoke, CO, panic buttons, outlets, valves, dimmers,
+  Beams, Z-Wave switches) on a real HomeKit accessory and check both directions, and one covers
+  the failed-mode-change fix above.
 
 ## 1.2.0 (2026-11-22)
 
