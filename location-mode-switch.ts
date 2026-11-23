@@ -31,8 +31,8 @@ function getStateFromMode(mode: LocationMode) {
       return State.AWAY_ARM
     case 'home':
       return State.STAY_ARM
+    // 'disabled' (modes turned off for the location) and 'unset' (none chosen yet): nothing is armed
     case 'disarmed':
-    // Modes turned off for the location, or none chosen yet: nothing is armed
     case 'disabled':
     case 'unset':
       return State.DISARMED
