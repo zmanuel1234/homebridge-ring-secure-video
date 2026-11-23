@@ -298,3 +298,17 @@ test('target value timer: holds a target for its duration, then forgets it', (t)
   timer.reset()
   assert.equal(timer.hasTarget(), false)
 })
+
+// ─── Values Ring doesn't report ───────────────────────────────────────────
+
+test('a value Ring leaves out keeps the last one in HomeKit, instead of an invalid undefined', () => {
+  const { value, next } = build(TemperatureSensor, { celsius: 20 })
+  next({ celsius: undefined })
+  assert.equal(value(S.TemperatureSensor, C.CurrentTemperature), 20)
+  next({ celsius: 18 })
+  assert.equal(value(S.TemperatureSensor, C.CurrentTemperature), 18)
+
+  const motion = build(MotionSensor, { faulted: true })
+  motion.next({ faulted: undefined })
+  assert.equal(motion.value(S.MotionSensor, C.MotionDetected), true)
+})

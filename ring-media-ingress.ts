@@ -4,6 +4,7 @@ import { getRecordingFfmpegPath } from './ffmpeg-capabilities.ts'
 import type { StreamingSession } from 'ring-client-api/streaming/streaming-session'
 import { logDebug, logError, logInfo } from 'ring-client-api/util'
 import { Subscription } from 'rxjs'
+import type { Observable } from 'rxjs'
 import { take } from 'rxjs/operators'
 import { RtpPacket } from 'werift'
 import { hksvRecordingQueue } from './hksv-work-queue.ts'
@@ -114,7 +115,8 @@ function waitForSdp(
     return Promise.reject(getAbortError())
   }
 
-  const connection = (session as any).connection
+  // private in ring-client-api's types (and its module not exported), public at run time
+  const { connection } = session as unknown as { connection: { onCallAnswered: Observable<string> } }
   return new Promise((resolve, reject) => {
     const subscriptions = new Subscription()
     const abort = { listener: undefined as (() => void) | undefined }

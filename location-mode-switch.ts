@@ -5,6 +5,7 @@ import type { RingPlatformConfig } from './config.ts'
 import { logError, logInfo } from 'ring-client-api/util'
 import { BaseAccessory } from './base-accessory.ts'
 import { logRejection } from './log-rejection.ts'
+import { toError } from './errors.ts'
 import { firstValueFrom, of } from 'rxjs'
 import type {
   PlatformAccessory,
@@ -31,8 +32,9 @@ function getStateFromMode(mode: LocationMode) {
     case 'home':
       return State.STAY_ARM
     case 'disarmed':
-      return State.DISARMED
-    default:
+    // Modes turned off for the location, or none chosen yet: nothing is armed
+    case 'disabled':
+    case 'unset':
       return State.DISARMED
   }
 }
@@ -111,8 +113,8 @@ export class LocationModeSwitch extends BaseAccessory<Location> {
         let state
         try {
           state = await readCurrentState()
-        } catch (e: any) {
-          callback(e)
+        } catch (e) {
+          callback(toError(e))
           return
         }
 
@@ -133,8 +135,8 @@ export class LocationModeSwitch extends BaseAccessory<Location> {
         }
         try {
           callback(null, await readCurrentState())
-        } catch (e: any) {
-          callback(e)
+        } catch (e) {
+          callback(toError(e))
         }
       }),
     )

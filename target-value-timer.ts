@@ -1,5 +1,5 @@
 export class TargetValueTimer<T> {
-  private timeout: number | undefined
+  private timeout: ReturnType<typeof setTimeout> | undefined
   private targetValue: T | undefined
 
   setTarget(value: T, duration: number) {
@@ -8,7 +8,7 @@ export class TargetValueTimer<T> {
     this.targetValue = value
     this.timeout = setTimeout(() => {
       this.reset()
-    }, duration) as any as number
+    }, duration)
   }
 
   hasTarget() {

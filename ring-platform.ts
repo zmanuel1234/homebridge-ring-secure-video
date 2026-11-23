@@ -10,6 +10,7 @@ import {
   RingDeviceType,
   RingIntercom,
 } from 'ring-client-api'
+import type { Location } from 'ring-client-api'
 import { hap } from './hap.ts'
 import type {
   API,
@@ -105,9 +106,41 @@ const ignoreHiddenDeviceTypes: string[] = [
 export const platformName = 'Ring Secure Video'
 export const pluginName = 'homebridge-ring-secure-video'
 
-function getAccessoryClass(
+/** The accessory class for a Ring alarm or smart-home device, or null for none. */
+type DeviceAccessoryClass = new (
   device: RingDevice,
-): (new (...args: any[]) => BaseAccessory<RingDevice>) | null {
+  accessory: PlatformAccessory,
+  config: RingPlatformConfig,
+) => BaseAccessory<RingDevice>
+
+/** Makes the accessory for one Ring device (or location), on the Homebridge accessory given. */
+type AccessoryFactory = (accessory: PlatformAccessory) => BaseAccessory<{ name: string }>
+
+/** Homebridge's config.json, as far as this plugin reads it. */
+interface HomebridgeConfigFile {
+  platforms?: unknown
+}
+
+/** config.json's platform blocks (the ones that look like blocks). */
+function platformBlocks(config: HomebridgeConfigFile): (PlatformConfig & { refreshToken?: unknown })[] {
+  const { platforms } = config ?? {}
+  return Array.isArray(platforms)
+    ? platforms.filter((p): p is PlatformConfig => Boolean(p) && typeof p === 'object')
+    : []
+}
+
+/** One HomeKit accessory to set up for a location. */
+interface HapDevice {
+  deviceType: string
+  device: RingCamera | RingChime | RingIntercom | RingDevice | Location
+  isCamera: boolean
+  isIntercomVideo: boolean
+  id: string
+  name: string
+  createAccessory: AccessoryFactory | null
+}
+
+function getAccessoryClass(device: RingDevice): DeviceAccessoryClass | null {
   const { deviceType } = device
 
   if (device.data.status === 'disabled') {
@@ -218,16 +251,16 @@ function updateRefreshTokenInConfig(
   newRefreshToken: string,
   clearRefreshFlags: boolean,
 ) {
-  let homebridgeConfig
+  let homebridgeConfig: HomebridgeConfigFile
   try {
-    homebridgeConfig = JSON.parse(configContents)
+    homebridgeConfig = JSON.parse(configContents) as HomebridgeConfigFile
   } catch {
     // Not JSON Homebridge could read either; replace the token where it is.
     return configContents.replace(oldRefreshToken, newRefreshToken)
   }
 
-  const platformConfig = homebridgeConfig.platforms?.find(
-    (platform: PlatformConfig) =>
+  const platformConfig = platformBlocks(homebridgeConfig).find(
+    (platform) =>
       (platform.platform === platformName ||
         platform.platform === `${pluginName}.${platformName}`) &&
       platform.refreshToken === oldRefreshToken,
@@ -265,8 +298,10 @@ export function getSavedPlatformConfig(
   try {
     // Homebridge upper-cases the username it hands over; config.json may have it either way.
     const username = config._bridge?.username?.toUpperCase(),
-      blocks = (JSON.parse(readFileSync(api.user.configPath()).toString()).platforms ?? []).filter(
-        (block: PlatformConfig) =>
+      blocks = platformBlocks(
+        JSON.parse(readFileSync(api.user.configPath()).toString()) as HomebridgeConfigFile,
+      ).filter(
+        (block) =>
           (block.platform === platformName ||
             block.platform === `${pluginName}.${platformName}`) &&
           (username
@@ -274,7 +309,9 @@ export function getSavedPlatformConfig(
             : !block._bridge),
       )
     const block = blocks.length === 1 ? blocks[0] : undefined
-    return typeof block?.refreshToken === 'string' && block.refreshToken ? block : undefined
+    return typeof block?.refreshToken === 'string' && block.refreshToken
+      ? (block as PlatformConfig & RingPlatformConfig & { refreshToken: string })
+      : undefined
   } catch {
     return undefined
   }
@@ -296,9 +333,10 @@ function clearRefreshPending(storagePath: string, update: PushRecoveryState = {}
  */
 export function hasRingRefreshToken(token: string) {
   try {
-    const auth = JSON.parse(Buffer.from(token, 'base64').toString())
+    const auth: unknown = JSON.parse(Buffer.from(token, 'base64').toString())
     if (auth && typeof auth === 'object' && !Array.isArray(auth)) {
-      return typeof auth.rt === 'string' && auth.rt !== ''
+      const { rt } = auth as { rt?: unknown }
+      return typeof rt === 'string' && rt !== ''
     }
   } catch {
     // Not ring-client-api's JSON form.
@@ -566,6 +604,24 @@ export class RingPlatform implements DynamicPlatformPlugin {
   private connectGraceTimer?: ReturnType<typeof setTimeout>
   private ringApi?: RingApi
   private pushHealth?: PushHealthMonitor
+
+  /** How to make the accessory for `device`: cameras, chimes and intercoms, then the rest by type. */
+  private accessoryFactory(
+    device: RingCamera | RingChime | RingIntercom | RingDevice,
+    config: RingPlatformConfig,
+  ): AccessoryFactory | null {
+    if (device instanceof RingCamera) {
+      return (accessory) => new Camera(device, accessory, config, this.pushHealth)
+    }
+    if (device instanceof RingChime) {
+      return (accessory) => new Chime(device, accessory, config)
+    }
+    if (device instanceof RingIntercom) {
+      return (accessory) => new Intercom(device, accessory, config)
+    }
+    const DeviceAccessory = getAccessoryClass(device)
+    return DeviceAccessory ? (accessory) => new DeviceAccessory(device, accessory, config) : null
+  }
   private gotNewToken = false
   private sessionRefreshSensor?: SessionRefreshSensor
   private readonly startedAt = Date.now()
@@ -805,7 +861,7 @@ export class RingPlatform implements DynamicPlatformPlugin {
           securityPanel = devices.find(
             (x) => x.deviceType === RingDeviceType.SecurityPanel,
           ),
-          hapDevices = allDevices.map((device) => {
+          hapDevices = allDevices.map((device): HapDevice => {
             const isCamera = device instanceof RingCamera,
               isIntercomVideo =
                 device instanceof RingIntercom &&
@@ -821,19 +877,11 @@ export class RingPlatform implements DynamicPlatformPlugin {
                 : isIntercomVideo
                   ? 'intercam'
                   : '',
-              AccessoryClass = (
-                device instanceof RingCamera
-                  ? Camera
-                  : device instanceof RingChime
-                  ? Chime
-                  : device instanceof RingIntercom
-                  ? Intercom
-                  : getAccessoryClass(device)
-              ) as (new (...args: any[]) => BaseAccessory<any>) | null
+              createAccessory = this.accessoryFactory(device, config)
 
             return {
               deviceType: device.deviceType as string,
-              device: device as any,
+              device,
               isCamera,
               isIntercomVideo,
               id:
@@ -842,7 +890,7 @@ export class RingPlatform implements DynamicPlatformPlugin {
                 cameraIdentitySalt +
                 accessoryIdSuffix,
               name: device.name + accessoryNameSuffix,
-              AccessoryClass,
+              createAccessory,
             }
           }),
           hideDeviceIds = config.hideDeviceIds || [],
@@ -858,7 +906,8 @@ export class RingPlatform implements DynamicPlatformPlugin {
             isIntercomVideo: false,
             id: securityPanel.id.toString() + 'panic' + accessoryIdSuffix,
             name: 'Panic Buttons' + accessoryNameSuffix,
-            AccessoryClass: PanicButtons,
+            createAccessory: (accessory: PlatformAccessory) =>
+              new PanicButtons(securityPanel, accessory, config),
           })
         }
 
@@ -873,7 +922,8 @@ export class RingPlatform implements DynamicPlatformPlugin {
             isIntercomVideo: false,
             id: location.id + 'mode' + accessoryIdSuffix,
             name: location.name + ' Mode' + accessoryNameSuffix,
-            AccessoryClass: LocationModeSwitch,
+            createAccessory: (accessory: PlatformAccessory) =>
+              new LocationModeSwitch(location, accessory, config),
           })
         }
 
@@ -888,14 +938,14 @@ export class RingPlatform implements DynamicPlatformPlugin {
             isIntercomVideo,
             id,
             name,
-            AccessoryClass,
+            createAccessory,
           }) => {
             const uuid = hap.uuid.generate(id),
               displayName = name
             try {
 
               if (
-                !AccessoryClass ||
+                !createAccessory ||
                 (config.hideLightGroups &&
                   deviceType === RingDeviceType.BeamsLightGroupSwitch) ||
                 hideDeviceIds.includes(uuid) ||
@@ -953,12 +1003,7 @@ export class RingPlatform implements DynamicPlatformPlugin {
                 },
                 homebridgeAccessory =
                   this.homebridgeAccessories[uuid] || createHomebridgeAccessory(),
-                accessory = new AccessoryClass(
-                  device as any,
-                  homebridgeAccessory,
-                  config,
-                  this.pushHealth,
-                )
+                accessory = createAccessory(homebridgeAccessory)
               accessory.initBase()
 
               // Registered only once set up: a half-built accessory isn't added to HomeKit.

@@ -50,8 +50,10 @@ export async function getFfmpegOutput(
     })
 
     return `${stdout}\n${stderr}`
-  } catch (e: any) {
-    return `${e.stdout ?? ''}\n${e.stderr ?? ''}`
+  } catch (e) {
+    // execFile's error carries the output (a non-zero exit still printed the capabilities)
+    const { stdout = '', stderr = '' } = (e ?? {}) as { stdout?: string; stderr?: string }
+    return `${stdout}\n${stderr}`
   }
 }
 

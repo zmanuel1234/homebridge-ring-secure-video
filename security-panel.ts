@@ -149,8 +149,8 @@ export class SecurityPanel extends BaseDeviceAccessory {
     return this.getTargetState(data)
   }
 
-  get targetingNightMode() {
-    return this.accessory.context.targetingNightMode
+  get targetingNightMode(): boolean {
+    return (this.accessory.context as { targetingNightMode?: boolean }).targetingNightMode === true
   }
   set targetingNightMode(value: boolean) {
     this.accessory.context.targetingNightMode = value
@@ -177,7 +177,7 @@ export class SecurityPanel extends BaseDeviceAccessory {
    * getAlarmTargetSettleMs (1 s by default), and only the last one is sent to Ring. Resolves once
    * that one is done.
    */
-  setTargetState(state: any) {
+  setTargetState(state: number) {
     this.pendingTargetState = state
     this.requestedTargetState = state
     this.targetRequests = (this.targetRequests ?? 0) + 1
@@ -214,7 +214,7 @@ export class SecurityPanel extends BaseDeviceAccessory {
     })
   }
 
-  private async sendTargetState(state: any, request?: number) {
+  private async sendTargetState(state: number | undefined, request?: number) {
     const {
         Characteristic: { SecuritySystemTargetState: State },
       } = hap,
@@ -247,7 +247,7 @@ export class SecurityPanel extends BaseDeviceAccessory {
       return
     }
 
-    let commandError: any
+    let commandError: unknown
     try {
       const bypassContactSensors = bypass
           ? (await location.getDevices()).filter((device) => {
@@ -292,9 +292,9 @@ export class SecurityPanel extends BaseDeviceAccessory {
         }),
         commandFailed = command.then(
           () => undefined,
-          (e: any) => {
+          (e: unknown) => {
             commandError = e
-            return /Failed to set alarm mode/.test(e?.message)
+            return e instanceof Error && /Failed to set alarm mode/.test(e.message)
               ? after(ALARM_MODE_GRACE_MS)
               : undefined
           },
@@ -306,7 +306,7 @@ export class SecurityPanel extends BaseDeviceAccessory {
       ])
       timers.forEach((timer) => clearTimeout(timer))
       reportedModeSubscription?.unsubscribe()
-    } catch (e: any) {
+    } catch (e) {
       commandError = e
     }
 
@@ -318,7 +318,7 @@ export class SecurityPanel extends BaseDeviceAccessory {
         }.${mode === 'none' ? '' : ' An open sensor may need bypassing, which can only be done in the Ring app.'}`,
       )
       // ring-client-api's own "Failed to set alarm mode" says no more than the line above
-      if (commandError && !/Failed to set alarm mode/.test(commandError?.message)) {
+      if (commandError && !(commandError instanceof Error && /Failed to set alarm mode/.test(commandError.message))) {
         logError(commandError)
       }
     }

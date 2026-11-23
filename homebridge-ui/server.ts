@@ -56,7 +56,7 @@ class PluginUiServer extends HomebridgePluginUiServer {
 
       // If we get here, 2fa was not required.  I'm not sure this is possible anymore, but it's here just in case
       return { refreshToken: refresh_token }
-    } catch (e: any) {
+    } catch (e) {
       const codePrompt = this.restClient?.promptFor2fa
 
       if (codePrompt) {
@@ -78,7 +78,7 @@ class PluginUiServer extends HomebridgePluginUiServer {
       const authResponse = await this.restClient.getAuth(code)
 
       return { refreshToken: authResponse.refresh_token }
-    } catch (e: any) {
+    } catch (e) {
       // Usually a wrong or expired code, but Ring's reason (e.g. an error page, or an answer
       // without a refresh token) is shown too
       const reason = getErrorMessage(e)

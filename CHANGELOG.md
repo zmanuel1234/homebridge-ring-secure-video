@@ -11,6 +11,14 @@
   motion, flood/freeze, water, temperature, smoke, CO, panic buttons, outlets, valves, dimmers,
   Beams, Z-Wave switches) on a real HomeKit accessory and check both directions, and one covers
   the failed-mode-change fix above.
+- Development only: no more `any` in the plugin's code (apart from the two TypeScript requires in
+  push-receiver-fix's mixin). Ring's, HAP's and config.json's values have
+  their types (or are checked before use), and lint now refuses `any` here. Typing them showed
+  that the HKSV recording resolutions weren't declared in HAP's [width, height, fps] form, and
+  that a value Ring leaves out (a sensor without `faulted`, a thermostat without a set point)
+  could be handed to HomeKit as undefined; HomeKit now keeps the last value then, as it in effect
+  did. Ring's 'disabled' and 'unset' location modes are listed explicitly (shown as Disarmed, as
+  before).
 
 ## 1.2.0 (2026-11-22)
 

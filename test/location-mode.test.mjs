@@ -187,3 +187,14 @@ test("HomeKit's mode reads answer No Response when Ring hasn't reported a mode y
   noMode.next('away')
   assert.equal(await late.getCharacteristic(Current).handleGetRequest(), Current.AWAY_ARM)
 })
+
+test("Ring's other modes: 'disabled' (modes turned off) and 'unset' (none chosen) show as Disarmed", async (t) => {
+  const { location, current, target } = setup(t, async () => undefined)
+  for (const mode of ['away', 'disabled', 'home', 'unset']) {
+    location.onLocationMode.next(mode)
+    await settle()
+    const expected = mode === 'away' ? Current.AWAY_ARM : mode === 'home' ? Current.STAY_ARM : Current.DISARMED
+    assert.equal(current.value, expected, mode)
+    assert.equal(target.value, expected === Current.DISARMED ? Target.DISARM : expected, mode)
+  }
+})
