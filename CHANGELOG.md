@@ -1,5 +1,12 @@
 # homebridge-ring-secure-video
 
+## 1.2.4 (2026-11-23)
+
+No new settings, and nothing changes in what the plugin does.
+
+- The donate link also offers GitHub Sponsors (first), next to Buy Me a Coffee: the Homebridge
+  UI's heart button and npm list both.
+
 ## 1.2.3 (2026-11-23)
 
 No new settings, and nothing changes in what the plugin does.
