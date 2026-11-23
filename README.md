@@ -6,6 +6,7 @@
 
 [![npm](https://badgen.net/npm/v/homebridge-ring-secure-video)](https://www.npmjs.com/package/homebridge-ring-secure-video)
 [![npm](https://badgen.net/npm/dt/homebridge-ring-secure-video)](https://www.npmjs.com/package/homebridge-ring-secure-video)
+[![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-zmanuel-FFDD00?logo=buymeacoffee&logoColor=black)](https://www.buymeacoffee.com/zmanuel)
 
 `homebridge-ring-secure-video` is a Homebridge platform plugin for Ring devices (alarm, sensors,
 locks, lights, cameras and doorbells), with HomeKit Secure Video (HKSV) recording for Ring cameras.
