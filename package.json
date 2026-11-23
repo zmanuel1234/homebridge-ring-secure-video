@@ -58,7 +58,16 @@
   "bugs": {
     "url": "https://github.com/zmanuel1234/homebridge-ring-secure-video/issues"
   },
-  "funding": "https://www.buymeacoffee.com/zmanuel",
+  "funding": [
+    {
+      "type": "github",
+      "url": "https://github.com/sponsors/zmanuel1234"
+    },
+    {
+      "type": "buymeacoffee",
+      "url": "https://www.buymeacoffee.com/zmanuel"
+    }
+  ],
   "homepage": "https://github.com/zmanuel1234/homebridge-ring-secure-video#readme",
   "files": [
     "CHANGELOG.md",
