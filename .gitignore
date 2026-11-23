@@ -13,3 +13,12 @@ yarn.lock
 
 # GitShift personal account configuration
 **/github-accounts.json
+
+# Shared by the author's five plugins: never commit secrets, tokens or keys.
+.env
+.env.*
+.npmrc
+*.pem
+*.key
+*.p12
+*.pfx

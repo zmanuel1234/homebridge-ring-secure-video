@@ -45,7 +45,7 @@
     "pluginAlias": "Ring Secure Video",
     "pluginType": "platform"
   },
-  "author": "zmanuel1234",
+  "author": "Manuel Zamfir",
   "contributors": [
     "Dusty Greif (homebridge-ring)",
     "trinityhades (homebridge-ring-hksv)"

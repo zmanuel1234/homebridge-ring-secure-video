@@ -30,6 +30,8 @@ jobs:
       - name: Install ffmpeg (for tests that use a real one; REQUIRE_FFMPEG makes them fail, not skip, without it)
         run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ffmpeg
       - run: npm ci
+      - name: Every installed package is signed by the npm registry
+        run: npm audit signatures
       - name: This repository's checks (package.json "verify")
         run: npm run verify
         env:
