@@ -1,0 +1,2 @@
+# System packages this plugin's tests need in CI and before a release (see .github/workflows/ci.yml).
+ffmpeg
