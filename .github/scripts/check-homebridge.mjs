@@ -86,7 +86,7 @@ if (release) {
   if (!main || !existsSync(main)) fail(`the built entry point ${pkg.main} is missing (run npm run build first)`)
   else if (!files.has(main)) fail(`the npm package would not contain ${main}`)
   const changelog = read('CHANGELOG.md')
-  const heading = new RegExp(`^##+ \\[?v?${pkg.version.replace(/[.+]/g, '\\$&')}\\]?(\\s|$)`, 'm')
+  const heading = new RegExp(`^##+ \\[?v?${pkg.version.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\]?(\\s|$)`, 'm')
   if (!heading.test(changelog)) fail(`CHANGELOG.md has no "## ${pkg.version}" section`)
 }
 
