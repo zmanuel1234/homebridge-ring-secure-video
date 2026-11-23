@@ -13,7 +13,10 @@
     "prepack": "npm run lint && npm run build",
     "dev": "concurrently -c yellow,blue --kill-others \"npm:dev:build\" \"npm:dev:run\" ",
     "dev:build": "tsc --watch --preserveWatchOutput",
-    "dev:run": "RING_DEBUG=true node --watch ./node_modules/.bin/homebridge -U ./.homebridge -P ./node_modules"
+    "dev:run": "RING_DEBUG=true node --watch ./node_modules/.bin/homebridge -U ./.homebridge -P ./node_modules",
+    "verify": "npm run lint && npm test && node .github/scripts/check-homebridge.mjs && node .github/scripts/check-config-schema.mjs",
+    "test:matrix": "npm test",
+    "release:check": "npm run verify && node .github/scripts/check-homebridge.mjs --release"
   },
   "dependencies": {
     "@homebridge/camera-utils": "^3.0.0",
