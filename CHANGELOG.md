@@ -1,5 +1,9 @@
 # homebridge-ring-secure-video
 
+## Unreleased
+
+- Development only: the same release and CI workflows as the author's other plugins. Publishing a GitHub release publishes it to npm (with trusted publishing; the package and its checksum are added to the release); each repository's checks are its `verify`, `test:matrix` and `release:check` scripts.
+
 ## 1.2.1 (2026-11-22)
 
 - A failure in a camera's snapshot, stream setup or stream request, or in reading or setting the

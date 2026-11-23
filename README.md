@@ -139,9 +139,7 @@ Before a change is merged, CI runs `npm run lint`, `npm run build` and `npm test
 `node .github/scripts/check-config-schema.mjs` (the settings schema, and every JSON example in
 this README). Run them locally the same way.
 
-Releases are published by GitHub Actions when a GitHub release is created: the tag must be
-`v<version>` from `package.json`, the release needs notes, `CHANGELOG.md` needs a section for the
-version, and "Set as a pre-release" (for a `-beta` version) publishes to the `beta` tag.
+Releases are published to npm by GitHub Actions (`.github/workflows/publish.yml`, the same in the author's other plugins) when a GitHub release is published. The tag must be `v` followed by the version in `package.json`, the release needs notes (the CHANGELOG section for the version), and **Set as a pre-release** must be ticked exactly for a version with a `-`. The workflow runs `npm run release:check`, adds the package and its `SHA256SUMS` to the release, and publishes that package with npm's trusted publishing: a `-dev-` version to npm's `dev` tag, any other pre-release to `beta`, a stable version to `latest`. **Run workflow** with a release's tag publishes a release that already exists. CI (`.github/workflows/ci.yml`, also shared) runs `npm run verify` on Node 24 and `npm run test:matrix` on Node 22, 24 and 26. Here, `release:check` also requires a `CHANGELOG.md` section for the version.
 
 ## Basic Configuration
 

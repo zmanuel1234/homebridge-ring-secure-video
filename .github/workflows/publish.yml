@@ -1,74 +1,140 @@
+# Shared by homebridge-brother-printer, homebridge-comelit-doorbell, homebridge-ir-patio-heater,
+# homebridge-ring-secure-video and wyze-robovac-matterbridge: the same file in all five. What a
+# repository checks before a release is its package.json's "release:check" script (its CI
+# checks, "verify", and anything only a release needs).
+#
+# Publishing a GitHub release (tag v + the version in package.json, notes from the CHANGELOG)
+# publishes that version to npm. "Run workflow" with a release's tag publishes a release that
+# already exists (one created before this workflow ran, or whose run failed).
+#
+# "build" checks and packs the release's code with no access to npm or to the release. "attach"
+# adds the package and its checksum to the release, and "publish" publishes that same package
+# with npm's trusted publishing: no token is stored anywhere, npm checks this workflow's GitHub
+# identity. Register the repository and publish.yml as the package's trusted publisher on
+# npmjs.com (package -> Settings -> Trusted publishing).
 name: Publish to npm
+
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: An existing release's tag to publish (e.g. v1.2.0)
+        required: true
+
 permissions:
   contents: read
+
+concurrency:
+  group: publish-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
 jobs:
-  # Checks and builds the package without access to npm publishing, so no dependency
-  # code runs while a publish credential is available.
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      version: ${{ steps.release.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
-      - name: Check the tag and the pre-release box match package.json
-        env:
-          TAG: ${{ github.event.release.tag_name }}
-          PRERELEASE: ${{ github.event.release.prerelease }}
-        run: .github/scripts/check-release-tag.sh "$TAG" "$PRERELEASE"
-      - name: Release notes are required (Homebridge rule)
-        env:
-          NOTES: ${{ github.event.release.body }}
-        run: |
-          if [ -z "$(printf '%s' "$NOTES" | tr -d '[:space:]')" ]; then
-            echo "::error::The GitHub release has no release notes. Edit the release, add notes (the CHANGELOG section for this version), and publish again."
-            exit 1
-          fi
-      - name: GitHub issues must be enabled (Homebridge rule)
+      - name: The release
+        id: release
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
         run: |
-          if [ "$(gh api "repos/$GITHUB_REPOSITORY" --jq .has_issues)" != "true" ]; then
-            echo "::error::Issues are disabled on this repository. Enable them in the repository settings."
-            exit 1
+          json="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease,body)" \
+            || { echo "::error::There is no release $TAG: create and publish it on GitHub first."; exit 1; }
+          field() { printf '%s' "$json" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s)[process.argv[1]]))" "$1"; }
+          if [ "$(field isDraft)" = true ]; then
+            echo "::error::Release $TAG is a draft: publish it on GitHub first."; exit 1
           fi
+          if [ -z "$(field body | tr -d '[:space:]')" ]; then
+            echo "::error::Release $TAG has no release notes (a Homebridge rule). Add the CHANGELOG section for this version, then run this again."; exit 1
+          fi
+          if [ "$(gh api "repos/$GITHUB_REPOSITORY" --jq .has_issues)" != true ]; then
+            echo "::error::Issues are disabled on this repository (a Homebridge rule). Enable them in the repository settings."; exit 1
+          fi
+          { echo "tag=$TAG"; echo "prerelease=$(field isPrerelease)"; echo "version=${TAG#v}"; } >> "$GITHUB_OUTPUT"
+      - name: Check the tag and the pre-release box match package.json
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+          PRERELEASE: ${{ steps.release.outputs.prerelease }}
+        run: .github/scripts/check-release-tag.sh "$TAG" "$PRERELEASE"
+      - name: Install ffmpeg (for tests that use a real one, as in CI)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ffmpeg
       - run: npm ci
-      - run: npm run lint
-      - run: npm run build
-      - run: npm test
-      - name: Homebridge plugin rules (release)
-        run: node .github/scripts/check-homebridge.mjs --release
-      - name: Settings schema and README examples
-        run: node .github/scripts/check-config-schema.mjs
+      - name: This repository's checks (package.json "release:check")
+        env:
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          REQUIRE_FFMPEG: '1'
+        run: npm run release:check
       - name: Pack
-        run: npm pack --ignore-scripts && mv homebridge-ring-secure-video-*.tgz package.tgz
+        run: npm pack --ignore-scripts
+      - name: Checksum
+        run: sha256sum ./*.tgz | tee SHA256SUMS
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: package
-          path: package.tgz
+          path: |
+            ./*.tgz
+            SHA256SUMS
           if-no-files-found: error
-  publish:
+          retention-days: 7
+
+  attach:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write   # to add files to the release; this job runs no repository or npm code
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: package
+      - name: Add the package and its checksum to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.build.outputs.tag }}
+        run: |
+          sha256sum --check --strict SHA256SUMS
+          gh release upload "$TAG" ./*.tgz SHA256SUMS --repo "$GITHUB_REPOSITORY" --clobber
+
+  publish:
+    needs: [build, attach]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
-      id-token: write
+      id-token: write   # npm trusted publishing
     steps:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
       - name: Use an npm with trusted publishing (11.5.1 or later), at an exact version
-        run: npm install -g npm@11.21.2
+        run: npm install -g --ignore-scripts npm@11.21.2
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: package
-      # Trusted publishing: npm checks this workflow's GitHub OIDC identity, so no token is
-      # stored anywhere, and adds provenance. Publishes the tarball built and checked above.
-      - name: Publish (pre-releases go to the beta tag)
-        run: npm publish package.tgz --access public --tag ${{ github.event.release.prerelease && 'beta' || 'latest' }}
+      - name: Publish the package "build" checked
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          sha256sum --check --strict SHA256SUMS
+          # 1.3.0-dev-1: "dev" (Matterbridge's UI offers a plugin's dev version); any other
+          # pre-release (2.6.0-beta.1): "beta"; a stable version: "latest".
+          case "$VERSION" in
+            *-dev-*|*-git-*) dist=dev ;;
+            *-*)             dist=beta ;;
+            *)               dist=latest ;;
+          esac
+          npm publish ./*.tgz --access public --tag "$dist"
