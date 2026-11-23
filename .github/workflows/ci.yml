@@ -1,5 +1,7 @@
 # Shared by homebridge-brother-printer, homebridge-comelit-doorbell, homebridge-ir-patio-heater,
-# homebridge-ring-secure-video and wyze-robovac-matterbridge: the same file in all five. What a
+# homebridge-lg-thinq-connect, homebridge-ring-secure-video and wyze-robovac-matterbridge: the same
+# file in all six. System packages a repository's tests need (ffmpeg for the camera plugins) are
+# listed in its .github/apt-packages, one per line, and installed only where that file exists. What a
 # repository checks is in its package.json: "verify" (everything, on Node 24) and "test:matrix"
 # (the tests, on every supported Node version).
 name: CI
@@ -27,15 +29,19 @@ jobs:
         with:
           node-version: 24
           cache: npm
-      - name: Install ffmpeg (for tests that use a real one; REQUIRE_FFMPEG makes them fail, not skip, without it)
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ffmpeg
+      - name: System packages this repository's tests need (.github/apt-packages)
+        if: hashFiles('.github/apt-packages') != ''
+        timeout-minutes: 8   # Ubuntu's package mirror sometimes stalls: fail fast, re-run
+        run: |
+          sudo apt-get update -qq
+          grep -Ev '^[[:space:]]*(#|$)' .github/apt-packages | xargs -r sudo apt-get install -y -qq --no-install-recommends
       - run: npm ci
       - name: Every installed package is signed by the npm registry
         run: npm audit signatures
       - name: This repository's checks (package.json "verify")
         run: npm run verify
         env:
-          REQUIRE_FFMPEG: '1'
+          REQUIRE_FFMPEG: '1'   # tests that use ffmpeg fail, not skip, without it; others ignore it
       - name: The package
         run: npm pack --dry-run --ignore-scripts
       - name: The release tag check works for this version
