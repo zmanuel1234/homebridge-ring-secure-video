@@ -74,9 +74,12 @@ jobs:
       - name: System packages this repository's tests need (.github/apt-packages)
         if: hashFiles('.github/apt-packages') != ''
         timeout-minutes: 8   # Ubuntu's package mirror sometimes stalls: fail fast, re-run
+        env:
+          # A stalled download is dropped after 30 s and tried again, instead of hanging the job
+          APT_OPTS: -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30
         run: |
-          sudo apt-get update -qq
-          grep -Ev '^[[:space:]]*(#|$)' .github/apt-packages | xargs -r sudo apt-get install -y -qq --no-install-recommends
+          sudo apt-get $APT_OPTS update -qq
+          grep -Ev '^[[:space:]]*(#|$)' .github/apt-packages | xargs -r sudo apt-get $APT_OPTS install -y -qq --no-install-recommends
       - run: npm ci
       - name: This repository's checks (package.json "release:check")
         env:
