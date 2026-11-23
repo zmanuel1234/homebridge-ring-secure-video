@@ -1,7 +1,13 @@
 # homebridge-ring-secure-video
 
-## Unreleased
+## 1.2.2 (2026-11-22)
 
+No new settings, and nothing changes in what the plugin does.
+
+- Development only: no `any` left anywhere in the plugin's code. The push client's 60 s
+  heartbeat (push-receiver-fix) now subclasses ring-client-api's PushReceiver with a typed
+  constructor instead of a generic mixin, which TypeScript only allows with `any`; it was the last
+  exception to the lint rule.
 - Development only: the same release and CI workflows as the author's other plugins. Publishing a GitHub release publishes it to npm (with trusted publishing; the package and its checksum are added to the release); each repository's checks are its `verify`, `test:matrix` and `release:check` scripts.
 
 ## 1.2.1 (2026-11-22)
