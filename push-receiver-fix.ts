@@ -26,22 +26,19 @@ export type PushReceiverFixResult = 'heartbeat' | 'already-loaded' | 'failed'
  */
 export const PUSH_HEARTBEAT_INTERVAL_MS = 60_000
 
-// TypeScript requires a mixin's base constructor to take `...args: any[]` (TS2545)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type PushReceiverClass = new (...args: any[]) => object
+/** What PushReceiver's constructor takes, as far as this file needs it. */
+type PushReceiverConfig = { heartbeatIntervalMs?: number } & Record<string, unknown>
+type PushReceiverClass = new (config?: PushReceiverConfig) => object
 
 /** A PushReceiver that sends heartbeats every PUSH_HEARTBEAT_INTERVAL_MS unless told otherwise. */
-export function withPushHeartbeat<T extends PushReceiverClass>(PushReceiver: T): T {
+export function withPushHeartbeat(PushReceiver: PushReceiverClass): PushReceiverClass {
   return class PushReceiverWithHeartbeat extends PushReceiver {
     static heartbeatIntervalMs = PUSH_HEARTBEAT_INTERVAL_MS
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the mixin's constructor, as above
-    constructor(...[config]: any[]) {
+    constructor(config?: PushReceiverConfig) {
       super({
-        ...(config as object | undefined),
-        heartbeatIntervalMs:
-          (config as { heartbeatIntervalMs?: number } | undefined)?.heartbeatIntervalMs ??
-          PUSH_HEARTBEAT_INTERVAL_MS,
+        ...config,
+        heartbeatIntervalMs: config?.heartbeatIntervalMs ?? PUSH_HEARTBEAT_INTERVAL_MS,
       })
     }
   }
