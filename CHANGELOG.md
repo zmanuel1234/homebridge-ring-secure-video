@@ -1,5 +1,17 @@
 # homebridge-ring-secure-video
 
+## 1.2.3 (2026-11-23)
+
+No new settings, and nothing changes in what the plugin does.
+
+- The plugin has a donate link (Buy Me a Coffee): the Homebridge UI shows it as a heart button
+  on the plugin's card, and npm lists it on the package page.
+- Development only: the same security setup as the author's other plugins. SECURITY.md says how
+  to report a vulnerability privately (through GitHub). A pull request that adds a dependency
+  with a known vulnerability fails, CI checks that every installed package carries the npm
+  registry's signature, and `.gitignore` keeps keys, tokens and `.env` files out of the
+  repository. The package's author is now "Manuel Zamfir", as for the author's other plugins.
+
 ## 1.2.2 (2026-11-22)
 
 No new settings, and nothing changes in what the plugin does.
