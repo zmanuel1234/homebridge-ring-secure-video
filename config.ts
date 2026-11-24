@@ -24,6 +24,16 @@ import { basename, dirname, join } from 'path'
 import type { MediaConfigInput } from './media-config.ts'
 
 const systemIdFileName = '.ring.json'
+
+/**
+ * Whether this process is a Homebridge child bridge: Homebridge (1.8 and 2) runs one as a fork of
+ * its childBridgeFork.js, and removes `_bridge` from the plugin's config there, so the config can't
+ * tell. (The main bridge can be a fork too: hb-service starts it with one.)
+ */
+export function isChildBridge(script = process.argv[1]) {
+  return basename(script ?? '') === 'childBridgeFork.js'
+}
+
 export const controlCenterDisplayName = 'homebridge-ring-secure-video'
 
 export interface RingPlatformConfig extends RingApiOptions {

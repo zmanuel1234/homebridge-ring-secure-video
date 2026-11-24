@@ -32,6 +32,7 @@ import type { RingPlatformConfig } from './config.ts'
 import {
   controlCenterDisplayName,
   getSystemId,
+  isChildBridge,
   rotateSystemId,
   updateHomebridgeConfig,
 } from './config.ts'
@@ -289,25 +290,24 @@ function updateRefreshTokenInConfig(
  * Homebridge restarts a child bridge with the config it read when it started, not the one in
  * config.json now: after a renewal the token it hands over is out of date (and replacing it in
  * config.json would then fail), and a force setting cleared since would be on again. The block is
- * this child bridge's, or the one on the main bridge.
+ * the one with this block's name on the main bridge, or, in a child bridge, on a child bridge
+ * (Homebridge removes `_bridge` from the config it hands over there, so that can't tell which).
  */
 export function getSavedPlatformConfig(
   api: API,
   config: PlatformConfig,
+  child = isChildBridge(),
 ): (PlatformConfig & RingPlatformConfig & { refreshToken: string }) | undefined {
   try {
-    // Homebridge upper-cases the username it hands over; config.json may have it either way.
-    const username = config._bridge?.username?.toUpperCase(),
-      blocks = platformBlocks(
-        JSON.parse(readFileSync(api.user.configPath()).toString()) as HomebridgeConfigFile,
-      ).filter(
-        (block) =>
-          (block.platform === platformName ||
-            block.platform === `${pluginName}.${platformName}`) &&
-          (username
-            ? String(block._bridge?.username ?? '').toUpperCase() === username
-            : !block._bridge),
-      )
+    // Always by name too: a lone block on another child bridge may be another Ring account's
+    const blocks = platformBlocks(
+      JSON.parse(readFileSync(api.user.configPath()).toString()) as HomebridgeConfigFile,
+    ).filter(
+      (block) =>
+        (block.platform === platformName || block.platform === `${pluginName}.${platformName}`) &&
+        Boolean(block._bridge) === child &&
+        block.name === config.name,
+    )
     const block = blocks.length === 1 ? blocks[0] : undefined
     return typeof block?.refreshToken === 'string' && block.refreshToken
       ? (block as PlatformConfig & RingPlatformConfig & { refreshToken: string })
@@ -634,20 +634,26 @@ export class RingPlatform implements DynamicPlatformPlugin {
     if (this.shuttingDown) return
     const reason =
       'Ring event history shows motion that Ring sent no push notification for (3 events over at least 30 minutes, none pushed)'
-    if (this.config._bridge && typeof process.send === 'function') {
+    if (!isChildBridge()) {
+      this.log.warn(
+        `${reason}; the Ring API session will be refreshed the next time Homebridge restarts (run the plugin as a child bridge to have this done automatically)`,
+      )
+    } else if (!getSavedPlatformConfig(this.api, this.config)) {
+      // Restarted, it would get the token Homebridge read at its own start, perhaps renewed since
+      this.log.warn(
+        `${reason}; the Ring API session will be refreshed the next time Homebridge restarts (this child bridge restarts for it by itself only when it can find its own Ring block in config.json: give each Ring Secure Video block a name of its own)`,
+      )
+    } else {
       this.log.warn(
         `${reason}; restarting this child bridge to refresh the Ring API session (turn off "Automatic Ring Session Refresh" to stop this)`,
       )
       this.restartChildBridge()
-    } else {
-      this.log.warn(
-        `${reason}; the Ring API session will be refreshed the next time Homebridge restarts (run the plugin as a child bridge to have this done automatically)`,
-      )
     }
   }
 
   // A separate method so tests can stand in for it. Homebridge's own shutdown (SIGTERM) stops
-  // the accessories cleanly, and a child bridge that ends that way is started again at once.
+  // the accessories cleanly, and a child bridge that ends that way is started again (at once in
+  // Homebridge 2, after 7 s in 1.8).
   protected restartChildBridge() {
     process.kill(process.pid, 'SIGTERM')
   }
