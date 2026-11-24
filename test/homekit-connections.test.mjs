@@ -1,12 +1,15 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { createServer } from 'node:net'
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
   formatDuration,
+  getHomeKitRestartMinutes,
   HOMEKIT_ABSENT_WARNING_MS,
+  HOMEKIT_RESTART_INTERVAL_MS,
+  readHomeKitRestartState,
   HomeKitConnectionMonitor,
   readHomeKitConnections,
 } from '../lib/homekit-connections.js'
@@ -14,6 +17,7 @@ import * as hapNodejs from '@homebridge/hap-nodejs'
 import { setHap } from '../lib/hap.js'
 import { RingPlatform } from '../lib/ring-platform.js'
 import { isChildBridge } from '../lib/config.js'
+import { hksvRecordingQueue } from '../lib/hksv-work-queue.js'
 
 setHap(hapNodejs)
 
@@ -105,7 +109,7 @@ const BRIDGE = 46486,
   CAMERA = 52101
 const on = (port, remotes) => remotes.map((remote) => ({ port, remote }))
 
-function monitorWith(remotes, { ports = [BRIDGE], cameraRemotes = [] } = {}) {
+function monitorWith(remotes, { ports = [BRIDGE], cameraRemotes = [], events } = {}) {
   const clock = { now: 0 },
     logs = []
   let connections = { ports, connections: [...on(BRIDGE, remotes), ...on(CAMERA, cameraRemotes)] }
@@ -114,7 +118,7 @@ function monitorWith(remotes, { ports = [BRIDGE], cameraRemotes = [] } = {}) {
     warn: (m) => logs.push(['warn', m]),
     debug: (m) => logs.push(['debug', m]),
   }
-  const monitor = new HomeKitConnectionMonitor(log, () => connections, () => clock.now)
+  const monitor = new HomeKitConnectionMonitor(log, () => connections, () => clock.now, events)
   // minutes since start; the bridge's connections (and the cameras') from then on
   const check = (minutes, bridge, camera = cameraRemotes) => {
     clock.now = minutes * 60_000
@@ -305,4 +309,258 @@ test('isChildBridge tells a child bridge by its script', () => {
   assert.equal(isChildBridge('/usr/lib/node_modules/homebridge/lib/childBridgeFork.js'), true)
   assert.equal(isChildBridge('/opt/homebridge/lib/node_modules/homebridge/bin/homebridge'), false)
   assert.equal(isChildBridge(undefined), false)
+})
+
+test('reports how long the bridge has had no connection, its port, and whether a hub was seen', () => {
+  const absent = [],
+    present = []
+  const { monitor, check } = monitorWith([], {
+    ports: [BRIDGE, CAMERA],
+    cameraRemotes: ['10.0.4.23:49160'], // not the bridge's: no help
+    events: {
+      onAbsent: (ms, bridge) => absent.push([ms / 60_000, bridge.port, bridge.hubSeen]),
+      onPresent: (bridge) => present.push(bridge),
+    },
+  })
+  monitor.setBridgePorts([BRIDGE])
+  check(1) // none from the first check
+  check(2)
+  check(3, ['10.0.4.23:49153'])
+  check(40, []) // open 37 minutes: a hub's
+  check(42)
+  assert.deepEqual(absent, [
+    [0, '46486', false],
+    [1, '46486', false],
+    [0, '46486', true],
+    [2, '46486', true],
+  ])
+  assert.deepEqual(present, [{ port: '46486', hubSeen: false }])
+})
+
+test('Restart Bridge Without HomeKit takes 10 to 1440 minutes, and is off otherwise', () => {
+  const minutes = (value) => getHomeKitRestartMinutes({ restartBridgeWithoutHomeKitMinutes: value })
+  assert.equal(minutes(10), 10)
+  assert.equal(minutes(1440), 1440)
+  for (const off of [undefined, 0, 9, 1441, '30', Number.NaN, null]) {
+    assert.equal(minutes(off), undefined, `${off} is off`)
+  }
+})
+
+function asChildBridge(t) {
+  const script = process.argv[1]
+  process.argv[1] = '/usr/lib/node_modules/homebridge/dist/childBridgeFork.js'
+  t.after(() => (process.argv[1] = script))
+}
+
+const PORT = '46486',
+  hub = { port: PORT, hubSeen: true },
+  noHub = { port: PORT, hubSeen: false },
+  stateFile = (dir) => join(dir, '.ring-secure-video-homekit.json')
+
+function restartPlatform(t, { minutes = 30, states } = {}) {
+  const dir = mkdtempSync(join(tmpdir(), 'rsv-homekit-'))
+  t.after(() => rmSync(dir, { recursive: true, force: true }))
+  if (states) writeFileSync(stateFile(dir), JSON.stringify(states))
+  const warnings = [],
+    restarts = [],
+    api = { on() {}, user: { storagePath: () => dir } }
+  class TestPlatform extends RingPlatform {
+    restartChildBridge() {
+      restarts.push(true)
+    }
+  }
+  const log = { info() {}, debug() {}, error() {}, warn: (m) => warnings.push(m) },
+    config = { platform: 'Ring Secure Video', disableLogs: true, restartBridgeWithoutHomeKitMinutes: minutes }
+  return { dir, warnings, restarts, platform: new TestPlatform(log, config, api) }
+}
+
+test('a child bridge restarts once it has had no HomeKit connection for the set minutes', (t) => {
+  asChildBridge(t)
+  const { dir, warnings, restarts, platform: p } = restartPlatform(t)
+  p.homeKitAbsent(29 * 60_000, hub)
+  assert.equal(restarts.length, 0)
+  p.homeKitAbsent(30 * 60_000, hub)
+  assert.equal(restarts.length, 1)
+  assert.match(warnings.at(-1), /No HomeKit connection to this bridge for 30 min: restarting this child bridge/)
+  const state = readHomeKitRestartState(dir, PORT)
+  assert.equal(state.restartsWithoutConnection, 1)
+  assert.ok(Math.abs(state.lastRestartAt - Date.now()) < 5000)
+})
+
+test('without a home hub seen, no restart series starts; one under way goes on', (t) => {
+  asChildBridge(t)
+  const fresh = restartPlatform(t)
+  fresh.platform.homeKitAbsent(60 * 60_000, noHub)
+  assert.equal(fresh.restarts.length, 0, 'no hub: having no connection is normal')
+
+  // restarted for it an hour ago: the new run hasn't seen the hub (it's what is missing)
+  const goingOn = restartPlatform(t, {
+    states: { [PORT]: { lastRestartAt: Date.now() - HOMEKIT_RESTART_INTERVAL_MS - 1000, restartsWithoutConnection: 1 } },
+  })
+  goingOn.platform.homeKitAbsent(40 * 60_000, noHub)
+  assert.equal(goingOn.restarts.length, 1)
+})
+
+test('it restarts at most once an hour, a clock set back aside', (t) => {
+  asChildBridge(t)
+  const recent = restartPlatform(t, {
+    states: { [PORT]: { lastRestartAt: Date.now() - 59 * 60_000, restartsWithoutConnection: 1 } },
+  })
+  recent.platform.homeKitAbsent(40 * 60_000, hub)
+  assert.equal(recent.restarts.length, 0)
+
+  const earlier = restartPlatform(t, {
+    states: { [PORT]: { lastRestartAt: Date.now() - HOMEKIT_RESTART_INTERVAL_MS - 1000, restartsWithoutConnection: 1 } },
+  })
+  earlier.platform.homeKitAbsent(40 * 60_000, hub)
+  assert.equal(earlier.restarts.length, 1)
+  assert.equal(readHomeKitRestartState(earlier.dir, PORT).restartsWithoutConnection, 2)
+
+  const future = restartPlatform(t, {
+    states: { [PORT]: { lastRestartAt: Date.now() + 24 * HOMEKIT_RESTART_INTERVAL_MS, restartsWithoutConnection: 1 } },
+  })
+  future.platform.homeKitAbsent(40 * 60_000, hub)
+  assert.equal(future.restarts.length, 1, 'a restart dated in the future holds nothing up')
+})
+
+test('after 2 restarts that brought no connection, it waits for one before restarting again', (t) => {
+  asChildBridge(t)
+  const { dir, warnings, restarts, platform: p } = restartPlatform(t, {
+    states: { [PORT]: { lastRestartAt: Date.now() - 2 * HOMEKIT_RESTART_INTERVAL_MS, restartsWithoutConnection: 2 } },
+  })
+  p.homeKitAbsent(40 * 60_000, hub)
+  p.homeKitAbsent(41 * 60_000, hub)
+  assert.equal(restarts.length, 0)
+  assert.equal(warnings.length, 1, 'logged once')
+  assert.match(warnings[0], /2 restarts in a row brought none/)
+
+  p.homeKitPresent(hub)
+  assert.equal(readHomeKitRestartState(dir, PORT).restartsWithoutConnection, 0)
+  p.homeKitAbsent(30 * 60_000, hub)
+  assert.equal(restarts.length, 1)
+})
+
+test('each child bridge keeps its own restart state', (t) => {
+  asChildBridge(t)
+  const other = '51830',
+    { dir, restarts, platform: p } = restartPlatform(t, {
+      states: { [other]: { lastRestartAt: Date.now(), restartsWithoutConnection: 2 } },
+    })
+  p.homeKitAbsent(30 * 60_000, hub)
+  assert.equal(restarts.length, 1, "the other bridge's restarts don't hold this one up")
+  p.homeKitPresent(hub)
+  assert.deepEqual(readHomeKitRestartState(dir, other), {
+    lastRestartAt: JSON.parse(readFileSync(stateFile(dir)))[other].lastRestartAt,
+    restartsWithoutConnection: 2,
+  })
+})
+
+test('saved values that are not numbers count as none', (t) => {
+  asChildBridge(t)
+  const { dir } = restartPlatform(t, {
+    states: { [PORT]: { lastRestartAt: 'yesterday', restartsWithoutConnection: '1' } },
+  })
+  assert.deepEqual(readHomeKitRestartState(dir, PORT), {
+    lastRestartAt: undefined,
+    restartsWithoutConnection: undefined,
+  })
+})
+
+test('it waits for recordings and live views to end', (t) => {
+  asChildBridge(t)
+  const { restarts, platform: p } = restartPlatform(t),
+    release = hksvRecordingQueue.trackRingCall()
+  try {
+    p.homeKitAbsent(30 * 60_000, hub)
+    assert.equal(restarts.length, 0)
+  } finally {
+    release()
+  }
+  p.homeKitAbsent(31 * 60_000, hub)
+  assert.equal(restarts.length, 1)
+})
+
+test('a restart held up by a call for an hour is warned about, once', (t) => {
+  asChildBridge(t)
+  t.mock.timers.enable({ apis: ['Date'], now: 1_000_000_000_000 })
+  const { warnings, restarts, platform: p } = restartPlatform(t),
+    release = hksvRecordingQueue.trackRingCall()
+  try {
+    p.homeKitAbsent(30 * 60_000, hub)
+    t.mock.timers.tick(HOMEKIT_RESTART_INTERVAL_MS)
+    p.homeKitAbsent(90 * 60_000, hub)
+    p.homeKitAbsent(91 * 60_000, hub)
+  } finally {
+    release()
+  }
+  assert.equal(restarts.length, 0)
+  assert.equal(warnings.length, 1)
+  assert.match(warnings[0], /has waited 1 h 0 min for recordings and live views to end \(0 recording, 1 Ring call\)/)
+})
+
+test('it does not restart when its state cannot be saved, and says so once', (t) => {
+  asChildBridge(t)
+  const { dir, warnings, restarts, platform: p } = restartPlatform(t)
+  mkdirSync(stateFile(dir)) // a folder where the file should go: it can't be written
+  p.homeKitAbsent(30 * 60_000, hub)
+  p.homeKitAbsent(31 * 60_000, hub)
+  assert.equal(restarts.length, 0)
+  assert.equal(warnings.length, 1)
+  assert.match(warnings[0], /not restarting in this run, as its state could not be saved/)
+})
+
+test('not while shutting down, nor without the setting', (t) => {
+  asChildBridge(t)
+  const events = {},
+    dir = mkdtempSync(join(tmpdir(), 'rsv-homekit-'))
+  t.after(() => rmSync(dir, { recursive: true, force: true }))
+  const restarts = []
+  class TestPlatform extends RingPlatform {
+    restartChildBridge() {
+      restarts.push(true)
+    }
+  }
+  const api = { on: (event, handler) => (events[event] = handler), user: { storagePath: () => dir } },
+    log = { info() {}, debug() {}, error() {}, warn() {} },
+    p = new TestPlatform(log, { platform: 'Ring Secure Video', disableLogs: true, restartBridgeWithoutHomeKitMinutes: 30 }, api)
+  events.shutdown()
+  p.homeKitAbsent(30 * 60_000, hub)
+  assert.equal(restarts.length, 0)
+
+  const off = restartPlatform(t, { minutes: 0 })
+  off.platform.homeKitAbsent(24 * 60 * 60_000, hub)
+  off.platform.homeKitPresent(hub)
+  assert.equal(off.restarts.length, 0)
+  assert.deepEqual(off.warnings, [])
+  assert.equal(existsSync(stateFile(off.dir)), false, 'nothing saved')
+})
+
+test('the monitor reports to the platform: its checks lead to the restart', (t) => {
+  asChildBridge(t)
+  const { restarts, platform: p } = restartPlatform(t, { minutes: 10 })
+  const monitor = p.homeKitConnections,
+    clock = { now: 0 },
+    reads = [
+      { ports: [BRIDGE], connections: on(BRIDGE, ['10.0.4.23:49153']) }, // the hub...
+      { ports: [BRIDGE], connections: on(BRIDGE, ['10.0.4.23:49153']) },
+      { ports: [BRIDGE], connections: [] }, // ...lost after 40 minutes
+      { ports: [BRIDGE], connections: [] },
+    ]
+  // stand in for /proc and the clock of the platform's own monitor
+  monitor.read = () => reads.shift()
+  monitor.elapsed = () => clock.now
+  for (const minutes of [1, 41, 42, 52]) {
+    clock.now = minutes * 60_000
+    monitor.check()
+  }
+  assert.equal(restarts.length, 1)
+})
+
+test('on the main bridge, the setting is ignored with a warning', (t) => {
+  const script = process.argv[1]
+  process.argv[1] = '/usr/lib/node_modules/homebridge/bin/homebridge'
+  t.after(() => (process.argv[1] = script))
+  const { warnings, platform: p } = restartPlatform(t)
+  assert.equal(p.homeKitConnections, undefined)
+  assert.match(warnings[0], /only works when the plugin runs as a child bridge/)
 })

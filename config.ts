@@ -45,6 +45,8 @@ export interface RingPlatformConfig extends RingApiOptions {
   forceRefreshRingApiSession?: boolean
   automaticSessionRefresh?: boolean
   sessionRefreshSensor?: boolean
+  /** Minutes without a HomeKit connection after which a child bridge restarts (unset: never). */
+  restartBridgeWithoutHomeKitMinutes?: number
   doorbellPressMotion?: boolean
   enableCameraMotionHistory?: boolean
   disableHksvOnBattery?: boolean

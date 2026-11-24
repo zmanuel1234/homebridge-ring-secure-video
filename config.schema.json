@@ -164,6 +164,14 @@
         "description": "Adds a \"Ring Session Refreshed\" contact sensor that opens after an automatic Ring session refresh (10 s after the Home app is connected to it, within 3 minutes) and stays open for a day, so the Home app can notify you (turn on its notifications; needs a home hub): then remove the older homebridge-ring-secure-video entry from Authorized Client Devices in the Ring app. Needs Automatic Ring Session Refresh.",
         "default": false
       },
+      "restartBridgeWithoutHomeKitMinutes": {
+        "title": "Restart Bridge Without HomeKit",
+        "type": "integer",
+        "minimum": 10,
+        "maximum": 1440,
+        "placeholder": "off",
+        "description": "Minutes without any HomeKit connection to this bridge (from the home hub, or the Home app on a phone or Mac) after which the plugin restarts its child bridge, as restarting it by hand does, so that the home hub connects again: for when the Home app shows the Ring accessories as \"No Response\" until the bridge restarts. Needs a home hub (it acts only once the hub's connection, open 30 minutes or more, has been seen), a child bridge, and Linux (as on a Raspberry Pi). Not during a recording or live view, at most once an hour, and no more after 2 restarts in a row that brought no connection, until one comes. Empty (the default): never."
+      },
       "enableCameraMotionHistory": {
         "title": "Enable Camera Motion History Fallback",
         "type": "boolean",
@@ -372,6 +380,14 @@
             "sessionRefreshSensor",
             "forceRefreshRingPushCredentials",
             "forceRefreshRingApiSession"
+          ]
+        },
+        {
+          "type": "fieldset",
+          "title": "HomeKit Connection",
+          "expandable": true,
+          "items": [
+            "restartBridgeWithoutHomeKitMinutes"
           ]
         },
         {
