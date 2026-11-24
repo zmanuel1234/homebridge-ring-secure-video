@@ -319,6 +319,30 @@ an automatic refresh the log says "Automatic Ring session refresh done", and the
 changes the identity that other Ring plugins in the same Homebridge (such as homebridge-ring) will
 use the next time they sign in from scratch, since they share `.ring.json`.
 
+### The Home app shows the Ring accessories as "No Response"
+
+As a child bridge on Linux (where `/proc` is available, as on a Raspberry Pi), the plugin counts the
+HomeKit connections to its bridge every minute, so the log tells whether the home hub was still
+connected to it. Only the bridge's own port is counted (the alarm, sensors and other accessories
+are on it): each camera has a HomeKit port of its own, which the home hub connects to separately.
+
+- At startup: "HomeKit connections to this bridge (port 46486): 1 (10.0.4.23)", with the address of
+  each home hub, phone or Mac connected to it, and the cameras' ports, which aren't counted.
+- "HomeKit connection from 10.0.4.23 to this bridge (port 46486) closed after 9 h 12 min": a
+  connection that had been open 30 minutes or more closed. Such a connection is taken to be a home
+  hub's; until one has been seen, connections coming and going (a phone's Home app opening and
+  closing) are logged at debug level only.
+- "No HomeKit connection to this bridge (port 46486) for 10 min": after a home hub's connection was
+  seen, the bridge has had none for 10 minutes. The Home app then usually shows its accessories as
+  "No Response" until the hub connects again; restarting this bridge (or the home hub) brings it
+  back. Without a home hub, having no connection is normal, and this isn't logged (unless a device
+  kept the Home app open for 30 minutes or more).
+- "HomeKit connection from 10.0.4.23 to this bridge (port 46486) opened ... (none for 1 h 1 min)":
+  connected again.
+
+If the accessories show "No Response" while the log shows the hub still connected, the hub's
+connection is open but not answering: restart the home hub (or this bridge).
+
 ## Disclaimer
 
 - **Unofficial.** This plugin is not affiliated with, endorsed by or supported by Ring LLC, Amazon,
