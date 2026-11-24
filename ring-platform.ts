@@ -58,7 +58,16 @@ import { PanicButtons } from './panic-buttons.ts'
 import type { RefreshTokenAuth } from 'ring-client-api/rest-client'
 import { logError, logInfo, useLogger } from 'ring-client-api/util'
 import { createRingLogger } from './ring-logger.ts'
-import { HomeKitConnectionMonitor } from './homekit-connections.ts'
+import {
+  formatDuration,
+  getHomeKitRestartMinutes,
+  HOMEKIT_RESTART_INTERVAL_MS,
+  type HomeKitBridge,
+  HomeKitConnectionMonitor,
+  MAX_HOMEKIT_RESTARTS_WITHOUT_CONNECTION,
+  readHomeKitRestartState,
+  writeHomeKitRestartState,
+} from './homekit-connections.ts'
 import type { BaseAccessory } from './base-accessory.ts'
 import { FloodFreezeSensor } from './flood-freeze-sensor.ts'
 import { FreezeSensor } from './freeze-sensor.ts'
@@ -70,7 +79,7 @@ import { UnknownZWaveSwitchSwitch } from './unknown-zwave-switch.ts'
 import { Intercom } from './intercom.ts'
 import { Valve } from './valve.ts'
 import { getRemovedSettings, sanitizeMediaConfig } from './media-config.ts'
-import { configureHksvResourceGovernor } from './hksv-work-queue.ts'
+import { configureHksvResourceGovernor, hksvRecordingQueue } from './hksv-work-queue.ts'
 import {
   getMotionNotificationSensorUuid,
   setUpMotionNotificationSensor,
@@ -518,7 +527,14 @@ export class RingPlatform implements DynamicPlatformPlugin {
     this.api = api
     // Only a child bridge: the main bridge's process also holds other plugins' servers
     if (isChildBridge()) {
-      this.homeKitConnections = new HomeKitConnectionMonitor(log)
+      this.homeKitConnections = new HomeKitConnectionMonitor(log, undefined, undefined, {
+        onAbsent: (absentMs, bridge) => this.homeKitAbsent(absentMs, bridge),
+        onPresent: (bridge) => this.homeKitPresent(bridge),
+      })
+    } else if (config && getHomeKitRestartMinutes(config) !== undefined) {
+      log.warn(
+        'Restart Bridge Without HomeKit (restartBridgeWithoutHomeKitMinutes) only works when the plugin runs as a child bridge; it is ignored',
+      )
     }
 
     if (!config) {
@@ -653,6 +669,98 @@ export class RingPlatform implements DynamicPlatformPlugin {
       this.log.warn(
         `${reason}; the Ring API session will be refreshed the next time Homebridge restarts (run the plugin as a child bridge to have this done automatically)`,
       )
+    }
+  }
+
+  // So that "not restarting (again)" is logged once per time without a connection
+  private homeKitRestartSkipLogged = false
+  // Set when the restart state can't be saved: no restarts in this run (they couldn't be limited)
+  private homeKitRestartStateUnsaved = false
+  // Since when a restart has waited for recordings and live views to end
+  private homeKitRestartWaitingSince?: number
+
+  /**
+   * A child bridge has had no HomeKit connection for absentMs (see homekit-connections.ts). With
+   * restartBridgeWithoutHomeKitMinutes set, it restarts once that long has passed, as restarting
+   * it by hand does, so that the home hub connects again: only after a home hub's connection was
+   * seen (in this run, or before the restarts that brought none), not during a recording or live
+   * view, at most once an hour, and no more after 2 restarts in a row that brought no
+   * connection, until one comes.
+   */
+  homeKitAbsent(absentMs: number, { port, hubSeen }: HomeKitBridge) {
+    const minutes = getHomeKitRestartMinutes(this.config)
+    if (
+      minutes === undefined ||
+      this.shuttingDown ||
+      this.homeKitRestartStateUnsaved ||
+      absentMs < minutes * 60_000
+    ) {
+      return
+    }
+    const skip = (message: string) => {
+      if (this.homeKitRestartSkipLogged) return
+      this.homeKitRestartSkipLogged = true
+      this.log.warn(message)
+    }
+    const storagePath = this.api.user.storagePath(),
+      state = readHomeKitRestartState(storagePath, port),
+      restarts = state.restartsWithoutConnection ?? 0,
+      now = Date.now()
+    // Without a home hub, having no connection is normal: a series starts only after one was seen
+    if (!hubSeen && restarts === 0) return
+    if (restarts >= MAX_HOMEKIT_RESTARTS_WITHOUT_CONNECTION) {
+      skip(
+        `No HomeKit connection to this bridge for ${formatDuration(absentMs)}, and ${restarts} restarts in a row brought none, so it doesn't restart again until one comes: check that the home hub is on and connected (Home app > Home Settings > Home Hubs & Bridges)`,
+      )
+      return
+    }
+    const lastRestartAt = state.lastRestartAt ?? 0
+    // (a clock set back, as on a Pi before NTP, doesn't hold it up)
+    if (lastRestartAt <= now && now - lastRestartAt < HOMEKIT_RESTART_INTERVAL_MS) return
+    // The hub may still record or stream through a camera's own port: not in the middle of that
+    const { activeRecordings, activeRingCalls } = hksvRecordingQueue.getMetrics()
+    if (activeRecordings > 0 || activeRingCalls > 0) {
+      this.homeKitRestartWaitingSince ??= now
+      if (now - this.homeKitRestartWaitingSince >= HOMEKIT_RESTART_INTERVAL_MS) {
+        skip(
+          `Restart Bridge Without HomeKit has waited ${formatDuration(now - this.homeKitRestartWaitingSince)} for recordings and live views to end (${activeRecordings} recording, ${activeRingCalls} Ring call)`,
+        )
+      } else {
+        this.log.debug('Restart Bridge Without HomeKit waits for the recordings and live views to end')
+      }
+      return
+    }
+    this.homeKitRestartWaitingSince = undefined
+    // Not recorded, the restarts couldn't be limited
+    if (
+      !writeHomeKitRestartState(storagePath, port, {
+        lastRestartAt: now,
+        restartsWithoutConnection: restarts + 1,
+      })
+    ) {
+      this.homeKitRestartStateUnsaved = true
+      this.log.warn(
+        'Restart Bridge Without HomeKit: not restarting in this run, as its state could not be saved in the Homebridge storage folder',
+      )
+      return
+    }
+    this.log.warn(
+      `No HomeKit connection to this bridge for ${formatDuration(absentMs)}: restarting this child bridge so that the home hub connects again (Restart Bridge Without HomeKit)`,
+    )
+    this.restartChildBridge()
+  }
+
+  /** A HomeKit connection to the bridge: restarts without one start counting from 0 again. */
+  homeKitPresent({ port }: HomeKitBridge) {
+    this.homeKitRestartSkipLogged = false
+    if (getHomeKitRestartMinutes(this.config) === undefined || this.homeKitRestartStateUnsaved) return
+    const storagePath = this.api.user.storagePath(),
+      state = readHomeKitRestartState(storagePath, port)
+    if (state.restartsWithoutConnection) {
+      this.homeKitRestartStateUnsaved = !writeHomeKitRestartState(storagePath, port, {
+        ...state,
+        restartsWithoutConnection: 0,
+      })
     }
   }
 

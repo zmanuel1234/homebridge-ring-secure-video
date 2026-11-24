@@ -2,6 +2,8 @@ import { readdirSync, readFileSync, readlinkSync } from 'fs'
 import { endianness } from 'os'
 import { performance } from 'perf_hooks'
 import { join } from 'path'
+import { logError } from 'ring-client-api/util'
+import { writeFileAtomic } from './config.ts'
 
 /** How often the HomeKit connections to the bridge are counted. */
 export const HOMEKIT_CHECK_INTERVAL_MS = 60_000
@@ -13,6 +15,76 @@ export const HOMEKIT_CHECK_INTERVAL_MS = 60_000
 export const HOMEKIT_HUB_CONNECTION_MS = 30 * 60_000
 /** With no connection for this long, after a hub's was seen, a warning is logged (once). */
 export const HOMEKIT_ABSENT_WARNING_MS = 10 * 60_000
+
+/** restartBridgeWithoutHomeKitMinutes: the shortest and longest time without a connection. */
+export const HOMEKIT_RESTART_MINUTES_MIN = 10
+export const HOMEKIT_RESTART_MINUTES_MAX = 24 * 60
+/** At most one restart in this long... */
+export const HOMEKIT_RESTART_INTERVAL_MS = 60 * 60_000
+/** ...and no more after this many in a row that brought no HomeKit connection. */
+export const MAX_HOMEKIT_RESTARTS_WITHOUT_CONNECTION = 2
+
+/** The minutes set by restartBridgeWithoutHomeKitMinutes, or undefined when it is off or not valid. */
+export function getHomeKitRestartMinutes({
+  restartBridgeWithoutHomeKitMinutes: minutes,
+}: {
+  restartBridgeWithoutHomeKitMinutes?: unknown
+}) {
+  return typeof minutes === 'number' &&
+    Number.isFinite(minutes) &&
+    minutes >= HOMEKIT_RESTART_MINUTES_MIN &&
+    minutes <= HOMEKIT_RESTART_MINUTES_MAX
+    ? minutes
+    : undefined
+}
+
+const restartStateFileName = '.ring-secure-video-homekit.json'
+
+export interface HomeKitRestartState {
+  /** When the bridge last restarted for having no HomeKit connection (Date.now()). */
+  lastRestartAt?: number
+  /** Such restarts in a row after which no HomeKit connection came. */
+  restartsWithoutConnection?: number
+}
+
+const count = (value: unknown) =>
+  typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined
+
+function readRestartStates(storagePath: string): Record<string, unknown> {
+  try {
+    const states: unknown = JSON.parse(readFileSync(join(storagePath, restartStateFileName), 'utf8'))
+    return states && typeof states === 'object' && !Array.isArray(states)
+      ? (states as Record<string, unknown>)
+      : {}
+  } catch {
+    return {}
+  }
+}
+
+/**
+ * The restart state of the bridge on `port`: each child bridge (two Ring accounts, say) keeps its
+ * own in the one file in Homebridge's storage, so that one doesn't reset or hold up another's.
+ */
+export function readHomeKitRestartState(storagePath: string, port: string): HomeKitRestartState {
+  const state = readRestartStates(storagePath)[port],
+    { lastRestartAt, restartsWithoutConnection } =
+      state && typeof state === 'object' ? (state as Record<string, unknown>) : {}
+  return { lastRestartAt: count(lastRestartAt), restartsWithoutConnection: count(restartsWithoutConnection) }
+}
+
+export function writeHomeKitRestartState(storagePath: string, port: string, state: HomeKitRestartState) {
+  try {
+    writeFileAtomic(
+      join(storagePath, restartStateFileName),
+      JSON.stringify({ ...readRestartStates(storagePath), [port]: state }),
+    )
+    return true
+  } catch (error) {
+    logError(`Failed to save ${restartStateFileName}`)
+    logError(error)
+    return false
+  }
+}
 
 export interface HomeKitConnections {
   /**
@@ -137,6 +209,20 @@ export interface HomeKitConnectionLog {
   debug(message: string): void
 }
 
+export interface HomeKitBridge {
+  /** The bridge's HomeKit port(s), as "46486". */
+  port: string
+  /** Whether a home hub's connection (open 30 minutes or more) has been seen in this run. */
+  hubSeen: boolean
+}
+
+export interface HomeKitConnectionEvents {
+  /** At each check with no connection to the bridge: how long there has been none. */
+  onAbsent?(absentMs: number, bridge: HomeKitBridge): void
+  /** At each check with a connection to the bridge. */
+  onPresent?(bridge: HomeKitBridge): void
+}
+
 /**
  * Logs the HomeKit connections to a child bridge's own port (not its cameras', which have ports
  * of their own), so that when the Home app shows the bridge's accessories as "No Response" the log
@@ -149,6 +235,7 @@ export class HomeKitConnectionMonitor {
   private readonly log
   private readonly read
   private readonly elapsed
+  private readonly events
   private timer?: ReturnType<typeof setInterval>
   /** The bridge's own HomeKit port(s). */
   private bridgePorts?: number[]
@@ -162,10 +249,12 @@ export class HomeKitConnectionMonitor {
     log: HomeKitConnectionLog,
     read: () => HomeKitConnections | undefined = () => readHomeKitConnections(),
     elapsed: () => number = () => performance.now(),
+    events: HomeKitConnectionEvents = {},
   ) {
     this.log = log
     this.read = read
     this.elapsed = elapsed
+    this.events = events
   }
 
   /** The bridge's own HomeKit port(s). */
@@ -277,6 +366,7 @@ export class HomeKitConnectionMonitor {
     if (remotes.length) {
       this.absentSince = undefined
       this.warned = false
+      this.events.onPresent?.({ port: bridgePorts.join(','), hubSeen: this.hubSeen })
       return
     }
     this.absentSince ??= now
@@ -286,6 +376,7 @@ export class HomeKitConnectionMonitor {
         `No HomeKit connection to this bridge (${port}) for ${formatDuration(now - this.absentSince)}: the home hub seems to have lost it, and the Home app may show its accessories as "No Response". If they do, restart this bridge (or the home hub).`,
       )
     }
+    this.events.onAbsent?.(now - this.absentSince, { port: bridgePorts.join(','), hubSeen: this.hubSeen })
   }
 }
 

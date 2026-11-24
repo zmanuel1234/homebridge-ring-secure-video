@@ -64,6 +64,7 @@ trinityhades.**
 | `enableCameraMotionHistory` | Allows camera motion to fall back to recent Ring event history if push notifications don't arrive. The history is checked every `cameraStatusPollingSeconds` until motion events turn out to come by push too, then every 5 minutes as a safety net (and frequently again once a push is missed, so motion can go unreported for up to 5 minutes after push stops working); disable to only trust push-triggered motion |
 | `automaticSessionRefresh` | When Ring's event history shows motion that Ring sent no push notification for (3 events over at least 30 minutes, none pushed), refreshes the Ring API session by itself, as **Force Ring API Session Refresh** does (see Troubleshooting): a child bridge restarts for it, the main bridge does it at the next Homebridge restart. Events while motion is snoozed are not counted, nor, when the camera alerts for people only, events without a person. At most once a day, and no more after 2 refreshes that brought no motion push notification. Needs `enableCameraMotionHistory`. On by default; set `false` to turn it off, for example if Ring is set to send no motion alerts in some Modes or on a schedule |
 | `sessionRefreshSensor` | Adds a "Ring Session Refreshed" contact sensor that opens after an automatic session refresh (10 s after the Home app is connected to it, within 3 minutes) and stays open for a day, also across restarts (which don't notify again). Turn on its notifications in the Home app (needs a home hub) to be told when to remove the older `homebridge-ring-secure-video` entry from Authorized Client Devices. Needs `automaticSessionRefresh`. Off by default |
+| `restartBridgeWithoutHomeKitMinutes` | Minutes (10 to 1440) without any HomeKit connection to the bridge after which a child bridge restarts by itself, as restarting it by hand does, so that the home hub connects again (see [The Home app shows the Ring accessories as "No Response"](#the-home-app-shows-the-ring-accessories-as-no-response)). Needs a home hub (it acts only once the hub's connection has been seen), a child bridge, and Linux (as on a Raspberry Pi). Not during a recording or live view, at most once an hour, and no more after 2 restarts in a row that brought no connection, until one comes. Off by default |
 | `disableHksvOnBattery` | Disables HKSV on cameras running on battery to reduce battery/network usage; wired battery models keep it. On by default |
 | `homeKitAccessoryTag` | Appends a tag to accessory names and HomeKit IDs so the same Ring device can be exposed as a distinct HomeKit accessory for debugging/testing |
 | `hideDoorbellSwitch` / `hideCameraMotionSensor` / `hideCameraSirenSwitch` | Hides specific HomeKit-exposed services |
@@ -342,6 +343,16 @@ are on it): each camera has a HomeKit port of its own, which the home hub connec
 
 If the accessories show "No Response" while the log shows the hub still connected, the hub's
 connection is open but not answering: restart the home hub (or this bridge).
+
+With **Restart Bridge Without HomeKit** (`restartBridgeWithoutHomeKitMinutes`) set, the child
+bridge restarts by itself after that many minutes without any connection to its own port, and the
+log says "restarting this child bridge so that the home hub connects again". It does this only
+after a home hub's connection (open 30 minutes or more) has been seen, never during a recording or
+live view (it waits for them to end), at most once an hour, and after 2 restarts in a row that
+brought no connection it stops ("doesn't restart again until one comes") until a home hub or a
+phone's Home app connects. Each child bridge keeps its own count, in
+`.ring-secure-video-homekit.json` in the Homebridge storage folder. It can't help when the hub's
+connection is still open but not answering, as above.
 
 ## Disclaimer
 
