@@ -1,5 +1,19 @@
 # homebridge-ring-secure-video
 
+## 1.3.1 (2026-11-24)
+
+No new settings.
+
+- The startup line "HomeKit connections to this bridge" no longer lists HAP-NodeJS's loopback
+  proxies (one on 127.0.0.1 for each HomeKit connection, on a new port at every start) as the
+  bridge's or a camera's HomeKit ports: it reads "port 46486 ... cameras have ports of their own
+  (52103)" rather than "port 33365, 46486 ... (46009, 52103)". The count of connections was
+  already right.
+- **Restart Bridge Without HomeKit** keeps its count across restarts again: it is saved under the
+  bridge's port, which in 1.3.0 included such a proxy port and so changed at every start. Its
+  limits (once an hour, no more after 2 restarts in a row that brought no connection) then held
+  only within one run; a new run still restarted only after seeing the home hub.
+
 ## 1.3.0 (2026-11-24)
 
 One new setting, off by default: **Restart Bridge Without HomeKit**.
