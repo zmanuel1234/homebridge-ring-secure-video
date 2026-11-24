@@ -14,6 +14,7 @@ import {
   readPushRecoveryState,
 } from '../lib/push-health.js'
 import { getSavedPlatformConfig, RingPlatform } from '../lib/ring-platform.js'
+import { isChildBridge } from '../lib/config.js'
 import { SessionRefreshSensor } from '../lib/session-refresh-sensor.js'
 
 setHap(hapNodejs)
@@ -280,7 +281,7 @@ function platform(t, { config = {}, state, savedToken = 'T0', bridge, saved = {}
       platform: 'Ring Secure Video',
       refreshToken: 'T0',
       disableLogs: true,
-      ...(bridge ? { _bridge: bridge } : {}),
+      // Homebridge removes _bridge from the config it hands a child bridge (see runAs)
       ...config,
     }
   return {
@@ -344,33 +345,69 @@ test('with the setting off, a pending refresh is not done, and nothing is watche
   assert.equal(readPushRecoveryState(dir).refreshPending, false, 'not done later on old evidence')
 })
 
+// Homebridge runs a child bridge as a fork of its childBridgeFork.js
+const scripts = new WeakSet()
+function runAs(t, script) {
+  if (!scripts.has(t)) {
+    // restored once, to what it was before the test
+    scripts.add(t)
+    const saved = process.argv[1]
+    t.after(() => (process.argv[1] = saved))
+  }
+  process.argv[1] = script
+}
+const childScript = '/usr/lib/node_modules/homebridge/dist/childBridgeFork.js',
+  mainScript = '/usr/lib/node_modules/homebridge/bin/homebridge'
+
+test('a child bridge that cannot find its own saved block waits for a restart instead', (t) => {
+  // two unnamed Ring blocks on child bridges: which one is this bridge's can't be told
+  const child = platform(t, { bridge: { username: 'AA' } }),
+    config = JSON.parse(readFileSync(join(child.dir, 'config.json')))
+  config.platforms.push({ platform: 'Ring Secure Video', refreshToken: 'other', _bridge: { username: 'BB' } })
+  writeFileSync(join(child.dir, 'config.json'), JSON.stringify(config))
+  runAs(t, childScript)
+  child.platform.refreshSessionAutomatically()
+  assert.equal(child.restarts.length, 0)
+  assert.match(child.warnings[0], /give each Ring Secure Video block a name of its own/)
+})
+
 test('a child bridge restarts itself for the refresh; the main bridge waits for a restart', (t) => {
   const child = platform(t, { bridge: { username: '0E:C2:A3:65:0D:A2' } }),
     main = platform(t)
+  // hb-service forks the main bridge too, so it has process.send as well
   const send = process.send
   process.send = () => true
   t.after(() => (process.send = send))
 
+  runAs(t, childScript)
   child.platform.refreshSessionAutomatically()
+  runAs(t, mainScript)
   main.platform.refreshSessionAutomatically()
   assert.equal(child.restarts.length, 1)
   assert.equal(main.restarts.length, 0)
   assert.match(main.warnings[0], /refreshed the next time Homebridge restarts/)
 
+  runAs(t, childScript)
   child.events.shutdown()
   child.platform.refreshSessionAutomatically()
   assert.equal(child.restarts.length, 1, 'not while shutting down')
 })
 
 test('a restarted child bridge uses the token and force settings saved in config.json', async (t) => {
+  runAs(t, childScript)
   const bridge = { username: '0E:C2:A3:65:0D:A2' },
-    { created, events, config } = platform(t, {
+    { dir, created, events, config } = platform(t, {
       bridge,
       savedToken: 'T5',
       // Homebridge hands over the settings from its own start; the force setting cleared since.
       config: { forceRefreshRingApiSession: true },
       saved: { forceRefreshRingApiSession: false },
-    })
+    }),
+    file = join(dir, 'config.json'),
+    homebridgeConfig = JSON.parse(readFileSync(file))
+  // a Ring block on the main bridge too: not this child bridge's
+  homebridgeConfig.platforms.push({ platform: 'Ring Secure Video', refreshToken: 'M' })
+  writeFileSync(file, JSON.stringify(homebridgeConfig))
 
   events.didFinishLaunching()
   await new Promise((resolve) => setImmediate(resolve))
@@ -382,30 +419,52 @@ test('a restarted child bridge uses the token and force settings saved in config
 test("only this bridge's own block gives the saved token", (t) => {
   const dir = storage(t),
     api = { user: { configPath: () => join(dir, 'config.json') } },
-    block = (token, username) => ({
+    block = (token, username, name) => ({
       platform: 'Ring Secure Video',
       refreshToken: token,
+      ...(name ? { name } : {}),
       ...(username ? { _bridge: { username } } : {}),
     }),
-    saved = (platforms, config) => {
+    // as Homebridge hands it over: without _bridge in a child bridge
+    saved = (platforms, child, config = {}) => {
       writeFileSync(join(dir, 'config.json'), JSON.stringify({ platforms }))
-      return getSavedPlatformConfig(api, config)?.refreshToken
-    },
-    child = { _bridge: { username: 'AA' } }
+      return getSavedPlatformConfig(api, config, child)?.refreshToken
+    }
 
-  assert.equal(saved([block('M'), block('A', 'AA'), block('B', 'BB')], child), 'A')
-  assert.equal(saved([block('M'), block('A', 'AA')], {}), 'M', 'main bridge')
-  assert.equal(saved([block('B', 'BB')], child), undefined, "another bridge's")
-  assert.equal(saved([block('A', 'AA'), block('A2', 'AA')], child), undefined, 'two blocks')
-  assert.equal(saved([block('', 'AA')], child), undefined, 'signed out')
-  assert.equal(saved([block('a', 'aa')], child), 'a', 'username in lower case')
+  assert.equal(saved([block('M'), block('A', 'AA')], true), 'A', "child bridge: not the main bridge's")
+  assert.equal(saved([block('M'), block('A', 'AA')], false), 'M', 'main bridge')
+  assert.equal(saved([block('A', 'AA'), block('B', 'BB')], true), undefined, 'two child bridges')
   assert.equal(
-    saved([{ ...block('p', 'AA'), platform: 'homebridge-ring-secure-video.Ring Secure Video' }], child),
+    saved([block('A', 'AA', 'Home'), block('B', 'BB', 'Office')], true, { name: 'Office' }),
+    'B',
+    'two child bridges, told apart by name',
+  )
+  assert.equal(
+    saved([block('B', 'BB', 'Office')], true, { name: 'Home' }),
+    undefined,
+    "the one block left on a child bridge is another account's",
+  )
+  assert.equal(
+    saved([block('A', 'AA'), block('B', 'BB', 'Office')], true),
+    'A',
+    'unnamed, next to a named one',
+  )
+  assert.equal(saved([block('M'), block('M2')], false), undefined, 'two on the main bridge')
+  assert.equal(saved([block('', 'AA')], true), undefined, 'signed out')
+  assert.equal(
+    saved([{ ...block('p', 'AA'), platform: 'homebridge-ring-secure-video.Ring Secure Video' }], true),
     'p',
     'platform named with the plugin',
   )
   rmSync(join(dir, 'config.json'))
-  assert.equal(getSavedPlatformConfig(api, child), undefined, 'no config.json')
+  assert.equal(getSavedPlatformConfig(api, {}, true), undefined, 'no config.json')
+})
+
+test('isChildBridge tells a child bridge by its script', () => {
+  assert.equal(isChildBridge(childScript), true)
+  assert.equal(isChildBridge('/usr/lib/node_modules/homebridge/lib/childBridgeFork.js'), true)
+  assert.equal(isChildBridge(mainScript), false)
+  assert.equal(isChildBridge(undefined), false)
 })
 
 test('the session refresh sensor opens once the Home app is back after a refresh, and closes a day later', async (t) => {
