@@ -1,5 +1,40 @@
 # homebridge-ring-secure-video
 
+## 1.3.0 (2026-11-24)
+
+One new setting, off by default: **Restart Bridge Without HomeKit**.
+
+- **The log shows the HomeKit connections to the bridge.** As a child bridge on Linux (as on a
+  Raspberry Pi), the plugin counts the connections to the bridge's own port every minute (the
+  cameras have ports of their own, not counted) and logs them at startup, a home hub's connection
+  closing, the bridge having none or some again, and a warning after 10 minutes without any. So
+  when the Home app shows the Ring accessories as "No Response" while the log is otherwise
+  clean, it tells whether the home hub had lost the bridge. Until a home hub's connection (open 30
+  minutes or more) has been seen, a phone's Home app coming and going is logged at debug level
+  only, and nothing is warned about. See "The Home app shows the Ring accessories as "No
+  Response"" in the README.
+- **Restart Bridge Without HomeKit** (`restartBridgeWithoutHomeKitMinutes`, 10 to 1440 minutes; in
+  the new "HomeKit Connection" section of the settings): a child bridge that has had no HomeKit
+  connection for that long restarts by itself, as restarting it by hand does, so that the home hub
+  connects again. Only once a home hub's connection has been seen, not during a recording or live
+  view, at most once an hour, and no more after 2 restarts in a row that brought no connection,
+  until one comes. Each child bridge keeps its count in `.ring-secure-video-homekit.json` in the
+  Homebridge storage folder. On the main bridge the setting is ignored, with a warning.
+
+**Fixes:**
+
+- In a child bridge, **Automatic Ring Session Refresh now really restarts the bridge**. Homebridge
+  removes `_bridge` from a plugin's settings in a child bridge, which the plugin went by: since
+  1.0.0-beta.5 it always logged that the session would be refreshed at the next Homebridge
+  restart instead. Homebridge logs the child bridge ending and starts it again (at once in
+  Homebridge 2, after 7 s in 1.8), which is expected.
+- **A restarted child bridge now takes the Ring token and force settings from its own block in
+  config.json**, as 1.0.0-beta.5 meant to do (for the same reason, it never found its block). It
+  no longer takes a Ring block on the main bridge for its own either. With several Ring blocks on
+  child bridges, give each a name of its own: a child bridge that can't tell which block is its
+  own doesn't restart for the session refresh (it would come back on an old token), and waits for
+  the next Homebridge restart, saying so.
+
 ## 1.2.4 (2026-11-23)
 
 No new settings, and nothing changes in what the plugin does.
