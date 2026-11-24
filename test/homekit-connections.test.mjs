@@ -41,9 +41,9 @@ function fakeProc(t, { ownInodes, tcp, tcp6 }) {
 }
 
 // port 46486 = B596; 10.0.4.23 = 1704000A; 127.0.0.1 = 0100007F; 52.1.2.3 (Ring) = 03020134
-test('counts connections to the ports this process listens on, from other hosts', (t) => {
+test('counts connections to the ports this process listens on for other hosts, from other hosts', (t) => {
   const proc = fakeProc(t, {
-    ownInodes: ['100', '101', '102', '103', '104', '105'],
+    ownInodes: ['100', '101', '102', '103', '104', '105', '106', '107', '108', '109'],
     tcp: [
       line('00000000:B596', '00000000:0000', '0A', '100'), // the bridge's HomeKit port
       line('F5040A0A:B596', '1704000A:C001', '01', '101'), // the home hub
@@ -51,10 +51,15 @@ test('counts connections to the ports this process listens on, from other hosts'
       line('F5040A0A:B596', '1804000A:C002', '01', '999'), // another process's socket
       line('F5040A0A:A000', '03020134:01BB', '01', '103'), // the plugin's own connection to Ring
       line('F5040A0A:B596', '1904000A:C003', '06', '104'), // closing (TIME_WAIT)
+      line('0100007F:8235', '00000000:0000', '0A', '106'), // HAP-NodeJS's proxy on 127.0.0.1:33333
+      line('0100007F:8235', '0100007F:D001', '01', '107'), // ...and its client
     ],
     tcp6: [
       // an IPv4 phone on the IPv6 socket
       line('00000000000000000000000000000000:B596', '0000000000000000FFFF00001A04000A:C004', '01', '105'),
+      // the same on [::1]:33334 and [::ffff:127.0.0.1]:33335
+      line('00000000000000000000000001000000:8236', '00000000000000000000000000000000:0000', '0A', '108'),
+      line('0000000000000000FFFF00000100007F:8237', '00000000000000000000000000000000:0000', '0A', '109'),
     ],
   })
   assert.deepEqual(readHomeKitConnections(proc), {
@@ -89,13 +94,18 @@ test('reports nothing where /proc cannot be read', (t) => {
   assert.equal(readHomeKitConnections(proc), undefined)
 })
 
-test('finds the port this process listens on in the real /proc', { skip: process.platform !== 'linux' }, async (t) => {
-  const server = createServer()
-  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
-  t.after(() => server.close())
-  const { port } = server.address(),
+test('finds the ports this process listens on for other hosts in the real /proc', { skip: process.platform !== 'linux' }, async (t) => {
+  const listen = async (host) => {
+    const server = createServer()
+    await new Promise((resolve) => server.listen(0, host, resolve))
+    t.after(() => server.close())
+    return server.address().port
+  }
+  const open = await listen('0.0.0.0'),
+    local = await listen('127.0.0.1'),
     connections = readHomeKitConnections()
-  assert.ok(connections.ports.includes(port))
+  assert.ok(connections.ports.includes(open))
+  assert.ok(!connections.ports.includes(local), 'a server for this host only is not HomeKit')
   assert.deepEqual(connections.connections, []) // nothing connected from another host
 })
 
