@@ -88,8 +88,9 @@ export function writeHomeKitRestartState(storagePath: string, port: string, stat
 
 export interface HomeKitConnections {
   /**
-   * The TCP ports this process listens on: in a child bridge, the bridge's HomeKit port, and one
-   * more for each camera (Homebridge gives an external accessory a HomeKit server of its own).
+   * The TCP ports this process listens on for other hosts (not those on 127.0.0.1 or ::1 only,
+   * HAP-NodeJS's proxies for each connection): in a child bridge, the bridge's HomeKit port, and
+   * one more for each camera (Homebridge gives an external accessory a HomeKit server of its own).
    */
   ports: number[]
   /** The established connections to those ports from other hosts ("address:port"). */
@@ -98,6 +99,11 @@ export interface HomeKitConnections {
 
 interface ProcSocket {
   localPort: number
+  /**
+   * Listening on 127.0.0.1 or ::1 only: not HomeKit's port (HAP-NodeJS listens on all addresses,
+   * whatever `bind` says), but the internal proxy it opens there for each HomeKit connection.
+   */
+  localLoopback: boolean
   remote: string
   loopback: boolean
   state: string
@@ -137,12 +143,13 @@ function parseProcNetTcp(text: string): ProcSocket[] {
     const fields = line.trim().split(/\s+/)
     if (fields.length < 10) continue
     const [, local, remote, state] = fields,
-      [, localPortHex] = local.split(':'),
+      [localHex, localPortHex] = local.split(':'),
       [remoteHex, remotePortHex] = remote.split(':'),
       { address, loopback } = decodeAddress(remoteHex),
       remotePort = parseInt(remotePortHex, 16)
     sockets.push({
       localPort: parseInt(localPortHex, 16),
+      localLoopback: decodeAddress(localHex).loopback,
       remote: address.includes(':') ? `[${address}]:${remotePort}` : `${address}:${remotePort}`,
       loopback,
       state,
@@ -185,9 +192,8 @@ export function readHomeKitConnections(proc = '/proc'): HomeKitConnections | und
     if (!isMissing(error)) throw error // no IPv6 otherwise
   }
   const own = sockets.filter((socket) => ownInodes.has(socket.inode)),
-    ports = [...new Set(own.filter((s) => s.state === LISTEN).map((s) => s.localPort))].sort(
-      (a, b) => a - b,
-    ),
+    listening = own.filter((s) => s.state === LISTEN && !s.localLoopback),
+    ports = [...new Set(listening.map((s) => s.localPort))].sort((a, b) => a - b),
     connections = own
       .filter((s) => s.state === ESTABLISHED && !s.loopback && ports.includes(s.localPort))
       .map((s) => ({ port: s.localPort, remote: s.remote }))
