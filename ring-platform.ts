@@ -32,6 +32,7 @@ import type { RingPlatformConfig } from './config.ts'
 import {
   controlCenterDisplayName,
   getSystemId,
+  isChildBridge,
   rotateSystemId,
   updateHomebridgeConfig,
 } from './config.ts'
@@ -57,6 +58,7 @@ import { PanicButtons } from './panic-buttons.ts'
 import type { RefreshTokenAuth } from 'ring-client-api/rest-client'
 import { logError, logInfo, useLogger } from 'ring-client-api/util'
 import { createRingLogger } from './ring-logger.ts'
+import { HomeKitConnectionMonitor } from './homekit-connections.ts'
 import type { BaseAccessory } from './base-accessory.ts'
 import { FloodFreezeSensor } from './flood-freeze-sensor.ts'
 import { FreezeSensor } from './freeze-sensor.ts'
@@ -514,6 +516,10 @@ export class RingPlatform implements DynamicPlatformPlugin {
     this.log = log
     this.config = config
     this.api = api
+    // Only a child bridge: the main bridge's process also holds other plugins' servers
+    if (isChildBridge()) {
+      this.homeKitConnections = new HomeKitConnectionMonitor(log)
+    }
 
     if (!config) {
       log.info('No configuration found for platform Ring Secure Video')
@@ -561,6 +567,7 @@ export class RingPlatform implements DynamicPlatformPlugin {
       clearTimeout(this.retryTimer)
       clearTimeout(this.connectGraceTimer)
       this.sessionRefreshSensor?.stop()
+      this.homeKitConnections?.stop()
       shutDownCameraSources()
       try {
         this.ringApi?.disconnect()
@@ -577,6 +584,7 @@ export class RingPlatform implements DynamicPlatformPlugin {
 
     this.api.on('didFinishLaunching', () => {
       this.log.debug('didFinishLaunching')
+      this.homeKitConnections?.start()
       const saved = config.refreshToken ? getSavedPlatformConfig(api, config) : undefined
       if (saved) {
         if (saved.refreshToken !== config.refreshToken) {
@@ -604,6 +612,8 @@ export class RingPlatform implements DynamicPlatformPlugin {
   private connectGraceTimer?: ReturnType<typeof setTimeout>
   private ringApi?: RingApi
   private pushHealth?: PushHealthMonitor
+  // Logs the HomeKit connections to this bridge (see homekit-connections.ts)
+  private readonly homeKitConnections?: HomeKitConnectionMonitor
 
   /** How to make the accessory for `device`: cameras, chimes and intercoms, then the rest by type. */
   private accessoryFactory(
@@ -1101,6 +1111,8 @@ export class RingPlatform implements DynamicPlatformPlugin {
     }
 
     if (externalAccessories.length) {
+      // Each gets a HomeKit port of its own: the ports listening until now are the bridge's
+      this.homeKitConnections?.captureBridgePorts()
       api.publishExternalAccessories(pluginName, externalAccessories)
     }
 
