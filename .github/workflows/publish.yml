@@ -35,7 +35,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 40
     outputs:
       tag: ${{ steps.release.outputs.tag }}
       version: ${{ steps.release.outputs.version }}
@@ -71,15 +71,19 @@ jobs:
           TAG: ${{ steps.release.outputs.tag }}
           PRERELEASE: ${{ steps.release.outputs.prerelease }}
         run: .github/scripts/check-release-tag.sh "$TAG" "$PRERELEASE"
-      - name: System packages this repository's tests need (.github/apt-packages)
+      - name: Downloaded system packages from earlier runs (cache)
         if: hashFiles('.github/apt-packages') != ''
-        timeout-minutes: 8   # Ubuntu's package mirror sometimes stalls: fail fast, re-run
-        env:
-          # A stalled download is dropped after 30 s and tried again, instead of hanging the job
-          APT_OPTS: -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30
-        run: |
-          sudo apt-get $APT_OPTS update -qq
-          grep -Ev '^[[:space:]]*(#|$)' .github/apt-packages | xargs -r sudo apt-get $APT_OPTS install -y -qq --no-install-recommends
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/apt-archives/*.deb
+          key: apt-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.github/apt-packages') }}-${{ github.run_id }}
+          restore-keys: apt-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.github/apt-packages') }}-
+      - name: System packages this repository's tests need (.github/apt-packages)
+        id: apt
+        if: hashFiles('.github/apt-packages') != ''
+        # A slow mirror can take minutes when nothing is cached (.github/scripts/apt-install.sh)
+        timeout-minutes: 25
+        run: .github/scripts/apt-install.sh
       - run: npm ci
       - name: This repository's checks (package.json "release:check")
         env:
