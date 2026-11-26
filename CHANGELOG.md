@@ -1,5 +1,11 @@
 # homebridge-ring-secure-video
 
+## 1.3.4 (2026-11-26)
+
+No change to how the plugin works.
+
+- Development only: the linter again runs ESLint's no-dupe-args and no-octal (through a small local oxlint plugin), so it checks everything the old ESLint setup did; oxlint-tsgolint 7.0.2007 → 7.0.2008.
+
 ## 1.3.3 (2026-11-26)
 
 No change to how the plugin works: the compiled code is the same as 1.3.2's (only quote style and line wrapping differ).
