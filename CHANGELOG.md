@@ -1,5 +1,11 @@
 # homebridge-ring-secure-video
 
+## 1.3.3 (2026-11-26)
+
+No change to how the plugin works: the compiled code is the same as 1.3.2's (only quote style and line wrapping differ).
+
+- Development only: built with TypeScript 7 (the native compiler) and linted with oxlint instead of TypeScript 6 and ESLint, with the same rules. CI retries npm's package signature check up to 3 times, because npm's registry sometimes answers it with an invalid response.
+
 ## 1.3.2 (2026-11-26)
 
 No change to how the plugin works.

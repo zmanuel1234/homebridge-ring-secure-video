@@ -50,7 +50,14 @@ jobs:
           key: apt-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.github/apt-packages') }}-${{ github.run_id }}
       - run: npm ci
       - name: Every installed package is signed by the npm registry
-        run: npm audit signatures
+        # npm's registry sometimes answers a signature lookup with a bare "OK" instead of JSON
+        # ("invalid json response body"): try up to 3 times. A real bad signature fails all 3.
+        run: |
+          for try in 1 2 3; do
+            npm audit signatures && exit 0
+            [ "$try" -lt 3 ] && { echo "::warning::npm audit signatures failed (try $try of 3); retrying in 15 s"; sleep 15; }
+          done
+          exit 1
       - name: This repository's checks (package.json "verify")
         run: npm run verify
         env:
