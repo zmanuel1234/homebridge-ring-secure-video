@@ -1,5 +1,9 @@
 # homebridge-ring-secure-video
 
+## 1.3.5 (2026-11-26)
+
+- Without a Ring token the plugin now starts nothing at all, as Homebridge requires: in a child bridge it no longer starts checking the HomeKit connections to the bridge until a token is configured. With a token nothing changes.
+
 ## 1.3.4 (2026-11-26)
 
 No change to how the plugin works.

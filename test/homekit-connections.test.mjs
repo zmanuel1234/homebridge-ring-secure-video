@@ -270,13 +270,18 @@ test('skips a check that cannot read /proc this time, and stops only where there
   assert.match(debug[1], /cannot be counted here/)
 })
 
-test('a child bridge checks its HomeKit connections from launch until shutdown; the main bridge does not', (t) => {
+test('a configured child bridge checks its HomeKit connections from launch until shutdown; the main bridge does not', (t) => {
   const make = () => {
     const events = {},
       api = { on: (event, handler) => (events[event] = handler), user: { storagePath: () => tmpdir() } },
       log = { info() {}, debug() {}, error() {}, warn() {} },
       // as Homebridge passes it: without _bridge, which it removes in a child bridge
-      platform = new RingPlatform(log, { platform: 'Ring Secure Video', disableLogs: true }, api)
+      platform = new RingPlatform(
+        log,
+        { platform: 'Ring Secure Video', disableLogs: true, refreshToken: 'test-token' },
+        api,
+      )
+    platform.connectWithRetry = async () => {} // no Ring connection in this test
     return { events, monitor: platform.homeKitConnections }
   }
   const [script, send] = [process.argv[1], process.send]
