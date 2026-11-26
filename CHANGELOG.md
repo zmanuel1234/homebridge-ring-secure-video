@@ -1,5 +1,11 @@
 # homebridge-ring-secure-video
 
+## 1.3.2 (2026-11-26)
+
+No change to how the plugin works.
+
+- Development only: CI runs the tests on Node 22, 24 and 26 in a single check.
+
 ## 1.3.1 (2026-11-24)
 
 No new settings.
