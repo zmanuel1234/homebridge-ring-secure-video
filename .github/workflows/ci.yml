@@ -60,22 +60,32 @@ jobs:
       - name: The release tag check works for this version
         run: .github/scripts/check-release-tag.sh "v$(node -p "require('./package.json').version")"
 
-  # Every Node version the plugins support. Not a required check.
+  # Every Node version the plugins support, one after another in a single check. Not a required
+  # check. Each version runs even if an earlier one failed; the check fails if any of them did.
   node-versions:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        node: [22, 24, 26]
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: ${{ matrix.node }}
+          node-version: 22
           cache: npm
-      - run: npm ci
-      - name: This repository's tests (package.json "test:matrix")
-        run: npm run test:matrix
+      - name: Node 22 (package.json "test:matrix")
+        run: npm ci && npm run test:matrix
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: ${{ !cancelled() }}
+        with:
+          node-version: 24
+      - name: Node 24 (package.json "test:matrix")
+        if: ${{ !cancelled() }}
+        run: npm ci && npm run test:matrix
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: ${{ !cancelled() }}
+        with:
+          node-version: 26
+      - name: Node 26 (package.json "test:matrix")
+        if: ${{ !cancelled() }}
+        run: npm ci && npm run test:matrix
