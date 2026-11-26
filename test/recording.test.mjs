@@ -355,6 +355,32 @@ test('does not start, and does not crash, without a configuration block', async 
   assert.deepEqual(listeners, [], 'nothing is started')
 })
 
+test('starts nothing, and does not crash, with a configuration block but no Ring token', async () => {
+  const { RingPlatform } = await import('../lib/ring-platform.js')
+  const warnings = []
+  const handlers = {}
+  const log = { info() {}, error() {}, warn: (m) => warnings.push(m), debug() {} }
+  const api = {
+    on: (event, handler) => { handlers[event] = handler },
+    user: { storagePath: () => '/nonexistent-homebridge-storage' },
+  }
+  // A child bridge, where the plugin watches HomeKit's connections once it is configured
+  const script = process.argv[1]
+  process.argv[1] = '/homebridge/lib/childBridgeFork.js'
+  let platform
+  try {
+    platform = new RingPlatform(log, { platform: 'RingSecureVideo', disableLogs: true }, api)
+  } finally {
+    process.argv[1] = script
+  }
+  handlers.didFinishLaunching()
+
+  assert.ok(platform.homeKitConnections, 'the HomeKit connection monitor exists on a child bridge')
+  assert.equal(platform.homeKitConnections.running, false, 'and is not started without a token')
+  assert.ok(warnings.some((m) => m.startsWith('Plugin is not configured')))
+  handlers.shutdown?.()
+})
+
 test("ring-client-api's push client checks its connection every 60 s and decrypts current pushes", async () => {
   const { execFileSync } = await import('node:child_process')
   const { fileURLToPath } = await import('node:url')

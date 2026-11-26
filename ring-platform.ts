@@ -599,7 +599,6 @@ export class RingPlatform implements DynamicPlatformPlugin {
 
     this.api.on('didFinishLaunching', () => {
       this.log.debug('didFinishLaunching')
-      this.homeKitConnections?.start()
       const saved = config.refreshToken ? getSavedPlatformConfig(api, config) : undefined
       if (saved) {
         if (saved.refreshToken !== config.refreshToken) {
@@ -610,6 +609,8 @@ export class RingPlatform implements DynamicPlatformPlugin {
         config.forceRefreshRingApiSession = Boolean(saved.forceRefreshRingApiSession)
       }
       if (config.refreshToken) {
+        // Nothing runs until the plugin is configured (a Homebridge rule)
+        this.homeKitConnections?.start()
         void this.connectWithRetry()
       } else {
         this.log.warn(
