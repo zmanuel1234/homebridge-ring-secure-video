@@ -7,9 +7,11 @@
 // before. This repository's TypeScript files also get the type-aware rules (oxlint-tsgolint, on
 // TypeScript 7), mainly the promise checks: a promise that is neither awaited nor given a
 // .catch() turns a failure into an unhandled rejection, which can stop the whole bridge.
+// ESLint's no-dupe-args and no-octal, which oxlint lacks, come from .github/oxlint/sloppy-mode-rules.mjs.
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "ignorePatterns": ["node_modules/**", "lib/**", "release-*/**", "build/**", "json-data/**", ".turbo/**", ".homebridge/**"], // this repository: node_modules/** and its own build output
+  "jsPlugins": ["./.github/oxlint/sloppy-mode-rules.mjs"],
   "env": { "builtin": true, "node": true },
   "options": { "typeAware": true, "reportUnusedDisableDirectives": "error", "maxWarnings": 0 },
   "plugins": ["eslint", "typescript"],
@@ -30,6 +32,7 @@
     "eslint/no-control-regex": "error",
     "eslint/no-debugger": "error",
     "eslint/no-delete-var": "error",
+    "sloppy-mode/no-dupe-args": "error",
     "eslint/no-dupe-class-members": "error",
     "eslint/no-dupe-else-if": "error",
     "eslint/no-dupe-keys": "error",
@@ -51,6 +54,7 @@
     "eslint/no-new-native-nonconstructor": "error",
     "eslint/no-nonoctal-decimal-escape": "error",
     "eslint/no-obj-calls": "error",
+    "sloppy-mode/no-octal": "error",
     "eslint/no-prototype-builtins": "error",
     "eslint/no-redeclare": "error",
     "eslint/no-regex-spaces": "error",
@@ -88,6 +92,7 @@
         "eslint/getter-return": "off",
         "eslint/no-class-assign": "off",
         "eslint/no-const-assign": "off",
+        "sloppy-mode/no-dupe-args": "off",
         "eslint/no-dupe-class-members": "off",
         "eslint/no-dupe-keys": "off",
         "eslint/no-func-assign": "off",
