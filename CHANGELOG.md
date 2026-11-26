@@ -1,5 +1,9 @@
 # homebridge-ring-secure-video
 
+## 1.3.6 (2026-11-26)
+
+- Settings page: **Generate New Refresh Token** follows Homebridge's theme. Its icon was always black, so it couldn't be seen in the dark theme; it now takes the button's text colour, and the button looks like Homebridge's own secondary buttons instead of a plain blue link. Signing in to Ring works as before.
+
 ## 1.3.5 (2026-11-26)
 
 - Without a Ring token the plugin now starts nothing at all, as Homebridge requires: in a child bridge it no longer starts checking the HomeKit connections to the bridge until a token is configured. With a token nothing changes.
