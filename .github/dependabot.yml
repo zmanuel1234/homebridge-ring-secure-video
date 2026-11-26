@@ -24,16 +24,12 @@ updates:
       # Node's types follow the oldest Node the plugin supports (engines), not the newest Node.
       - dependency-name: '@types/node'
         update-types: ['version-update:semver-major']
-      # typescript-eslint supports TypeScript below 6.1 only, and npm can't install a newer
-      # TypeScript next to it. Remove this once a typescript-eslint release supports TypeScript 7.
-      - dependency-name: typescript
-        versions: ['>=6.1.0']
       # This repository: the plugin passes werift's RTP packets into ring-client-api's live-view
       # code, so werift must stay at the exact version ring-client-api pins. Updated together
       # with ring-client-api, by hand.
       - dependency-name: werift
     groups:
-      # Minor and patch bumps of the development tools (TypeScript, ESLint, types) in one PR.
+      # Minor and patch bumps of the development tools (TypeScript, oxlint, types) in one PR.
       dev-tools:
         dependency-type: development
         update-types: [minor, patch]
