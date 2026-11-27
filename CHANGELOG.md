@@ -1,32 +1,32 @@
 # homebridge-ring-secure-video
 
-## 1.3.6 (2026-11-26)
+## 1.3.6 - 2026-11-26
 
 - Settings page: **Generate New Refresh Token** follows Homebridge's theme. Its icon was always black, so it couldn't be seen in the dark theme; it now takes the button's text colour, and the button looks like Homebridge's own secondary buttons instead of a plain blue link. Signing in to Ring works as before.
 
-## 1.3.5 (2026-11-26)
+## 1.3.5 - 2026-11-26
 
 - Without a Ring token the plugin now starts nothing at all, as Homebridge requires: in a child bridge it no longer starts checking the HomeKit connections to the bridge until a token is configured. With a token nothing changes.
 
-## 1.3.4 (2026-11-26)
+## 1.3.4 - 2026-11-26
 
 No change to how the plugin works.
 
 - Development only: the linter again runs ESLint's no-dupe-args and no-octal (through a small local oxlint plugin), so it checks everything the old ESLint setup did; oxlint-tsgolint 7.0.2007 → 7.0.2008.
 
-## 1.3.3 (2026-11-26)
+## 1.3.3 - 2026-11-26
 
 No change to how the plugin works: the compiled code is the same as 1.3.2's (only quote style and line wrapping differ).
 
 - Development only: built with TypeScript 7 (the native compiler) and linted with oxlint instead of TypeScript 6 and ESLint, with the same rules. CI retries npm's package signature check up to 3 times, because npm's registry sometimes answers it with an invalid response.
 
-## 1.3.2 (2026-11-26)
+## 1.3.2 - 2026-11-26
 
 No change to how the plugin works.
 
 - Development only: CI runs the tests on Node 22, 24 and 26 in a single check.
 
-## 1.3.1 (2026-11-24)
+## 1.3.1 - 2026-11-24
 
 No new settings.
 
@@ -40,7 +40,7 @@ No new settings.
   limits (once an hour, no more after 2 restarts in a row that brought no connection) then held
   only within one run; a new run still restarted only after seeing the home hub.
 
-## 1.3.0 (2026-11-24)
+## 1.3.0 - 2026-11-24
 
 One new setting, off by default: **Restart Bridge Without HomeKit**.
 
@@ -75,14 +75,14 @@ One new setting, off by default: **Restart Bridge Without HomeKit**.
   own doesn't restart for the session refresh (it would come back on an old token), and waits for
   the next Homebridge restart, saying so.
 
-## 1.2.4 (2026-11-23)
+## 1.2.4 - 2026-11-23
 
 No new settings, and nothing changes in what the plugin does.
 
 - The donate link also offers GitHub Sponsors (first), next to Buy Me a Coffee: the Homebridge
   UI's heart button and npm list both.
 
-## 1.2.3 (2026-11-23)
+## 1.2.3 - 2026-11-23
 
 No new settings, and nothing changes in what the plugin does.
 
@@ -94,7 +94,7 @@ No new settings, and nothing changes in what the plugin does.
   registry's signature, and `.gitignore` keeps keys, tokens and `.env` files out of the
   repository. The package's author is now "Manuel Zamfir", as for the author's other plugins.
 
-## 1.2.2 (2026-11-22)
+## 1.2.2 - 2026-11-22
 
 No new settings, and nothing changes in what the plugin does.
 
@@ -104,7 +104,7 @@ No new settings, and nothing changes in what the plugin does.
   exception to the lint rule.
 - Development only: the same release and CI workflows as the author's other plugins. Publishing a GitHub release publishes it to npm (with trusted publishing; the package and its checksum are added to the release); each repository's checks are its `verify`, `test:matrix` and `release:check` scripts.
 
-## 1.2.1 (2026-11-22)
+## 1.2.1 - 2026-11-22
 
 - A failure in a camera's snapshot, stream setup or stream request, or in reading or setting the
   location mode (including re-reading it after a failed change, when Ring can't be reached), is now
@@ -124,7 +124,7 @@ No new settings, and nothing changes in what the plugin does.
   did. Ring's 'disabled' and 'unset' location modes are listed explicitly (shown as Disarmed, as
   before).
 
-## 1.2.0 (2026-11-22)
+## 1.2.0 - 2026-11-22
 
 - Start-up: Ring gets 60 s to send each location's devices. A location Ring never answers no
   longer holds up the others (or the retries) until Homebridge restarts: it is reported, its
@@ -134,7 +134,7 @@ No new settings, and nothing changes in what the plugin does.
   states they had when Homebridge stopped, with controls that did nothing (an alarm that seemed
   to arm).
 
-## 1.1.1 (2026-11-22)
+## 1.1.1 - 2026-11-22
 
 - Thermostat: dragging the temperature sends Ring only the setpoint the slider settles on (after
   0.5 s), not every step along the way.
@@ -151,7 +151,7 @@ No new settings, and nothing changes in what the plugin does.
 - README: remove or disable `homebridge-ring` first; Homebridge reporting that the child bridge
   ended during an automatic session refresh is expected.
 
-## 1.1.0 (2026-11-22)
+## 1.1.0 - 2026-11-22
 
 Tested as 1.1.0-beta.1 on a Raspberry Pi 4 with a Ring Video Doorbell 3 Plus and Ring Alarm: motion
 and doorbell press recordings, an 86 s live view, the alarm slider. It still uses ring-client-api
@@ -176,11 +176,11 @@ and doorbell press recordings, an 86 s live view, the alarm slider. It still use
 - The settings page's sign-in shows Ring's reason when the 2FA step fails, not only "Please check
   the code and try again".
 
-## 1.1.0-beta.1 (2026-11-22)
+## 1.1.0-beta.1 - 2026-11-22
 
 Pre-release of 1.1.0, with the same changes.
 
-## 1.0.8 (2026-11-22)
+## 1.0.8 - 2026-11-22
 
 - The renewed Ring token is saved to config.json (and the Ring identity to `.ring.json`) the
   same safe way, written with a different call, so the Homebridge verification check no longer
@@ -189,7 +189,7 @@ Pre-release of 1.1.0, with the same changes.
   the plugin: "TEST " before accessory names and HomeKit ids) is gone; the
   `homeKitAccessoryTag` setting serves the same purpose. Without it set, nothing changes.
 
-## 1.0.7 (2026-11-22)
+## 1.0.7 - 2026-11-22
 
 - Ring push notifications: the connection to Google's push service is checked every 60 s
   instead of every 5 minutes, so one a home router dropped silently is reconnected within about
@@ -204,7 +204,7 @@ Pre-release of 1.1.0, with the same changes.
   installs pick 7.27.1 or newer. New installs already got a newer one; this guards installs
   that would otherwise reuse an older copy.
 
-## 1.0.6 (2026-11-22)
+## 1.0.6 - 2026-11-22
 
 - New setting `alarmModeChangeDelaySeconds` (Alarm and Location Mode): how long an alarm mode
   chosen in HomeKit must stay unchanged before it is sent to Ring, 0 to 5 s, 1 by default (as
@@ -233,7 +233,7 @@ Pre-release of 1.1.0, with the same changes.
   (e.g. the siren shown on while silent). Until Ring reports the request, or for those 10 s,
   Ring's other reports don't flip it back, as they may predate the request.
 
-## 1.0.5 (2026-11-22)
+## 1.0.5 - 2026-11-22
 
 - Changing the Ring Alarm mode from HomeKit sends Ring one command, about 1 s after the last
   request. A slider in a HomeKit app sends a request for every mode it passes (Off to Home passes
@@ -246,7 +246,7 @@ Pre-release of 1.1.0, with the same changes.
   state as Ring reports it, also when nothing was sent (e.g. Night to Home in the same Ring
   mode), instead of staying at "Arming".
 
-## 1.0.4 (2026-11-14)
+## 1.0.4 - 2026-11-14
 
 - A live view that stops by itself (HomeKit stopped sending for a few seconds, or for about 20 s if
   it never sent anything, or Ring ended the call) is removed from the plugin's list of live views,
@@ -275,7 +275,7 @@ Pre-release of 1.1.0, with the same changes.
   Nothing is left waiting afterwards (each event used to leave a listener behind until the next
   snapshot).
 
-## 1.0.3 (2026-11-14)
+## 1.0.3 - 2026-11-14
 
 - README: a doorbell press during a live view (in the Home app, or opened outside the plugin
   through Ring) is now tested to start a recording with `doorbellPressMotion`.
@@ -285,19 +285,19 @@ Pre-release of 1.1.0, with the same changes.
 - "Pruning unused service" log lines include the service and device again (only the first words
   were logged).
 
-## 1.0.2 (2026-11-14)
+## 1.0.2 - 2026-11-14
 
 - The package declares that it publishes accessories over HAP (the `supports-hap` keyword), as
   Homebridge's verification checks require. Nothing else changes.
 
-## 1.0.1 (2026-11-14)
+## 1.0.1 - 2026-11-14
 
 - Node.js 26 is supported (it became an LTS version in October 2026, and Homebridge 2.5 supports
   it); CI tests Node 22, 24 and 26. On Node 26, npm warns that ring-client-api 14.3.0 doesn't list
   Node 26 (`EBADENGINE`); the warning is harmless. Node 22 needs 22.12 or later, as Homebridge
   does.
 
-## 1.0.0 (2026-11-14)
+## 1.0.0 - 2026-11-14
 
 First stable release. Compared with homebridge-ring 14.3.0, it adds HomeKit Secure Video
 recording with media profiles (`media`), a separate motion sensor per camera for instant
@@ -354,7 +354,7 @@ Changes since 1.0.0-beta.7:
 `ip.isPublic`, which werift doesn't call, so the plugin isn't affected; it goes away with
 ring-client-api 15 and the werift 0.26 it uses.
 
-## 1.0.0-beta.7 (2026-11-14)
+## 1.0.0-beta.7 - 2026-11-14
 
 **Changes in behaviour to check after updating:**
 
@@ -396,7 +396,7 @@ ring-client-api 15 and the werift 0.26 it uses.
 - README: a fuller disclaimer, and in "Origin and Attribution" the versions this started from
   and where to report problems.
 
-## 1.0.0-beta.6 (2026-11-13)
+## 1.0.0-beta.6 - 2026-11-13
 
 **Changes in behaviour to check after updating:**
 
@@ -430,7 +430,7 @@ ring-client-api 15 and the werift 0.26 it uses.
   to the automatic session refresh description: events without a person are left out only when
   the camera alerts for people only.
 
-## 1.0.0-beta.5 (2026-11-13)
+## 1.0.0-beta.5 - 2026-11-13
 
 **Changes in behaviour to check after updating:**
 
@@ -476,7 +476,7 @@ CI and publishing. `@eneris/push-receiver` stays at 4.3.1 and ring-client-api at
 Dependabot no longer bundles them with other updates. werift stays at 0.22.4 (the version
 ring-client-api pins), and Dependabot now ignores it.
 
-## 1.0.0-beta.4 (2026-11-13)
+## 1.0.0-beta.4 - 2026-11-13
 
 More fixes from the full independent review of 1.0.0-beta.2.
 
@@ -528,7 +528,7 @@ More fixes from the full independent review of 1.0.0-beta.2.
   token is kept out of dependency installs, Dependabot is set up, and locked dependencies include
   the available security fixes.
 
-## 1.0.0-beta.3 (2026-11-13)
+## 1.0.0-beta.3 - 2026-11-13
 
 Fixes from a full independent review of 1.0.0-beta.2.
 
@@ -551,7 +551,7 @@ Fixes from a full independent review of 1.0.0-beta.2.
   start). Permissions, group and symlinks are kept; where that can't work (a bind-mounted file,
   a file owned by another user, ...) they are written in place as before.
 
-## 1.0.0-beta.2 (2026-11-13)
+## 1.0.0-beta.2 - 2026-11-13
 
 - The Homebridge UI shows the plugin as "Ring Secure Video" (was "Homebridge Ring Secure Video"),
   matching its platform name in the settings and the log.
@@ -561,7 +561,7 @@ Fixes from a full independent review of 1.0.0-beta.2.
   falls back to swapping in 4.3.1's decrypt function as before. The log says at start which one
   was applied, and warns if neither could be.
 
-## 1.0.0-beta.1 (2026-11-13)
+## 1.0.0-beta.1 - 2026-11-13
 
 First release as `homebridge-ring-secure-video`, continuing trinityhades/homebridge-ring-hksv
 15.0.2 (itself based on homebridge-ring 14.3.0 by Dusty Greif).
