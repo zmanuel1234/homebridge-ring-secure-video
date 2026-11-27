@@ -1,6 +1,6 @@
 // Shared oxlint setup (it replaced the shared eslint.config.mjs) for homebridge-brother-printer,
 // homebridge-comelit-doorbell, homebridge-ir-patio-heater, homebridge-lg-thinq-connect,
-// homebridge-ring-secure-video and wyze-robovac-matterbridge: keep the copies the same apart from
+// homebridge-ring-secure-video and matterbridge-wyze-robovac-plus: keep the copies the same apart from
 // the lines marked "this repository".
 //
 // It checks for bugs, not formatting: ESLint's and typescript-eslint's recommended rules, as
