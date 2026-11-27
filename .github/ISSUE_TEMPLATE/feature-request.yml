@@ -1,0 +1,21 @@
+name: Feature request
+description: Suggest an improvement to homebridge-ring-secure-video.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you'd like to do
+      description: What you're trying to do, and what gets in the way today.
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: How it could work
+      description: "Which Ring device, and what you'd expect to see in the Home app."
+  - type: textarea
+    id: more
+    attributes:
+      label: Anything else
+      description: Alternatives you've tried, screenshots, links.

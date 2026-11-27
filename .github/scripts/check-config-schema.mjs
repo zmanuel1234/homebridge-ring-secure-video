@@ -1,4 +1,8 @@
 #!/usr/bin/env node
+// Shared by homebridge-brother-printer, homebridge-comelit-doorbell, homebridge-ir-patio-heater,
+// homebridge-lg-thinq-connect and homebridge-ring-secure-video (the Homebridge plugins): the same
+// file in all five. package.json's "verify" runs it.
+//
 // Checks that the Homebridge settings form and JSON config editor can use config.schema.json,
 // and that the README's JSON examples are valid configuration.
 // Usage: node .github/scripts/check-config-schema.mjs

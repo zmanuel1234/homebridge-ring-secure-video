@@ -8,14 +8,16 @@
   "exports": "./lib/index.js",
   "scripts": {
     "build": "node -e \"require('fs').rmSync('lib', { recursive: true, force: true })\" && tsc && node -e \"require('fs').cpSync('./homebridge-ui/public', './lib/homebridge-ui/public', { recursive: true, filter: (src) => require('path').basename(src) !== 'tsconfig.json' })\"",
+    "check": "tsc --noEmit",
     "lint": "oxlint",
     "test": "npm run build && node --test test/*.test.mjs",
     "prepack": "npm run lint && npm run build",
     "dev": "concurrently -c yellow,blue --kill-others \"npm:dev:build\" \"npm:dev:run\" ",
     "dev:build": "tsc --watch --preserveWatchOutput",
     "dev:run": "RING_DEBUG=true node --watch ./node_modules/.bin/homebridge -U ./.homebridge -P ./node_modules",
-    "verify": "npm run lint && npm test && node .github/scripts/check-homebridge.mjs && node .github/scripts/check-config-schema.mjs",
-    "test:matrix": "npm test",
+    "prepublishOnly": "npm run verify",
+    "verify": "npm run check && npm run lint && npm run build && npm test && node .github/scripts/check-homebridge.mjs && node .github/scripts/check-config-schema.mjs",
+    "test:matrix": "npm run build && npm test",
     "release:check": "npm run verify && node .github/scripts/check-homebridge.mjs --release"
   },
   "dependencies": {
@@ -31,7 +33,7 @@
     "concurrently": "^10.0.7",
     "homebridge": "^2.5.0",
     "homebridge-config-ui-x": "^5.24.0",
-    "oxlint": "1.94.0",
+    "oxlint": "1.95.0",
     "oxlint-tsgolint": "7.0.2008",
     "typescript": "7.0.2"
   },
