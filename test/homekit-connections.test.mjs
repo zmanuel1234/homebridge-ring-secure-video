@@ -40,23 +40,23 @@ function fakeProc(t, { ownInodes, tcp, tcp6 }) {
   return proc
 }
 
-// port 46486 = B596; 10.0.4.23 = 1704000A; 127.0.0.1 = 0100007F; 52.1.2.3 (Ring) = 03020134
+// port 46486 = B596; 192.168.1.23 = 1701A8C0; 127.0.0.1 = 0100007F; 52.1.2.3 (Ring) = 03020134
 test('counts connections to the ports this process listens on for other hosts, from other hosts', (t) => {
   const proc = fakeProc(t, {
     ownInodes: ['100', '101', '102', '103', '104', '105', '106', '107', '108', '109'],
     tcp: [
       line('00000000:B596', '00000000:0000', '0A', '100'), // the bridge's HomeKit port
-      line('F5040A0A:B596', '1704000A:C001', '01', '101'), // the home hub
+      line('F501A8C0:B596', '1701A8C0:C001', '01', '101'), // the home hub
       line('0100007F:B596', '0100007F:D000', '01', '102'), // a local client: not HomeKit
-      line('F5040A0A:B596', '1804000A:C002', '01', '999'), // another process's socket
-      line('F5040A0A:A000', '03020134:01BB', '01', '103'), // the plugin's own connection to Ring
-      line('F5040A0A:B596', '1904000A:C003', '06', '104'), // closing (TIME_WAIT)
+      line('F501A8C0:B596', '1801A8C0:C002', '01', '999'), // another process's socket
+      line('F501A8C0:A000', '03020134:01BB', '01', '103'), // the plugin's own connection to Ring
+      line('F501A8C0:B596', '1901A8C0:C003', '06', '104'), // closing (TIME_WAIT)
       line('0100007F:8235', '00000000:0000', '0A', '106'), // HAP-NodeJS's proxy on 127.0.0.1:33333
       line('0100007F:8235', '0100007F:D001', '01', '107'), // ...and its client
     ],
     tcp6: [
       // an IPv4 phone on the IPv6 socket
-      line('00000000000000000000000000000000:B596', '0000000000000000FFFF00001A04000A:C004', '01', '105'),
+      line('00000000000000000000000000000000:B596', '0000000000000000FFFF00001A01A8C0:C004', '01', '105'),
       // the same on [::1]:33334 and [::ffff:127.0.0.1]:33335
       line('00000000000000000000000001000000:8236', '00000000000000000000000000000000:0000', '0A', '108'),
       line('0000000000000000FFFF00000100007F:8237', '00000000000000000000000000000000:0000', '0A', '109'),
@@ -65,8 +65,8 @@ test('counts connections to the ports this process listens on for other hosts, f
   assert.deepEqual(readHomeKitConnections(proc), {
     ports: [46486],
     connections: [
-      { port: 46486, remote: '10.0.4.23:49153' },
-      { port: 46486, remote: '10.0.4.26:49156' },
+      { port: 46486, remote: '192.168.1.23:49153' },
+      { port: 46486, remote: '192.168.1.26:49156' },
     ],
   })
 })
@@ -143,14 +143,14 @@ function monitorWith(remotes, { ports = [BRIDGE], cameraRemotes = [], events } =
 }
 
 test('logs the connections to the bridge when it starts, and only debug for a phone coming and going', () => {
-  const { check, logs, info } = monitorWith(['10.0.4.23:49153'])
+  const { check, logs, info } = monitorWith(['192.168.1.23:49153'])
   check(1)
   assert.deepEqual(logs, [
-    ['info', 'HomeKit connections to this bridge (port 46486): 1 (10.0.4.23)'],
+    ['info', 'HomeKit connections to this bridge (port 46486): 1 (192.168.1.23)'],
   ])
   logs.length = 0
-  check(2, ['10.0.4.23:49153', '10.0.4.30:50000'])
-  check(5, ['10.0.4.23:49153'])
+  check(2, ['192.168.1.23:49153', '192.168.1.30:50000'])
+  check(5, ['192.168.1.23:49153'])
   assert.equal(logs.length, 2)
   assert.deepEqual(info(), [])
 })
@@ -158,21 +158,21 @@ test('logs the connections to the bridge when it starts, and only debug for a ph
 test('without a home hub, a phone visit is logged at debug level only, and nothing is warned', () => {
   const { check, info } = monitorWith([])
   check(1)
-  check(5, ['10.0.4.30:50000'])
+  check(5, ['192.168.1.30:50000'])
   check(8, [])
   check(8 + 2 * 60)
   assert.deepEqual(info(), [['info', 'HomeKit connections to this bridge (port 46486): none']])
 })
 
 test('logs the hub closing its connection, warns after 10 minutes without any, and again next time', () => {
-  const { check, logs, info } = monitorWith(['10.0.4.23:49153'])
+  const { check, logs, info } = monitorWith(['192.168.1.23:49153'])
   check(1)
   check(2 * 60) // the hub's connection has been open well over 30 minutes
   logs.length = 0
 
   check(9 * 60 + 13, [])
   assert.deepEqual(logs, [
-    ['info', 'HomeKit connection from 10.0.4.23 to this bridge (port 46486) closed after 9 h 12 min; none now'],
+    ['info', 'HomeKit connection from 192.168.1.23 to this bridge (port 46486) closed after 9 h 12 min; none now'],
   ])
   logs.length = 0
 
@@ -189,9 +189,9 @@ test('logs the hub closing its connection, warns after 10 minutes without any, a
   assert.equal(logs.length, 1)
   logs.length = 0
 
-  check(9 * 60 + 13 + 61, ['10.0.4.23:49200'])
+  check(9 * 60 + 13 + 61, ['192.168.1.23:49200'])
   assert.deepEqual(logs, [
-    ['info', 'HomeKit connection from 10.0.4.23 to this bridge (port 46486) opened; 1 (10.0.4.23) now (none for 1 h 1 min)'],
+    ['info', 'HomeKit connection from 192.168.1.23 to this bridge (port 46486) opened; 1 (192.168.1.23) now (none for 1 h 1 min)'],
   ])
   logs.length = 0
 
@@ -206,7 +206,7 @@ test('logs the hub closing its connection, warns after 10 minutes without any, a
 })
 
 test('a connection that closes after 30 minutes or more counts as a home hub\'s', () => {
-  const { check, logs } = monitorWith(['10.0.4.23:49153'])
+  const { check, logs } = monitorWith(['192.168.1.23:49153'])
   check(1)
   check(60, []) // seen once, at 1 minute; closed 59 minutes later
   logs.length = 0
@@ -216,19 +216,19 @@ test('a connection that closes after 30 minutes or more counts as a home hub\'s'
 })
 
 test('counts only the bridge\'s own port: the cameras\' connections do not hide it losing the hub', () => {
-  const { monitor, check, logs } = monitorWith(['10.0.4.23:49153'], {
+  const { monitor, check, logs } = monitorWith(['192.168.1.23:49153'], {
     ports: [BRIDGE, CAMERA],
-    cameraRemotes: ['10.0.4.23:49160'],
+    cameraRemotes: ['192.168.1.23:49160'],
   })
   monitor.setBridgePorts([BRIDGE]) // as captured before the cameras were published
   check(1)
   assert.deepEqual(logs[0], [
     'info',
-    'HomeKit connections to this bridge (port 46486): 1 (10.0.4.23); cameras have ports of their own (52101), not counted',
+    'HomeKit connections to this bridge (port 46486): 1 (192.168.1.23); cameras have ports of their own (52101), not counted',
   ])
   check(2 * 60)
   logs.length = 0
-  check(3 * 60, [], ['10.0.4.23:49160']) // the hub keeps the camera, drops the bridge
+  check(3 * 60, [], ['192.168.1.23:49160']) // the hub keeps the camera, drops the bridge
   check(3 * 60 + 10)
   assert.deepEqual(
     logs.map(([level]) => level),
@@ -245,7 +245,7 @@ test('takes the bridge port from the ports listening before the cameras are publ
     () => 0,
   )
   monitor.captureBridgePorts()
-  connections = { ports: [BRIDGE, CAMERA], connections: on(CAMERA, ['10.0.4.23:49160']) }
+  connections = { ports: [BRIDGE, CAMERA], connections: on(CAMERA, ['192.168.1.23:49160']) }
   monitor.check()
   assert.match(logs[0], /^HomeKit connections to this bridge \(port 46486\): none; cameras have ports of their own \(52101\)/)
 })
@@ -313,7 +313,7 @@ test('once the cameras are published without the bridge port known, no port is t
   )
   monitor.start(60_000)
   monitor.captureBridgePorts()
-  connections = { ports: [CAMERA], connections: on(CAMERA, ['10.0.4.23:49160']) }
+  connections = { ports: [CAMERA], connections: on(CAMERA, ['192.168.1.23:49160']) }
   monitor.check()
   assert.match(debug[0], /HomeKit port of this bridge is not known/)
   assert.equal(monitor.running, false, 'it can\'t be known later either')
@@ -331,7 +331,7 @@ test('reports how long the bridge has had no connection, its port, and whether a
     present = []
   const { monitor, check } = monitorWith([], {
     ports: [BRIDGE, CAMERA],
-    cameraRemotes: ['10.0.4.23:49160'], // not the bridge's: no help
+    cameraRemotes: ['192.168.1.23:49160'], // not the bridge's: no help
     events: {
       onAbsent: (ms, bridge) => absent.push([ms / 60_000, bridge.port, bridge.hubSeen]),
       onPresent: (bridge) => present.push(bridge),
@@ -340,7 +340,7 @@ test('reports how long the bridge has had no connection, its port, and whether a
   monitor.setBridgePorts([BRIDGE])
   check(1) // none from the first check
   check(2)
-  check(3, ['10.0.4.23:49153'])
+  check(3, ['192.168.1.23:49153'])
   check(40, []) // open 37 minutes: a hub's
   check(42)
   assert.deepEqual(absent, [
@@ -556,8 +556,8 @@ test('the monitor reports to the platform: its checks lead to the restart', (t) 
   const monitor = p.homeKitConnections,
     clock = { now: 0 },
     reads = [
-      { ports: [BRIDGE], connections: on(BRIDGE, ['10.0.4.23:49153']) }, // the hub...
-      { ports: [BRIDGE], connections: on(BRIDGE, ['10.0.4.23:49153']) },
+      { ports: [BRIDGE], connections: on(BRIDGE, ['192.168.1.23:49153']) }, // the hub...
+      { ports: [BRIDGE], connections: on(BRIDGE, ['192.168.1.23:49153']) },
       { ports: [BRIDGE], connections: [] }, // ...lost after 40 minutes
       { ports: [BRIDGE], connections: [] },
     ]

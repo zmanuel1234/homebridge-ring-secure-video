@@ -327,9 +327,9 @@ HomeKit connections to its bridge every minute, so the log tells whether the hom
 connected to it. Only the bridge's own port is counted (the alarm, sensors and other accessories
 are on it): each camera has a HomeKit port of its own, which the home hub connects to separately.
 
-- At startup: "HomeKit connections to this bridge (port 46486): 1 (10.0.4.23)", with the address of
+- At startup: "HomeKit connections to this bridge (port 46486): 1 (192.168.1.23)", with the address of
   each home hub, phone or Mac connected to it, and the cameras' ports, which aren't counted.
-- "HomeKit connection from 10.0.4.23 to this bridge (port 46486) closed after 9 h 12 min": a
+- "HomeKit connection from 192.168.1.23 to this bridge (port 46486) closed after 9 h 12 min": a
   connection that had been open 30 minutes or more closed. Such a connection is taken to be a home
   hub's; until one has been seen, connections coming and going (a phone's Home app opening and
   closing) are logged at debug level only.
@@ -338,7 +338,7 @@ are on it): each camera has a HomeKit port of its own, which the home hub connec
   "No Response" until the hub connects again; restarting this bridge (or the home hub) brings it
   back. Without a home hub, having no connection is normal, and this isn't logged (unless a device
   kept the Home app open for 30 minutes or more).
-- "HomeKit connection from 10.0.4.23 to this bridge (port 46486) opened ... (none for 1 h 1 min)":
+- "HomeKit connection from 192.168.1.23 to this bridge (port 46486) opened ... (none for 1 h 1 min)":
   connected again.
 
 If the accessories show "No Response" while the log shows the hub still connected, the hub's
