@@ -1,9 +1,13 @@
 #!/usr/bin/env node
+// Shared by homebridge-brother-printer, homebridge-comelit-doorbell, homebridge-ir-patio-heater,
+// homebridge-lg-thinq-connect and homebridge-ring-secure-video (the Homebridge plugins): the same
+// file in all five. package.json's "verify" runs it, and "release:check" with --release.
+//
 // Checks the package against Homebridge's plugin rules (the "Verified by Homebridge"
 // requirements that can be checked from the repository) before CI passes or a release
 // is published. Usage: node .github/scripts/check-homebridge.mjs [--release]
 //   --release  also requires a CHANGELOG.md section for the version in package.json
-//              and a built lib/ (run after `npm run build`).
+//              and the built entry point (run after `npm run build`).
 import { existsSync, readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import process from 'node:process'
@@ -51,23 +55,33 @@ if (!pkg.engines?.homebridge) fail('engines.homebridge is missing')
 else if (!covers(pkg.engines.homebridge, 2)) fail('engines.homebridge must allow Homebridge 2')
 
 // Settings GUI: the schema's alias must match the platform the plugin registers.
-if (pkg.homebridge?.pluginType !== 'platform') fail('homebridge.pluginType must be "platform" (dynamic platform)')
+// package.json's optional "homebridge" section, where a plugin has one, must agree with the schema.
 if (schema) {
-  if (schema.pluginAlias !== pkg.homebridge?.pluginAlias) {
-    fail(`config.schema.json pluginAlias "${schema.pluginAlias}" differs from package.json "${pkg.homebridge?.pluginAlias}"`)
-  }
-  if (schema.pluginType !== 'platform') fail('config.schema.json pluginType must be "platform"')
+  if (!schema.pluginAlias) fail('config.schema.json has no pluginAlias')
+  if (schema.pluginType !== 'platform') fail('config.schema.json pluginType must be "platform" (dynamic platform)')
   if (!schema.schema?.properties) fail('config.schema.json has no schema.properties')
+  if (pkg.homebridge?.pluginAlias !== undefined && pkg.homebridge.pluginAlias !== schema.pluginAlias) {
+    fail(`package.json homebridge.pluginAlias "${pkg.homebridge.pluginAlias}" differs from config.schema.json "${schema.pluginAlias}"`)
+  }
+  if (pkg.homebridge?.pluginType !== undefined && pkg.homebridge.pluginType !== 'platform') {
+    fail('package.json homebridge.pluginType must be "platform"')
+  }
 }
-const platformSource = read('ring-platform.ts')
-const declared = platformSource.match(/export const platformName = '([^']+)'/)?.[1]
-const declaredPlugin = platformSource.match(/export const pluginName = '([^']+)'/)?.[1]
-if (declared !== pkg.homebridge?.pluginAlias) fail(`ring-platform.ts platformName "${declared}" differs from the pluginAlias "${pkg.homebridge?.pluginAlias}"`)
-if (!/\.registerPlatform\(/.test(read('index.ts'))) fail('index.ts must register the platform (dynamic platform)')
-if (declaredPlugin !== pkg.name) fail(`ring-platform.ts pluginName "${declaredPlugin}" differs from the package name "${pkg.name}"`)
+// The plugin's own code (not tests, the settings page's browser files or build output)
+// registers the platform, under the schema's alias.
+const sources = execFileSync('git', ['ls-files', '*.ts', '*.js', '*.mjs', '*.cjs'], { encoding: 'utf8' })
+  .split('\n')
+  .filter((f) => f && !f.endsWith('.d.ts') && !/(^|\/)(test|\.github|node_modules|public)\//.test(f) && !/^(dist|lib)\//.test(f))
+const code = sources.map(read).join('\n')
+if (!/\.registerPlatform\(/.test(code)) fail('no source file registers the platform (api.registerPlatform)')
+const alias = schema?.pluginAlias
+if (alias && !new RegExp(`['"\`]${alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"\`]`).test(code)) {
+  fail(`no source file names the platform "${alias}" (config.schema.json pluginAlias)`)
+}
 
-// No install-time scripts that could change the user's system.
-for (const hook of ['preinstall', 'install', 'postinstall', 'prepare']) {
+// No scripts that run when a user installs the plugin from npm and could change their system.
+// ("prepare" runs only in a git checkout, to build it, never on an install from npm.)
+for (const hook of ['preinstall', 'install', 'postinstall']) {
   if (pkg.scripts?.[hook]) fail(`package.json must not have a "${hook}" script`)
 }
 
