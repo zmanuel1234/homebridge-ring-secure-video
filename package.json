@@ -1,7 +1,7 @@
 {
   "name": "homebridge-ring-secure-video",
   "displayName": "Ring Secure Video",
-  "version": "1.3.7",
+  "version": "1.3.8",
   "description": "Ring in HomeKit with HomeKit Secure Video recording: doorbells, cameras, alarm, sensors, locks and lights. One plugin that replaces homebridge-ring.",
   "type": "module",
   "main": "./lib/index.js",
