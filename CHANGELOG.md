@@ -1,5 +1,11 @@
 # homebridge-ring-secure-video
 
+## 1.3.8 - 2026-11-27
+
+No change to how the plugin works.
+
+- npm and Homebridge's plugin search: a description that says what the plugin does (Ring in HomeKit with HomeKit Secure Video recording, one plugin that replaces homebridge-ring), and keywords for Ring doorbells, the alarm, cameras and locks. The README has CI and license badges.
+
 ## 1.3.7 - 2026-11-27
 
 No change to how the plugin works.
