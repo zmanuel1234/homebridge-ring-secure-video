@@ -6,7 +6,7 @@
 # checks, "verify", and anything only a release needs).
 #
 # Publishing a GitHub release (tag v + the version in package.json) publishes that version to npm.
-# A release published with no notes gets this version's CHANGELOG section ("## 1.2.0 - date") as
+# A release published with no notes gets this version's CHANGELOG section ("## 1.2.0 - date", "## [1.2.0]" or "## 1.2.0 (date)") as
 # its notes, so they needn't be pasted. A stable version older than npm's "latest" (a fix for an
 # older major, or releases published out of order) never moves "latest" back: it gets "previous". "Run workflow" with a release's tag publishes a release that
 # already exists (one created before this workflow ran, or whose run failed).
@@ -58,7 +58,7 @@ jobs:
           version="${TAG#v}"
           # The lines after "## <version>" up to the next "## "
           awk -v v="$version" '
-            /^## / { if (found) exit; split($0, a, " "); if (a[2] == v) { found = 1; next } }
+            /^## / { if (found) exit; split($0, a, " "); h = a[2]; gsub(/^\[|\]$/, "", h); sub(/^v/, "", h); if (h == v) { found = 1; next } }
             found { print }
           ' CHANGELOG.md > notes.md
           if [ -z "$(tr -d '[:space:]' < notes.md)" ]; then
