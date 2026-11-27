@@ -16,6 +16,11 @@
 # with npm's trusted publishing: no token is stored anywhere, npm checks this workflow's GitHub
 # identity. Register the repository and publish.yml as the package's trusted publisher on
 # npmjs.com (package -> Settings -> Trusted publishing).
+#
+# After a stable version, npm's "beta" tag is removed if it points at a version that isn't newer
+# (the betas it came from, or an older stable), so "beta" only ever means a test version ahead of
+# "latest"; the next pre-release sets it again. This needs "Allow npm dist-tag" turned on for the
+# trusted publisher on npmjs.com; without it the step only warns, and the release still stands.
 name: Publish to npm
 
 on:
@@ -199,3 +204,29 @@ jobs:
             fi
           fi
           npm publish ./*.tgz --access public --tag "$dist"
+      - name: Remove npm's "beta" tag once a stable version has caught up with it
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          case "$VERSION" in *-*) echo "$VERSION is a pre-release: \"beta\" stays."; exit 0 ;; esac
+          name="$(tar -xOzf ./*.tgz package/package.json | node -p 'JSON.parse(require("fs").readFileSync(0)).name')"
+          beta="$(npm view "$name" dist-tags.beta --prefer-online 2>/dev/null || true)"
+          if [ -z "$beta" ]; then
+            echo "No \"beta\" tag."
+            exit 0
+          fi
+          # Is "beta" newer than this version? 2.9.0-beta.1 is newer than 2.8.3; 2.8.3-beta.2 and
+          # 2.8.0 are not (a pre-release comes before its own version).
+          if node -e '
+            const core = (v) => v.split("-")[0].split(".").map(Number);
+            const [b, v] = [core(process.argv[1]), core(process.argv[2])];
+            for (let i = 0; i < 3; i++) { if (b[i] !== v[i]) process.exit(b[i] > v[i] ? 0 : 1); }
+            process.exit(1);' "$beta" "$VERSION"; then
+            echo "npm's \"beta\" is $beta, newer than $VERSION: it stays."
+            exit 0
+          fi
+          if npm dist-tag rm "$name" beta; then
+            echo "Removed npm's \"beta\" tag (it pointed at $beta)."
+          else
+            echo "::warning::Couldn't remove npm's \"beta\" tag ($beta). Turn on \"Allow npm dist-tag\" for this trusted publisher on npmjs.com (package -> Settings -> Trusted publishing), or run: npm dist-tag rm $name beta"
+          fi
