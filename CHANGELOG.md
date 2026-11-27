@@ -1,5 +1,12 @@
 # homebridge-ring-secure-video
 
+## 1.3.7 - 2026-11-27
+
+No change to how the plugin works.
+
+- README: the log examples use a generic address instead of a real one.
+- Development only: a GitHub release without notes takes them from this changelog, and publishing never moves npm's `latest` back to an older version; the linter checks for values that would show as "[object Object]" (no-base-to-string), as in the other plugins; the changelog's headings are consistent.
+
 ## 1.3.6 - 2026-11-26
 
 - Settings page: **Generate New Refresh Token** follows Homebridge's theme. Its icon was always black, so it couldn't be seen in the dark theme; it now takes the button's text colour, and the button looks like Homebridge's own secondary buttons instead of a plain blue link. Signing in to Ring works as before.
