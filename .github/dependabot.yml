@@ -1,5 +1,5 @@
 # Shared Dependabot setup for homebridge-brother-printer, homebridge-comelit-doorbell,
-# homebridge-ir-patio-heater, homebridge-ring-secure-video and wyze-robovac-matterbridge: keep the
+# homebridge-ir-patio-heater, homebridge-ring-secure-video and matterbridge-wyze-robovac-plus: keep the
 # copies the same apart from the "This repository" notes.
 # Weekly update pull requests; CI runs on each one, and each still needs a review before merging.
 #
