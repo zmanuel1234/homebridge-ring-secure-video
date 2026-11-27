@@ -1168,7 +1168,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 
 - update dependencies ([1c8f4f1](https://github.com/dgreif/ring/commit/1c8f4f1a12e9c77c8384477cd0b45e2b0a10aba4))
 
-## [11.3.0](https://github.com/dgreif/ring/compare/v11.2.1...v11.3.0) - 2022-10-02
+## [11.3.0](https://github.com/dgreif/ring/compare/v11.2.1...v11.3.0) (2022-10-02)
 
 ### Features
 
@@ -1187,7 +1187,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 - **homebridge:** prevent double ding notifications ([9b63104](https://github.com/dgreif/ring/commit/9b631046ac69f256cf129eaa92e388cce1228636)), closes [#944](https://github.com/dgreif/ring/issues/944)
 - use correct name for lpd_v4 camera ([2425a14](https://github.com/dgreif/ring/commit/2425a1496faa66f3a6080d174b2628d97bf96da1)), closes [#951](https://github.com/dgreif/ring/issues/951)
 
-## [11.2.0](https://github.com/dgreif/ring/compare/v11.1.0...v11.2.0) - 2022-08-27
+## [11.2.0](https://github.com/dgreif/ring/compare/v11.1.0...v11.2.0) (2022-08-27)
 
 ### Features
 
@@ -1200,7 +1200,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 - **homebridge:** hide motion sensor for unequipped bulbs ([3f72cb9](https://github.com/dgreif/ring/commit/3f72cb9ffb3bc4b3a3f61ad9a0d05ca59054df0c)), closes [#1001](https://github.com/dgreif/ring/issues/1001)
 - **homebridge:** maintain night mode across bridge reboots ([6610445](https://github.com/dgreif/ring/commit/6610445e4b46cc682ca4c584793157d8d182ea8d)), closes [#908](https://github.com/dgreif/ring/issues/908)
 
-## [11.1.0](https://github.com/dgreif/ring/compare/v11.0.7...v11.1.0) - 2022-08-21
+## [11.1.0](https://github.com/dgreif/ring/compare/v11.0.7...v11.1.0) (2022-08-21)
 
 ### Features
 
@@ -1267,7 +1267,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 
 - update webrtc package ([63d003c](https://github.com/dgreif/ring/commit/63d003c1517c158663d230e6daf911c7fc765c55)), closes [#930](https://github.com/dgreif/ring/issues/930)
 
-## [11.0.0](https://github.com/dgreif/ring/compare/v10.0.0...v11.0.0) - 2022-05-08
+## [11.0.0](https://github.com/dgreif/ring/compare/v10.0.0...v11.0.0) (2022-05-08)
 
 ### ⚠ BREAKING CHANGES
 
@@ -1277,7 +1277,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 
 - officially drop node 12 & 14 support ([3d65c77](https://github.com/dgreif/ring/commit/3d65c77fab9399f29d4fb15d0e87dfe60f3db40f)), closes [#926](https://github.com/dgreif/ring/issues/926)
 
-## [10.0.0](https://github.com/dgreif/ring/compare/v10.0.0-beta.8...v10.0.0) - 2022-05-08
+## [10.0.0](https://github.com/dgreif/ring/compare/v10.0.0-beta.8...v10.0.0) (2022-05-08)
 
 ### Features
 
@@ -1323,13 +1323,13 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 
 - prevent push receiver ECONNRESET error from logging ([644e86d](https://github.com/dgreif/ring/commit/644e86d6517e73391139b12bac4dc048c8bedf13))
 
-## [10.0.0-beta.8](https://github.com/dgreif/ring/compare/v10.0.0-beta.7...v10.0.0-beta.8) - 2022-05-07
+## [10.0.0-beta.8](https://github.com/dgreif/ring/compare/v10.0.0-beta.7...v10.0.0-beta.8) (2022-05-07)
 
 ### Bug Fixes
 
 - remove unnecessary dependencies ([0acf3c3](https://github.com/dgreif/ring/commit/0acf3c35ce2b62d98e3e50ba8489996400efb4e3))
 
-## [10.0.0-beta.7](https://github.com/dgreif/ring/compare/v10.0.0-beta.6...v10.0.0-beta.7) - 2022-05-07
+## [10.0.0-beta.7](https://github.com/dgreif/ring/compare/v10.0.0-beta.6...v10.0.0-beta.7) (2022-05-07)
 
 ### ⚠ BREAKING CHANGES
 
@@ -1347,7 +1347,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 - npm audit fix ([c1fe605](https://github.com/dgreif/ring/commit/c1fe6051e46dac92b00bb2fd1202746fd576b15a))
 - remove doorbell press simulation options ([e1d1225](https://github.com/dgreif/ring/commit/e1d12257b2acbdafdc6995a53d9052822c8a3460))
 
-## [10.0.0-beta.6](https://github.com/dgreif/ring/compare/v10.0.0-beta.5...v10.0.0-beta.6) - 2022-05-06
+## [10.0.0-beta.6](https://github.com/dgreif/ring/compare/v10.0.0-beta.5...v10.0.0-beta.6) (2022-05-06)
 
 ### Features
 
@@ -1357,7 +1357,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 
 - update dependencies ([4b25595](https://github.com/dgreif/ring/commit/4b255950bcfbf94486192d55cfc90d966cd79d24))
 
-## [10.0.0-beta.5](https://github.com/dgreif/ring/compare/v10.0.0-beta.4...v10.0.0-beta.5) - 2022-04-10
+## [10.0.0-beta.5](https://github.com/dgreif/ring/compare/v10.0.0-beta.4...v10.0.0-beta.5) (2022-04-10)
 
 ### Bug Fixes
 
@@ -1367,7 +1367,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 - restore dual battery level calculations ([26fa84d](https://github.com/dgreif/ring/commit/26fa84dbd4bbcea8208fd0ade81c54c407aabf63))
 - update dependencies ([4b97fb3](https://github.com/dgreif/ring/commit/4b97fb33623248147997944bab3de4ea3c2e5ee2))
 
-## [10.0.0-beta.4](https://github.com/dgreif/ring/compare/v10.0.0-beta.3...v10.0.0-beta.4) - 2022-04-03
+## [10.0.0-beta.4](https://github.com/dgreif/ring/compare/v10.0.0-beta.3...v10.0.0-beta.4) (2022-04-03)
 
 ### ⚠ BREAKING CHANGES
 
@@ -1388,13 +1388,13 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 - update uuid namespace to force new client sessions ([bc3e943](https://github.com/dgreif/ring/commit/bc3e9432c41dda085845f72f332dcf480c92475d))
 - use camera health to determine battery and charging status ([fac7033](https://github.com/dgreif/ring/commit/fac70331bdd4dd94bc6caa143eb1bcb9ead06923)), closes [#873](https://github.com/dgreif/ring/issues/873)
 
-## [10.0.0-beta.3](https://github.com/dgreif/ring/compare/v10.0.0-beta.2...v10.0.0-beta.3) - 2022-03-26
+## [10.0.0-beta.3](https://github.com/dgreif/ring/compare/v10.0.0-beta.2...v10.0.0-beta.3) (2022-03-26)
 
 ### Bug Fixes
 
 - separate streaming setup for ring edge vs regular cameras ([6281cf9](https://github.com/dgreif/ring/commit/6281cf966de12dcea8acc6516cd9079634734dec))
 
-## [10.0.0-beta.2](https://github.com/dgreif/ring/compare/v10.0.0-beta.1...v10.0.0-beta.2) - 2022-03-26
+## [10.0.0-beta.2](https://github.com/dgreif/ring/compare/v10.0.0-beta.1...v10.0.0-beta.2) (2022-03-26)
 
 ### Features
 
@@ -1404,7 +1404,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 
 - **api:** allow snapshot to be force-updated based on options ([fa0212a](https://github.com/dgreif/ring/commit/fa0212ab539cc268f8000c5b9ea39a00799cb8d7))
 
-## [10.0.0-beta.1](https://github.com/dgreif/ring/compare/v10.0.0-beta.0...v10.0.0-beta.1) - 2022-02-27
+## [10.0.0-beta.1](https://github.com/dgreif/ring/compare/v10.0.0-beta.0...v10.0.0-beta.1) (2022-02-27)
 
 ### ⚠ BREAKING CHANGES
 
@@ -1415,7 +1415,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 - allow video transcoding to be skipped ([1ef8cdd](https://github.com/dgreif/ring/commit/1ef8cdd54d1f118a8fdcfd28f6970d9c8b7c65f9))
 - **homebridge:** switch back to aac-eld from opus ([7dcd2a0](https://github.com/dgreif/ring/commit/7dcd2a087da7c1b24cc9bdd3c3919af5e6fb7997))
 
-## [10.0.0-beta.0](https://github.com/dgreif/ring/compare/v9.25.0-beta.1...v10.0.0-beta.0) - 2022-02-18
+## [10.0.0-beta.0](https://github.com/dgreif/ring/compare/v9.25.0-beta.1...v10.0.0-beta.0) (2022-02-18)
 
 ### ⚠ BREAKING CHANGES
 
@@ -1438,13 +1438,13 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 - remove sip calling in favor of live calls ([7aeae37](https://github.com/dgreif/ring/commit/7aeae37e6e93b68747e14983cea9c0a9229faec6))
 - use Buffer.from ([2b28d90](https://github.com/dgreif/ring/commit/2b28d9028fc7f2c2e11b11cf3b27cc03f097eab2))
 
-## [9.25.0-beta.1](https://github.com/dgreif/ring/compare/v9.25.0-beta.0...v9.25.0-beta.1) - 2022-02-14
+## [9.25.0-beta.1](https://github.com/dgreif/ring/compare/v9.25.0-beta.0...v9.25.0-beta.1) (2022-02-14)
 
 ### Features
 
 - use new WebRTC endpoint for live calls ([6e7779f](https://github.com/dgreif/ring/commit/6e7779feef9789583921fc44bab32c099f3026d2))
 
-## [9.25.0-beta.0](https://github.com/dgreif/ring/compare/v9.24.0...v9.25.0-beta.0) - 2022-01-29
+## [9.25.0-beta.0](https://github.com/dgreif/ring/compare/v9.24.0...v9.25.0-beta.0) (2022-01-29)
 
 ### Features
 
@@ -1452,7 +1452,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 - handle new camera types with no battery ([11ae286](https://github.com/dgreif/ring/commit/11ae28697d8cb0e2da71e880c82e1883f04047b9))
 - slightly faster snapshots via new endpoint ([b840471](https://github.com/dgreif/ring/commit/b840471bc6b7b66e5873370251bd57c1a35b267a))
 
-## [9.24.0](https://github.com/dgreif/ring/compare/v9.23.0...v9.24.0) - 2022-01-22
+## [9.24.0](https://github.com/dgreif/ring/compare/v9.23.0...v9.24.0) (2022-01-22)
 
 ### Features
 
@@ -1464,7 +1464,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 - avoid error when ring terminates video stream ([7717d5e](https://github.com/dgreif/ring/commit/7717d5eaa40afed3d34f0e8e6eea1402e21afef7)), closes [#853](https://github.com/dgreif/ring/issues/853)
 - update dependencies ([c80d052](https://github.com/dgreif/ring/commit/c80d052f9eaf4c0a50a495166177daa40299ffa7))
 
-## [9.23.0](https://github.com/dgreif/ring/compare/v9.22.1...v9.23.0) - 2021-10-17
+## [9.23.0](https://github.com/dgreif/ring/compare/v9.22.1...v9.23.0) (2021-10-17)
 
 ### Features
 
@@ -1481,7 +1481,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 
 - **homebridge:** prevent login attempt for null refresh tokens ([#791](https://github.com/dgreif/ring/issues/791)) ([bbc9db5](https://github.com/dgreif/ring/commit/bbc9db5578f9b3ed2af49256c8581fef5af8e134))
 
-## [9.22.0](https://github.com/dgreif/ring/compare/v9.21.2...v9.22.0) - 2021-10-02
+## [9.22.0](https://github.com/dgreif/ring/compare/v9.21.2...v9.22.0) (2021-10-02)
 
 ### Features
 
@@ -1507,7 +1507,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 - **homebridge:** prevent camera light from showing wrong status after toggling ([93c3b92](https://github.com/dgreif/ring/commit/93c3b92c9e0c5645e955bf99a50347d6e404e6b7)), closes [#751](https://github.com/dgreif/ring/issues/751)
 - update dependencies ([c13501e](https://github.com/dgreif/ring/commit/c13501e3e6b630214e48185225bb8c8d655c2a06))
 
-## [9.21.0](https://github.com/dgreif/ring/compare/v9.20.1...v9.21.0) - 2021-08-14
+## [9.21.0](https://github.com/dgreif/ring/compare/v9.20.1...v9.21.0) (2021-08-14)
 
 ### Features
 
@@ -1527,7 +1527,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 - **homebridge:** mask password in homebridge-ui ([2711aaa](https://github.com/dgreif/ring/commit/2711aaa69ee8064e711e2c2405e239dd20dea5bb))
 - remove http2 ([9e2abeb](https://github.com/dgreif/ring/commit/9e2abeb0a07e0ae40b4945617c3b3c8b4287c46f))
 
-## [9.20.0](https://github.com/dgreif/ring/compare/v9.19.0...v9.20.0) - 2021-08-06
+## [9.20.0](https://github.com/dgreif/ring/compare/v9.19.0...v9.20.0) (2021-08-06)
 
 ### Features
 
@@ -1537,7 +1537,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 
 - update dependencies ([e225e96](https://github.com/dgreif/ring/commit/e225e9620e5963e1cd554de06213bd156ec343d3)), closes [#626](https://github.com/dgreif/ring/issues/626)
 
-## [9.19.0](https://github.com/dgreif/ring/compare/v9.18.6...v9.19.0) - 2021-07-31
+## [9.19.0](https://github.com/dgreif/ring/compare/v9.18.6...v9.19.0) (2021-07-31)
 
 ### Features
 
@@ -1587,7 +1587,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 - update dependencies ([cbbf630](https://github.com/dgreif/ring/commit/cbbf630db42ddd75ca413aab63af4466ca30c528))
 - update dependencies ([6f05b94](https://github.com/dgreif/ring/commit/6f05b9467478350c31ad634977297a7202dfeef8))
 
-## [9.18.0](https://github.com/dgreif/ring/compare/v9.17.0...v9.18.0) - 2021-05-02
+## [9.18.0](https://github.com/dgreif/ring/compare/v9.17.0...v9.18.0) (2021-05-02)
 
 ### Features
 
@@ -1598,13 +1598,13 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 
 - more reliable streaming with new media servers ([6503813](https://github.com/dgreif/ring/commit/65038139074e7199236b6049b6ed62e0f0b8f932))
 
-## [9.17.0](https://github.com/dgreif/ring/compare/v9.16.0...v9.17.0) - 2021-04-17
+## [9.17.0](https://github.com/dgreif/ring/compare/v9.16.0...v9.17.0) (2021-04-17)
 
 ### Features
 
 - **api:** add support for enabling location modes ([#612](https://github.com/dgreif/ring/issues/612)) ([055e5f0](https://github.com/dgreif/ring/commit/055e5f0b350e0dc53fe8d5253da54683e3a9c25e))
 
-## [9.16.0](https://github.com/dgreif/ring/compare/v9.15.6...v9.16.0) - 2021-04-09
+## [9.16.0](https://github.com/dgreif/ring/compare/v9.15.6...v9.16.0) (2021-04-09)
 
 ### Features
 
@@ -1657,7 +1657,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 
 - **homebridge:** use `Service.BatteryService` instead of `Service.Battery` ([2228a05](https://github.com/dgreif/ring/commit/2228a058ff523b316aa1b1f1affadf6871a9f83f))
 
-## [9.15.0](https://github.com/dgreif/ring/compare/v9.14.2...v9.15.0) - 2021-02-15
+## [9.15.0](https://github.com/dgreif/ring/compare/v9.14.2...v9.15.0) (2021-02-15)
 
 ### Features
 
@@ -1686,7 +1686,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 - remove keepalive and dns caching in favor of http2 ([fcfd2a6](https://github.com/dgreif/ring/commit/fcfd2a6115261543ff4a39b71391065839424223)), closes [#497](https://github.com/dgreif/ring/issues/497)
 - update dependencies ([83f0090](https://github.com/dgreif/ring/commit/83f009000df03483af5e4d3030f77e64df0605a1))
 
-## [9.14.0](https://github.com/dgreif/ring/compare/v9.13.0...v9.14.0) - 2021-01-04
+## [9.14.0](https://github.com/dgreif/ring/compare/v9.13.0...v9.14.0) (2021-01-04)
 
 ### Features
 
@@ -1696,7 +1696,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 
 - lock node versions to 10, 12, and 14 ([d000d62](https://github.com/dgreif/ring/commit/d000d620104b3f73804409de5dc58ed142705576))
 
-## [9.13.0](https://github.com/dgreif/ring/compare/v9.12.8...v9.13.0) - 2021-01-01
+## [9.13.0](https://github.com/dgreif/ring/compare/v9.12.8...v9.13.0) (2021-01-01)
 
 ### Features
 
@@ -1753,20 +1753,20 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 - **homebridge:** correct audio params if audio isn't supported ([c7d4a14](https://github.com/dgreif/ring/commit/c7d4a145afad8b5fa7773785c19297aa08cf2879)), closes [#478](https://github.com/dgreif/ring/issues/478)
 - **homebridge:** use custom `ffmpegPath` when checking `libfdk_aac` support ([68af136](https://github.com/dgreif/ring/commit/68af1369c55ab5a6413b2c8f8ca236bfe2bdf86a))
 
-## [9.12.0](https://github.com/dgreif/ring/compare/v9.11.0...v9.12.0) - 2020-10-17
+## [9.12.0](https://github.com/dgreif/ring/compare/v9.11.0...v9.12.0) (2020-10-17)
 
 ### Features
 
 - support new media servers with rtp latching ([9825974](https://github.com/dgreif/ring/commit/9825974eeb628a9b0e516c78443694b004c68c34)), closes [#447](https://github.com/dgreif/ring/issues/447)
 
-## [9.11.0](https://github.com/dgreif/ring/compare/v9.10.0...v9.11.0) - 2020-10-12
+## [9.11.0](https://github.com/dgreif/ring/compare/v9.10.0...v9.11.0) (2020-10-12)
 
 ### Features
 
 - **homebridge:** `sendDoorbellMotionNotificationsToTv` option for tvOS 14 ([7e1c315](https://github.com/dgreif/ring/commit/7e1c31511cd8d22fae63a33bc87cec89494ec6a9)), closes [#469](https://github.com/dgreif/ring/issues/469)
 - `avoidSnapshotBatteryDrain` option ([7d1b530](https://github.com/dgreif/ring/commit/7d1b530acf21be583f91dc83eab3c1ba021d2831)), closes [#427](https://github.com/dgreif/ring/issues/427)
 
-## [9.10.0](https://github.com/dgreif/ring/compare/v9.9.0...v9.10.0) - 2020-10-01
+## [9.10.0](https://github.com/dgreif/ring/compare/v9.9.0...v9.10.0) (2020-10-01)
 
 ### Features
 
@@ -1777,7 +1777,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 
 - hard dns cache reset on failure ([75dba2f](https://github.com/dgreif/ring/commit/75dba2faf5b5567b658bbfd069a873fd4beeb334)), closes [#449](https://github.com/dgreif/ring/issues/449)
 
-## [9.9.0](https://github.com/dgreif/ring/compare/v9.8.2...v9.9.0) - 2020-08-28
+## [9.9.0](https://github.com/dgreif/ring/compare/v9.8.2...v9.9.0) (2020-08-28)
 
 ### Features
 
@@ -1800,7 +1800,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 
 - **homebridge:** allow video-only streams without ffmpeg ([2e39797](https://github.com/dgreif/ring/commit/2e39797742cdff6f01256537c21e58d685c72b8b))
 
-## [9.8.0](https://github.com/dgreif/ring/compare/v9.7.3...v9.8.0) - 2020-08-16
+## [9.8.0](https://github.com/dgreif/ring/compare/v9.7.3...v9.8.0) (2020-08-16)
 
 ### Features
 
@@ -1821,7 +1821,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 
 ### [9.7.1](https://github.com/dgreif/ring/compare/v9.7.0...v9.7.1) (2020-08-07)
 
-## [9.7.0](https://github.com/dgreif/ring/compare/v9.6.0...v9.7.0) - 2020-08-03
+## [9.7.0](https://github.com/dgreif/ring/compare/v9.6.0...v9.7.0) (2020-08-03)
 
 ### Features
 
@@ -1832,14 +1832,14 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 - better logging when live streams are blocked by modes settings ([ae809f5](https://github.com/dgreif/ring/commit/ae809f54180ae61c9453b11b7b4ac8efc34f7c46)), closes [#414](https://github.com/dgreif/ring/issues/414)
 - determine host ip without `ip` module ([15d2ace](https://github.com/dgreif/ring/commit/15d2ace49584d3bae9bb1f6318b60b410f91d9b1))
 
-## [9.6.0](https://github.com/dgreif/ring/compare/v9.5.0...v9.6.0) - 2020-07-12
+## [9.6.0](https://github.com/dgreif/ring/compare/v9.5.0...v9.6.0) (2020-07-12)
 
 ### Features
 
 - add amazon key locks to device discovery tool ([4bbbb02](https://github.com/dgreif/ring/commit/4bbbb025631f453ba134ff5fa1a457a559d56b40)), closes [#384](https://github.com/dgreif/ring/issues/384)
 - **api:** `api.disconnect()` to unsubscribe current instance ([add754f](https://github.com/dgreif/ring/commit/add754f8abe426d755642d8252b2cde5cd9f4f3c)), closes [#378](https://github.com/dgreif/ring/issues/378)
 
-## [9.5.0](https://github.com/dgreif/ring/compare/v9.4.1...v9.5.0) - 2020-07-11
+## [9.5.0](https://github.com/dgreif/ring/compare/v9.4.1...v9.5.0) (2020-07-11)
 
 ### Features
 
@@ -1856,7 +1856,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 
 - catch errors from dns query logging ([cfd68da](https://github.com/dgreif/ring/commit/cfd68dac4a961fbc2c437a7d128a9f779d385c88)), closes [#374](https://github.com/dgreif/ring/issues/374) [#393](https://github.com/dgreif/ring/issues/393)
 
-## [9.4.0](https://github.com/dgreif/ring/compare/v9.3.6...v9.4.0) - 2020-07-04
+## [9.4.0](https://github.com/dgreif/ring/compare/v9.3.6...v9.4.0) (2020-07-04)
 
 ### Features
 
@@ -1908,13 +1908,13 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 
 - remove keepalive for oauth requests ([e37b823](https://github.com/dgreif/ring/commit/e37b82332ddcd20099a58353c94312617814f9e5))
 
-## [9.3.0](https://github.com/dgreif/ring/compare/v9.2.0...v9.3.0) - 2020-06-17
+## [9.3.0](https://github.com/dgreif/ring/compare/v9.2.0...v9.3.0) (2020-06-17)
 
 ### Features
 
 - **homebridge:** allow devices to be hidden by id ([f28c0ca](https://github.com/dgreif/ring/commit/f28c0ca4ff70b2e628cc06ed337f9dc69563948a))
 
-## [9.2.0](https://github.com/dgreif/ring/compare/v9.1.1...v9.2.0) - 2020-06-17
+## [9.2.0](https://github.com/dgreif/ring/compare/v9.1.1...v9.2.0) (2020-06-17)
 
 ### Features
 
@@ -1934,7 +1934,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 
 - **homebridge:** cache snapshots for 2 minutes ([d671ea8](https://github.com/dgreif/ring/commit/d671ea881cd953bba5b6b819ce589f9b20ddb802)), closes [#350](https://github.com/dgreif/ring/issues/350)
 
-## [9.1.0](https://github.com/dgreif/ring/compare/v9.0.1...v9.1.0) - 2020-06-06
+## [9.1.0](https://github.com/dgreif/ring/compare/v9.0.1...v9.1.0) (2020-06-06)
 
 ### Features
 
@@ -1951,7 +1951,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 
 - log error message when request fails without response ([d22de47](https://github.com/dgreif/ring/commit/d22de47b847d40e2d17ad29bb79b25c4ff996172))
 
-## [9.0.0](https://github.com/dgreif/ring/compare/v8.2.0...v9.0.0) - 2020-06-04
+## [9.0.0](https://github.com/dgreif/ring/compare/v8.2.0...v9.0.0) (2020-06-04)
 
 ### ⚠ BREAKING CHANGES
 
@@ -1974,13 +1974,13 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 - **homebridge:** set security system as primary service for alarm ([a888bd1](https://github.com/dgreif/ring/commit/a888bd1c37bb596570a56b305f0f5747599cd75e))
 - remove night mode from alarm and location modes ([63ff8a0](https://github.com/dgreif/ring/commit/63ff8a046e6d31af203bc9b11ecb15cb0b331870))
 
-## [8.2.0](https://github.com/dgreif/ring/compare/v8.1.0...v8.2.0) - 2020-05-17
+## [8.2.0](https://github.com/dgreif/ring/compare/v8.1.0...v8.2.0) (2020-05-17)
 
 ### Features
 
 - **homebridge:** 2-way audio ([0bdb154](https://github.com/dgreif/ring/commit/0bdb15410b72deba3e89e562ce7164d839574adb)), closes [#237](https://github.com/dgreif/ring/issues/237)
 
-## [8.1.0](https://github.com/dgreif/ring/compare/v8.0.1...v8.1.0) - 2020-05-11
+## [8.1.0](https://github.com/dgreif/ring/compare/v8.0.1...v8.1.0) (2020-05-11)
 
 ### Features
 
@@ -1996,7 +1996,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 
 - skip external camera cleanup if `cleanupAccessoryData` is not available ([e80f832](https://github.com/dgreif/ring/commit/e80f8323d4457d05b084fbed65118783dd8e44da)), closes [#315](https://github.com/dgreif/ring/issues/315)
 
-## [8.0.0](https://github.com/dgreif/ring/compare/v8.0.0-alpha.0...v8.0.0) - 2020-05-03
+## [8.0.0](https://github.com/dgreif/ring/compare/v8.0.0-alpha.0...v8.0.0) (2020-05-03)
 
 ### Features
 
@@ -2021,7 +2021,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 
 - **homebridge:** allow `0` for polling options to disable polling ([c89c977](https://github.com/dgreif/ring/commit/c89c977b89e0b8ead39bf0010879473d8b166ab0)), closes [#260](https://github.com/dgreif/ring/issues/260) [#266](https://github.com/dgreif/ring/issues/266)
 
-## [7.2.0](https://github.com/dgreif/ring/compare/v7.2.0-alpha.0...v7.2.0) - 2020-02-26
+## [7.2.0](https://github.com/dgreif/ring/compare/v7.2.0-alpha.0...v7.2.0) (2020-02-26)
 
 ### Features
 
@@ -2031,13 +2031,13 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 
 - **homebridge:** hide location modes in more scenarios ([72d8db4](https://github.com/dgreif/ring/commit/72d8db4df1d10814cea7aad01a4678c627dcdff5)), closes [#260](https://github.com/dgreif/ring/issues/260)
 
-## [7.1.0](https://github.com/dgreif/ring/compare/v7.0.0...v7.1.0) - 2020-02-22
+## [7.1.0](https://github.com/dgreif/ring/compare/v7.0.0...v7.1.0) (2020-02-22)
 
 ### Features
 
 - **homebridge:** location mode switch ([defe995](https://github.com/dgreif/ring/commit/defe995a3912d06a4a208ad3e2e8374a90e0d6fb)), closes [#200](https://github.com/dgreif/ring/issues/200)
 
-## [7.0.0](https://github.com/dgreif/ring/compare/v6.2.0-alpha.0...v7.0.0) - 2020-02-21
+## [7.0.0](https://github.com/dgreif/ring/compare/v6.2.0-alpha.0...v7.0.0) (2020-02-21)
 
 ### ⚠ BREAKING CHANGES
 
@@ -2055,7 +2055,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 - log wiki link for ffmpeg errors ([c453462](https://github.com/dgreif/ring/commit/c453462bc618c27635b5b1a2bebc4e03a27d09ea))
 - remove email/password auth from api and homebridge config options ([2957416](https://github.com/dgreif/ring/commit/295741634b0a9ebe1ecabb788c3a7ba8d14bb6df))
 
-## [6.2.0-alpha.0](https://github.com/dgreif/ring/compare/v6.1.1...v6.2.0-alpha.0) - 2020-02-04
+## [6.2.0-alpha.0](https://github.com/dgreif/ring/compare/v6.1.1...v6.2.0-alpha.0) (2020-02-04)
 
 ### Features
 
@@ -2073,7 +2073,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 
 - use lower of dual battery values instead of average ([3109ff2](https://github.com/dgreif/ring/commit/3109ff268a95f3672fde22b3fe0bab7bcad2e11b)), closes [#206](https://github.com/dgreif/ring/issues/206)
 
-## [6.1.0](https://github.com/dgreif/ring/compare/v6.0.3...v6.1.0) - 2020-01-21
+## [6.1.0](https://github.com/dgreif/ring/compare/v6.0.3...v6.1.0) (2020-01-21)
 
 ### Features
 
@@ -2093,7 +2093,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 
 - remove `dotenv/config` from cli tools ([c3f169e](https://github.com/dgreif/ring/commit/c3f169e750805e44ba3350f72fe2f8e5338814bc))
 
-## [6.0.0](https://github.com/dgreif/ring/compare/v5.13.1...v6.0.0) - 2020-01-17
+## [6.0.0](https://github.com/dgreif/ring/compare/v5.13.1...v6.0.0) (2020-01-17)
 
 ### ⚠ BREAKING CHANGES
 
@@ -2119,14 +2119,14 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 - handle delayed and expired dings when starting live video ([b6c4460](https://github.com/dgreif/ring/commit/b6c4460468ac5aa8e5085b51020d288058923e5d)), closes [#211](https://github.com/dgreif/ring/issues/211) [#157](https://github.com/dgreif/ring/issues/157) [#106](https://github.com/dgreif/ring/issues/106)
 - handle live stream for battery cameras ([8c74a23](https://github.com/dgreif/ring/commit/8c74a2343aa1aeb0954c36f37f0318ea08aff634))
 
-## [5.13.0](https://github.com/dgreif/ring/compare/v5.13.0-alpha.0...v5.13.0) - 2020-01-11
+## [5.13.0](https://github.com/dgreif/ring/compare/v5.13.0-alpha.0...v5.13.0) (2020-01-11)
 
 ### Bug Fixes
 
 - automatically subscribe cameras to motion and dings ([7bf4260](https://github.com/dgreif/ring/commit/7bf4260a7056a8eea87becd92d156fff914c45e5)), closes [#210](https://github.com/dgreif/ring/issues/210)
 - get or create active ding via new live_view endpoint ([4fb837e](https://github.com/dgreif/ring/commit/4fb837e1647c9bbc629cdf236680376d6451e546))
 
-## [5.13.0-alpha.0](https://github.com/dgreif/ring/compare/v5.12.1...v5.13.0-alpha.0) - 2020-01-05
+## [5.13.0-alpha.0](https://github.com/dgreif/ring/compare/v5.12.1...v5.13.0-alpha.0) (2020-01-05)
 
 ### Features
 
@@ -2138,31 +2138,31 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 
 - use default gateway when opening live stream port ([be2cfe1](https://github.com/dgreif/ring/commit/be2cfe1afa40100f387e295b37a49f0e98cb4e82)), closes [#191](https://github.com/dgreif/ring/issues/191)
 
-## [5.12.0](https://github.com/dgreif/ring/compare/v5.11.0...v5.12.0) - 2019-12-20
+## [5.12.0](https://github.com/dgreif/ring/compare/v5.11.0...v5.12.0) (2019-12-20)
 
 ### Features
 
 - **api:** option to get transcoded recordings ([10a85da](https://github.com/dgreif/ring/commit/10a85da41a869530007313c34c0f36eaa03b9b88)), closes [#204](https://github.com/dgreif/ring/issues/204)
 
-## [5.11.0](https://github.com/dgreif/ring/compare/v5.11.0-alpha.1...v5.11.0) - 2019-12-20
+## [5.11.0](https://github.com/dgreif/ring/compare/v5.11.0-alpha.1...v5.11.0) (2019-12-20)
 
 ### Bug Fixes
 
 - **homebridge:** use occupancy sensor for freeze sensors ([c488820](https://github.com/dgreif/ring/commit/c488820035aeea3b390c745c09c50cd43d429207))
 
-## [5.11.0-alpha.1](https://github.com/dgreif/ring/compare/v5.11.0-alpha.0...v5.11.0-alpha.1) - 2019-12-18
+## [5.11.0-alpha.1](https://github.com/dgreif/ring/compare/v5.11.0-alpha.0...v5.11.0-alpha.1) (2019-12-18)
 
 ### Features
 
 - **homebridge:** log hidden accessories ([ae841fb](https://github.com/dgreif/ring/commit/ae841fb4b79dce09e7a5a835335920840b8b7cbd))
 
-## [5.11.0-alpha.0](https://github.com/dgreif/ring/compare/v5.10.0...v5.11.0-alpha.0) - 2019-12-13
+## [5.11.0-alpha.0](https://github.com/dgreif/ring/compare/v5.10.0...v5.11.0-alpha.0) (2019-12-13)
 
 ### Features
 
 - **homebridge:** flood/freeze and freeze sensors ([5ae4367](https://github.com/dgreif/ring/commit/5ae43678b23fa38a67f2c20916c284021615990c))
 
-## [5.10.0](https://github.com/dgreif/ring/compare/v5.9.1...v5.10.0) - 2019-11-30
+## [5.10.0](https://github.com/dgreif/ring/compare/v5.9.1...v5.10.0) (2019-11-30)
 
 ### Features
 
@@ -2178,7 +2178,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 
 - **homebridge:** prevent overlapping camera switch services ([c59623e](https://github.com/dgreif/ring/commit/c59623e))
 
-## [5.9.0](https://github.com/dgreif/ring/compare/v5.8.2...v5.9.0) - 2019-10-16
+## [5.9.0](https://github.com/dgreif/ring/compare/v5.8.2...v5.9.0) (2019-10-16)
 
 ### Bug Fixes
 
@@ -2200,7 +2200,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 
 - correctly handle unknown model with battery ([d2da0f2](https://github.com/dgreif/ring/commit/d2da0f2))
 
-## [5.8.0](https://github.com/dgreif/ring/compare/v5.7.0...v5.8.0) - 2019-10-03
+## [5.8.0](https://github.com/dgreif/ring/compare/v5.7.0...v5.8.0) (2019-10-03)
 
 ### Features
 
@@ -2208,7 +2208,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 - fallback check for camera battery if unknown model ([5910524](https://github.com/dgreif/ring/commit/5910524))
 - **homebridge:** add logging for camera motion/doorbell events ([b4af8a0](https://github.com/dgreif/ring/commit/b4af8a0))
 
-## [5.7.0](https://github.com/dgreif/ring/compare/v5.6.2...v5.7.0) - 2019-09-17
+## [5.7.0](https://github.com/dgreif/ring/compare/v5.6.2...v5.7.0) (2019-09-17)
 
 ### Features
 
@@ -2227,7 +2227,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 - **homebridge:** keep `refreshToken` up to date in config.json ([6719e4a](https://github.com/dgreif/ring/commit/6719e4a)), closes [#109](https://github.com/dgreif/ring/issues/109)
 - remove ffmpeg listeners with node 8 compatible method ([96c27ac](https://github.com/dgreif/ring/commit/96c27ac))
 
-## [5.6.0](https://github.com/dgreif/ring/compare/v5.5.1...v5.6.0) - 2019-08-24
+## [5.6.0](https://github.com/dgreif/ring/compare/v5.5.1...v5.6.0) (2019-08-24)
 
 ### Features
 
@@ -2239,7 +2239,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 
 - **homebridge:** remove debug code that removes all devices ([d4cce8a](https://github.com/dgreif/ring/commit/d4cce8a))
 
-## [5.5.0](https://github.com/dgreif/ring/compare/v5.4.1...v5.5.0) - 2019-08-10
+## [5.5.0](https://github.com/dgreif/ring/compare/v5.4.1...v5.5.0) (2019-08-10)
 
 ### Features
 
@@ -2251,7 +2251,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 
 - improved snapshot timing for battery cameras ([8fabd14](https://github.com/dgreif/ring/commit/8fabd14))
 
-## [5.4.0](https://github.com/dgreif/ring/compare/v5.3.1...v5.4.0) - 2019-08-08
+## [5.4.0](https://github.com/dgreif/ring/compare/v5.3.1...v5.4.0) (2019-08-08)
 
 ### Bug Fixes
 
@@ -2267,25 +2267,25 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 
 - **homebridge:** handle missing snapshots and offline cameras ([adc08f6](https://github.com/dgreif/ring/commit/adc08f6)), closes [#92](https://github.com/dgreif/ring/issues/92)
 
-## [5.3.0](https://github.com/dgreif/ring/compare/v5.2.0...v5.3.0) - 2019-08-01
+## [5.3.0](https://github.com/dgreif/ring/compare/v5.2.0...v5.3.0) (2019-08-01)
 
 ### Features
 
 - **homebridge:** more detailed logging ([6c2021e](https://github.com/dgreif/ring/commit/6c2021e))
 
-## [5.2.0](https://github.com/dgreif/ring/compare/v5.1.0...v5.2.0) - 2019-08-01
+## [5.2.0](https://github.com/dgreif/ring/compare/v5.1.0...v5.2.0) (2019-08-01)
 
 ### Features
 
 - **homebridge:** include changelog for homebridge ui ([46387a5](https://github.com/dgreif/ring/commit/46387a5)), closes [#86](https://github.com/dgreif/ring/issues/86)
 
-## [5.1.0](https://github.com/dgreif/ring/compare/v5.0.0...v5.1.0) - 2019-08-01
+## [5.1.0](https://github.com/dgreif/ring/compare/v5.0.0...v5.1.0) (2019-08-01)
 
 ### Features
 
 - **homebridge:** config schema for homebridge settings ui ([56011e3](https://github.com/dgreif/ring/commit/56011e3)), closes [#86](https://github.com/dgreif/ring/issues/86)
 
-## [5.0.0](https://github.com/dgreif/ring/compare/v4.5.2...v5.0.0) - 2019-08-01
+## [5.0.0](https://github.com/dgreif/ring/compare/v4.5.2...v5.0.0) (2019-08-01)
 
 ### Build System
 
@@ -2312,7 +2312,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 
 - **homebridge:** use correct service for on/off switch ([edba85c](https://github.com/dgreif/ring/commit/edba85c)), closes [#75](https://github.com/dgreif/ring/issues/75)
 
-## [4.5.0](https://github.com/dgreif/ring/compare/v4.4.1...v4.5.0) - 2019-07-28
+## [4.5.0](https://github.com/dgreif/ring/compare/v4.4.1...v4.5.0) (2019-07-28)
 
 ### Features
 
@@ -2324,7 +2324,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 
 - use correct `to` for sip response to keep stream alive ([c205ab2](https://github.com/dgreif/ring/commit/c205ab2))
 
-## [4.4.0](https://github.com/dgreif/ring/compare/v4.3.2...v4.4.0) - 2019-07-27
+## [4.4.0](https://github.com/dgreif/ring/compare/v4.3.2...v4.4.0) (2019-07-27)
 
 ### Features
 
@@ -2344,7 +2344,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 - **homebridge:** log errors from stream prep ([9c268b8](https://github.com/dgreif/ring/commit/9c268b8))
 - **homebridge:** use random open ports for RTP proxy ([f55b1ee](https://github.com/dgreif/ring/commit/f55b1ee))
 
-## [4.3.0](https://github.com/dgreif/ring/compare/v4.2.3...v4.3.0) - 2019-07-26
+## [4.3.0](https://github.com/dgreif/ring/compare/v4.2.3...v4.3.0) (2019-07-26)
 
 ### Features
 
@@ -2364,13 +2364,13 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 
 - handle 401 response for sessions ([49b7f38](https://github.com/dgreif/ring/commit/49b7f38))
 
-## [4.2.0](https://github.com/dgreif/ring/compare/v4.1.0...v4.2.0) - 2019-07-16
+## [4.2.0](https://github.com/dgreif/ring/compare/v4.1.0...v4.2.0) (2019-07-16)
 
 ### Features
 
 - ring-auth-cli for 2fa refresh token ([69c6a3e](https://github.com/dgreif/ring/commit/69c6a3e)), closes [#39](https://github.com/dgreif/ring/issues/39)
 
-## [4.1.0](https://github.com/dgreif/ring/compare/v4.0.7...v4.1.0) - 2019-07-16
+## [4.1.0](https://github.com/dgreif/ring/compare/v4.0.7...v4.1.0) (2019-07-16)
 
 ### Features
 
@@ -2423,7 +2423,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 
 - update dependencies to remove lodash vulnerability ([fb88070](https://github.com/dgreif/ring/commit/fb88070))
 
-## [4.0.0](https://github.com/dgreif/ring/compare/v3.9.0...v4.0.0) - 2019-07-12
+## [4.0.0](https://github.com/dgreif/ring/compare/v3.9.0...v4.0.0) (2019-07-12)
 
 ### Bug Fixes
 
@@ -2439,7 +2439,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 - `homebridge-ring-alarm` renamed to `homebridge-ring`. The config for homebridge should now be `"platform": "Ring"` instead of `"platform": "RingAlarm"`. This config change will happen automatically the first time you start homebridge with the new version, but it will cause homebridge to error out after the config is changed. You will see a log that the config has changed and you can restart homebridge.
 - `@dgreif/ring-alarm` renamed to `ring-client-api`. The exported class is now `RingApi` instead of `RingAlarmApi`. Proper usage now looks like `import { RingApi } from "ring-client-api"`.
 
-## [3.9.0](https://github.com/dgreif/ring/compare/v3.8.1...v3.9.0) - 2019-07-07
+## [3.9.0](https://github.com/dgreif/ring/compare/v3.8.1...v3.9.0) (2019-07-07)
 
 ### Features
 
@@ -2452,7 +2452,7 @@ A huge thank you to @tsightler who did all the discovery and refactor work for s
 
 - **homebridge:** correctly remove existing services based on hide config ([50b9937](https://github.com/dgreif/ring/commit/50b9937))
 
-## [3.8.0](https://github.com/dgreif/ring/compare/v3.7.2...v3.8.0) - 2019-07-05
+## [3.8.0](https://github.com/dgreif/ring/compare/v3.7.2...v3.8.0) (2019-07-05)
 
 ### Features
 
