@@ -5,8 +5,10 @@
 # repository checks before a release is its package.json's "release:check" script (its CI
 # checks, "verify", and anything only a release needs).
 #
-# Publishing a GitHub release (tag v + the version in package.json, notes from the CHANGELOG)
-# publishes that version to npm. "Run workflow" with a release's tag publishes a release that
+# Publishing a GitHub release (tag v + the version in package.json) publishes that version to npm.
+# A release published with no notes gets this version's CHANGELOG section ("## 1.2.0 - date", "## [1.2.0]" or "## 1.2.0 (date)") as
+# its notes, so they needn't be pasted. A stable version older than npm's "latest" (a fix for an
+# older major, or releases published out of order) never moves "latest" back: it gets "previous". "Run workflow" with a release's tag publishes a release that
 # already exists (one created before this workflow ran, or whose run failed).
 #
 # "build" checks and packs the release's code with no access to npm or to the release. "attach"
@@ -33,7 +35,40 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  notes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write   # to fill in the release's notes; this job runs no repository or npm code
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+          persist-credentials: false
+          sparse-checkout: CHANGELOG.md
+          sparse-checkout-cone-mode: false
+      - name: Notes from the CHANGELOG, when the release has none
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: |
+          body="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body)" \
+            || { echo "::error::There is no release $TAG: create and publish it on GitHub first."; exit 1; }
+          if [ -n "$(printf '%s' "$body" | tr -d '[:space:]')" ]; then echo "The release has notes."; exit 0; fi
+          version="${TAG#v}"
+          # The lines after "## <version>" up to the next "## "
+          awk -v v="$version" '
+            /^## / { if (found) exit; split($0, a, " "); h = a[2]; gsub(/^\[|\]$/, "", h); sub(/^v/, "", h); if (h == v) { found = 1; next } }
+            found { print }
+          ' CHANGELOG.md > notes.md
+          if [ -z "$(tr -d '[:space:]' < notes.md)" ]; then
+            echo "::error::The release has no notes, and CHANGELOG.md has no \"## $version\" section to take them from."; exit 1
+          fi
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file notes.md
+          echo "Notes added from CHANGELOG.md:"; cat notes.md
+
   build:
+    needs: notes
     runs-on: ubuntu-latest
     timeout-minutes: 40
     outputs:
@@ -150,4 +185,17 @@ jobs:
             *-*)             dist=beta ;;
             *)               dist=latest ;;
           esac
+          # Never move "latest" back to an older version
+          if [ "$dist" = latest ]; then
+            name="$(tar -xOzf ./*.tgz package/package.json | node -p 'JSON.parse(require("fs").readFileSync(0)).name')"
+            current="$(npm view "$name" dist-tags.latest 2>/dev/null || true)"
+            if [ -n "$current" ] && node -e '
+              const n = (v) => v.split(".").map(Number);
+              const [a, b] = [n(process.argv[1]), n(process.argv[2])];
+              for (let i = 0; i < 3; i++) { if (a[i] !== b[i]) process.exit(a[i] < b[i] ? 0 : 1); }
+              process.exit(1);' "$VERSION" "$current"; then
+              echo "npm's latest is $current, newer than $VERSION: publishing $VERSION as \"previous\"."
+              dist=previous
+            fi
+          fi
           npm publish ./*.tgz --access public --tag "$dist"
