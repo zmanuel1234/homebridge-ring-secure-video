@@ -4,8 +4,10 @@
 
 # homebridge-ring-secure-video
 
-[![npm](https://badgen.net/npm/v/homebridge-ring-secure-video)](https://www.npmjs.com/package/homebridge-ring-secure-video)
-[![npm](https://badgen.net/npm/dt/homebridge-ring-secure-video)](https://www.npmjs.com/package/homebridge-ring-secure-video)
+[![npm](https://img.shields.io/npm/v/homebridge-ring-secure-video)](https://www.npmjs.com/package/homebridge-ring-secure-video)
+[![npm downloads](https://img.shields.io/npm/dt/homebridge-ring-secure-video)](https://www.npmjs.com/package/homebridge-ring-secure-video)
+[![CI](https://github.com/zmanuel1234/homebridge-ring-secure-video/actions/workflows/ci.yml/badge.svg)](https://github.com/zmanuel1234/homebridge-ring-secure-video/actions/workflows/ci.yml)
+[![license](https://img.shields.io/github/license/zmanuel1234/homebridge-ring-secure-video)](LICENSE)
 [![Sponsor](https://img.shields.io/badge/Sponsor-zmanuel1234-EA4AAA?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/zmanuel1234)
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-zmanuel-FFDD00?logo=buymeacoffee&logoColor=black)](https://www.buymeacoffee.com/zmanuel)
 

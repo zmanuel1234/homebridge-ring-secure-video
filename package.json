@@ -2,7 +2,7 @@
   "name": "homebridge-ring-secure-video",
   "displayName": "Ring Secure Video",
   "version": "1.3.7",
-  "description": "Homebridge plugin for Ring devices with HomeKit Secure Video recording, based on homebridge-ring and homebridge-ring-hksv",
+  "description": "Ring in HomeKit with HomeKit Secure Video recording: doorbells, cameras, alarm, sensors, locks and lights. One plugin that replaces homebridge-ring.",
   "type": "module",
   "main": "./lib/index.js",
   "exports": "./lib/index.js",
@@ -92,7 +92,12 @@
     "category-lighting",
     "category-video",
     "category-hubs",
-    "category-outdoor"
+    "category-outdoor",
+    "ring-doorbell",
+    "ring-alarm",
+    "ring-camera",
+    "home-security",
+    "lock"
   ],
   "allowScripts": {
     "ffmpeg-for-homebridge@2.2.2": true,
