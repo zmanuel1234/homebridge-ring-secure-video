@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { setFfmpegPath } from 'ring-client-api/ffmpeg'
 import { useLogger } from 'ring-client-api/util'
-import { FFMPEG_PROBE_RETRY_MS, getFfmpegCapabilities } from '../lib/ffmpeg-capabilities.js'
+import { FFMPEG_PROBE_RETRY_MS, getFfmpegCapabilities } from '../dist/ffmpeg-capabilities.js'
 
 // Its own file: the check is cached per process, so this needs to be its first caller.
 test('a check that fails is logged once and tried again a few minutes later', async (t) => {

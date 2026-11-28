@@ -2,8 +2,8 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { BehaviorSubject } from 'rxjs'
 import * as hapNodejs from '@homebridge/hap-nodejs'
-import { setHap } from '../lib/hap.js'
-import { Chime } from '../lib/chime.js'
+import { setHap } from '../dist/hap.js'
+import { Chime } from '../dist/chime.js'
 
 setHap(hapNodejs)
 

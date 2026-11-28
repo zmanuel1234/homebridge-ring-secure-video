@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
-import { createRefreshTokenSaver, hasRingRefreshToken } from '../lib/ring-platform.js'
+import { createRefreshTokenSaver, hasRingRefreshToken } from '../dist/ring-platform.js'
 
 async function withConfig(platform, run) {
   const dir = await mkdtemp(join(tmpdir(), 'ring-token-'))

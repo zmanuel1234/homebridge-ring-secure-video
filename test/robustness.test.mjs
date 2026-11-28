@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { ManagedFfmpegProcess } from '../lib/managed-ffmpeg-process.js'
-import { CameraSource } from '../lib/camera-source.js'
+import { ManagedFfmpegProcess } from '../dist/managed-ffmpeg-process.js'
+import { CameraSource } from '../dist/camera-source.js'
 
 test('more ffmpeg errors after the first, or errors on its output, do not crash the bridge', async () => {
   const errors = []

@@ -5,9 +5,9 @@ import { BehaviorSubject } from 'rxjs'
 // other tests): rxjs's debounceTime schedules with setInterval and Date.
 import { intervalProvider } from 'rxjs/internal/scheduler/intervalProvider'
 import * as hapNodejs from '@homebridge/hap-nodejs'
-import { setHap } from '../lib/hap.js'
-import { Fan } from '../lib/fan.js'
-import { LEVEL_TARGET_TIMEOUT_MS } from '../lib/base-data-accessory.js'
+import { setHap } from '../dist/hap.js'
+import { Fan } from '../dist/fan.js'
+import { LEVEL_TARGET_TIMEOUT_MS } from '../dist/base-data-accessory.js'
 
 setHap(hapNodejs)
 

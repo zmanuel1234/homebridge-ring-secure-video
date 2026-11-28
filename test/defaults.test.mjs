@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
-import { isHksvEnabled } from '../lib/camera-source.js'
-import { normalizeMediaConfig } from '../lib/media-config.js'
+import { isHksvEnabled } from '../dist/camera-source.js'
+import { normalizeMediaConfig } from '../dist/media-config.js'
 
 const schema = JSON.parse(await readFile(new URL('../config.schema.json', import.meta.url), 'utf8'))
 

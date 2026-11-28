@@ -2,9 +2,9 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { BehaviorSubject } from 'rxjs'
 import * as hapNodejs from '@homebridge/hap-nodejs'
-import { setHap } from '../lib/hap.js'
-import { Switch } from '../lib/switch.js'
-import { SET_VALUE_SHOWN_MS } from '../lib/base-data-accessory.js'
+import { setHap } from '../dist/hap.js'
+import { Switch } from '../dist/switch.js'
+import { SET_VALUE_SHOWN_MS } from '../dist/base-data-accessory.js'
 
 setHap(hapNodejs)
 
@@ -115,7 +115,7 @@ test('a slow confirmation within the hold does not flip the switch back', async 
 
 // A control that asks Ring for an update on each HomeKit read (as cameras' and chimes' do).
 async function polledSwitch() {
-  const { BaseDataAccessory } = await import('../lib/base-data-accessory.js')
+  const { BaseDataAccessory } = await import('../dist/base-data-accessory.js')
   const data = { siren: 'off' },
     onData = new BehaviorSubject(data),
     device = {

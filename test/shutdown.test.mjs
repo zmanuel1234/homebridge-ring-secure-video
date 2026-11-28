@@ -2,8 +2,8 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import * as hapNodejs from '@homebridge/hap-nodejs'
 import { useLogger } from 'ring-client-api/util'
-import { setHap } from '../lib/hap.js'
-import { CameraSource, shutDownCameraSources } from '../lib/camera-source.js'
+import { setHap } from '../dist/hap.js'
+import { CameraSource, shutDownCameraSources } from '../dist/camera-source.js'
 
 setHap(hapNodejs)
 useLogger({ logInfo() {}, logError() {} })

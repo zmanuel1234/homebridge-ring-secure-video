@@ -109,9 +109,12 @@ Without `media.profile`, the profile is `adaptive`, so a config that only had
 
 `media.recording.rateControl` (`vbr` or `cbr`) had no flat setting.
 
-## Installation
+## Requirements
 
-Requires Node.js 22 (22.19 or later), 24 or 26 and Homebridge 2 (2.0.0 or later); tested with 2.5.
+- Node.js 22 (22.19 or later), 24 or 26.
+- Homebridge 2 (2.0.0 or later); tested with 2.5.
+
+## Installation
 
 If you use `homebridge-ring` or `homebridge-ring-hksv`, remove or disable it first: this plugin
 exposes the same Ring devices, and with both running each device shows up twice in the Home app
@@ -130,20 +133,6 @@ To try a beta, install the `beta` tag instead:
 ```bash
 npm i -g homebridge-ring-secure-video@beta
 ```
-
-If running from source:
-
-```bash
-npm install
-npm run build
-```
-
-Before a change is merged, CI runs `npm run verify`: `npm run check` (types), `npm run lint`, `npm run build` and `npm test`, plus
-`node .github/scripts/check-homebridge.mjs` (Homebridge plugin rules) and
-`node .github/scripts/check-config-schema.mjs` (the settings schema, and every JSON example in
-this README). Run `npm run verify` locally to do the same.
-
-Releases are published to npm by GitHub Actions (`.github/workflows/publish.yml`, the same in the author's other plugins) when a GitHub release is published. The tag must be `v` followed by the version in `package.json`, the release needs notes (the CHANGELOG section for the version), and **Set as a pre-release** must be ticked exactly for a version with a `-`. The workflow runs `npm run release:check`, adds the package and its `SHA256SUMS` to the release, and publishes that package with npm's trusted publishing: a `-dev-` version to npm's `dev` tag, any other pre-release to `beta`, a stable version to `latest`. **Run workflow** with a release's tag publishes a release that already exists. CI (`.github/workflows/ci.yml`, also shared) runs `npm run verify` on Node 24 and `npm run test:matrix` on Node 22, 24 and 26. Here, `release:check` also requires a `CHANGELOG.md` section for the version.
 
 ## Basic Configuration
 
@@ -354,6 +343,24 @@ brought no connection it stops ("doesn't restart again until one comes") until a
 phone's Home app connects. Each child bridge keeps its own count, in
 `.ring-secure-video-homekit.json` in the Homebridge storage folder. It can't help when the hub's
 connection is still open but not answering, as above.
+
+## Development
+
+The plugin is written in TypeScript (`src/`) and compiled to `dist/`, which npm builds on `npm ci`; the tests are in `test/`.
+
+```bash
+npm install
+npm run build
+```
+
+Before a change is merged, CI runs `npm run verify`: `npm run check` (types), `npm run lint`, `npm run build` and `npm test`, plus
+`node .github/scripts/check-homebridge.mjs` (Homebridge plugin rules) and
+`node .github/scripts/check-config-schema.mjs` (the settings schema, and every JSON example in
+this README). Run `npm run verify` locally to do the same.
+
+Releases are published to npm by GitHub Actions (`.github/workflows/publish.yml`, the same in the author's other plugins) when a GitHub release is published. The tag must be `v` followed by the version in `package.json`, the release needs notes (the CHANGELOG section for the version), and **Set as a pre-release** must be ticked exactly for a version with a `-`. The workflow runs `npm run release:check`, adds the package and its `SHA256SUMS` to the release, and publishes that package with npm's trusted publishing: a `-dev-` version to npm's `dev` tag, any other pre-release to `beta`, a stable version to `latest`. **Run workflow** with a release's tag publishes a release that already exists. CI (`.github/workflows/ci.yml`, also shared) runs `npm run verify` on Node 24 and `npm run test:matrix` on Node 22, 24 and 26. Here, `release:check` also requires a `CHANGELOG.md` section for the version.
+
+Each version has a section in `CHANGELOG.md`: `## 1.2.3 - date`, an optional one-line summary, then bullets (no Added/Changed/Fixed headings). A release published without notes takes that section as its notes.
 
 ## Disclaimer
 

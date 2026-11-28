@@ -3,14 +3,14 @@ import test from 'node:test'
 import { Subject } from 'rxjs'
 import * as hapNodejs from '@homebridge/hap-nodejs'
 import { RingDevice } from 'ring-client-api'
-import { setHap } from '../lib/hap.js'
+import { setHap } from '../dist/hap.js'
 import {
   CONNECT_GRACE_MS,
   GET_DEVICES_TIMEOUT_MS,
   getRetryDelayMs,
   isPermanentRingError,
   RingPlatform,
-} from '../lib/ring-platform.js'
+} from '../dist/ring-platform.js'
 
 setHap(hapNodejs)
 
@@ -439,7 +439,7 @@ test('a kept accessory that could not be set up shows No Response', async () => 
 })
 
 test('retry delays, permanent errors and error descriptions', async () => {
-  const { describeError } = await import('../lib/ring-platform.js')
+  const { describeError } = await import('../dist/ring-platform.js')
   assert.deepEqual([0, 1, 2, 3, 4, 5, 9].map(getRetryDelayMs), [
     30_000, 60_000, 120_000, 240_000, 480_000, 600_000, 600_000,
   ])
@@ -456,7 +456,7 @@ test('shutting down disconnects from Ring and shuts down the cameras', async () 
     fakeLocation('Home', async () => [contactSensor('door', 'Door', location)]),
   ])
   await platform.connectToApi()
-  const { CameraSource } = await import('../lib/camera-source.js')
+  const { CameraSource } = await import('../dist/camera-source.js')
   const camera = new CameraSource(
     { name: 'Front Door', id: 'cam', operatingOnBattery: false, data: { settings: {} } },
     {},

@@ -9,7 +9,7 @@ import test from 'node:test'
 const root = fileURLToPath(new URL('..', import.meta.url))
 
 // What the check reads: the .js, .ts and .json files of the installed package
-async function builtFiles(dir = join(root, 'lib')) {
+async function builtFiles(dir = join(root, 'dist')) {
   const files = []
   for (const entry of await readdir(dir, { withFileTypes: true })) {
     const path = join(dir, entry.name)

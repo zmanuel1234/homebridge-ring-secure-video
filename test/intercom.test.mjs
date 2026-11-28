@@ -4,8 +4,8 @@ import { BehaviorSubject, Subject } from 'rxjs'
 import * as hapNodejs from '@homebridge/hap-nodejs'
 import { RingCamera } from 'ring-client-api'
 import { useLogger } from 'ring-client-api/util'
-import { setHap } from '../lib/hap.js'
-import { Intercom } from '../lib/intercom.js'
+import { setHap } from '../dist/hap.js'
+import { Intercom } from '../dist/intercom.js'
 
 setHap(hapNodejs)
 useLogger({ logInfo() {}, logError() {} })

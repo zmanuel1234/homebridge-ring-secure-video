@@ -3,14 +3,14 @@ import test from 'node:test'
 import * as hapNodejs from '@homebridge/hap-nodejs'
 import { useLogger } from 'ring-client-api/util'
 import { BehaviorSubject } from 'rxjs'
-import { setHap } from '../lib/hap.js'
+import { setHap } from '../dist/hap.js'
 import {
   ALARM_COMMAND_TIMEOUT_MS,
   ALARM_MODE_GRACE_MS,
   ALARM_TARGET_SETTLE_MS,
   getAlarmTargetSettleMs,
   SecurityPanel,
-} from '../lib/security-panel.js'
+} from '../dist/security-panel.js'
 
 setHap(hapNodejs)
 const { SecuritySystemTargetState: State, SecuritySystemCurrentState: Current } =
