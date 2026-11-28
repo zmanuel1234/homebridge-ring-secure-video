@@ -43,7 +43,7 @@
     "build": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.build.json && node -e \"require('fs').cpSync('src/homebridge-ui/public','dist/homebridge-ui/public',{recursive:true,filter:(src)=>require('path').basename(src)!=='tsconfig.json'})\"",
     "check": "tsc -p .",
     "lint": "oxlint",
-    "test": "npm run build && node --test test/*.test.mjs",
+    "test": "node --import tsx --test test/*.test.ts",
     "prepare": "npm run build",
     "prepublishOnly": "npm run verify",
     "verify": "npm run check && npm run lint && npm run build && npm test && node .github/scripts/check-homebridge.mjs && node .github/scripts/check-config-schema.mjs",
