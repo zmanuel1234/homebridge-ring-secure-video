@@ -13,8 +13,8 @@
     "noFallthroughCasesInSwitch": true,
     "types": ["node"],
     "skipLibCheck": true,
-    "outDir": "lib"
+    "rootDir": "src",
+    "outDir": "dist"
   },
-  "include": ["**/*.ts"],
-  "exclude": ["lib"]
+  "include": ["src/**/*.ts"]
 }

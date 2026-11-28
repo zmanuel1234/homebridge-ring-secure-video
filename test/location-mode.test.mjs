@@ -2,8 +2,8 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { BehaviorSubject } from 'rxjs'
 import * as hapNodejs from '@homebridge/hap-nodejs'
-import { setHap } from '../lib/hap.js'
-import { LocationModeSwitch } from '../lib/location-mode-switch.js'
+import { setHap } from '../dist/hap.js'
+import { LocationModeSwitch } from '../dist/location-mode-switch.js'
 
 setHap(hapNodejs)
 const { SecuritySystemTargetState: Target, SecuritySystemCurrentState: Current } =
@@ -155,7 +155,7 @@ test('NIGHT_ARM (handed to the handler) asks Ring for home, and shows as STAY_AR
 test("HomeKit's mode reads answer No Response when Ring hasn't reported a mode yet", async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout', 'setInterval'] })
   const { ReplaySubject } = await import('rxjs')
-  const { LOCATION_MODE_READ_TIMEOUT_MS } = await import('../lib/location-mode-switch.js')
+  const { LOCATION_MODE_READ_TIMEOUT_MS } = await import('../dist/location-mode-switch.js')
   const { location } = setup(t, async () => {})
   const noMode = new ReplaySubject(1) // Ring hasn't answered yet
   location.onLocationMode = noMode

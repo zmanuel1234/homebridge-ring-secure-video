@@ -6,8 +6,8 @@ import { BehaviorSubject, of } from 'rxjs'
 import { intervalProvider } from 'rxjs/internal/scheduler/intervalProvider'
 import * as hapNodejs from '@homebridge/hap-nodejs'
 import { useLogger } from 'ring-client-api/util'
-import { setHap } from '../lib/hap.js'
-import { Thermostat } from '../lib/thermostat.js'
+import { setHap } from '../dist/hap.js'
+import { Thermostat } from '../dist/thermostat.js'
 
 setHap(hapNodejs)
 useLogger({ logInfo() {}, logError() {} })

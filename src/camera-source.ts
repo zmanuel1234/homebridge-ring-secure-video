@@ -65,7 +65,7 @@ import {
 } from './ring-media-ingress.ts'
 import { normalizeMediaConfig } from './media-config.ts'
 
-// The package's media folder, next to lib/. fileURLToPath, not URL.pathname, which keeps %20
+// The package's media folder, next to dist/. fileURLToPath, not URL.pathname, which keeps %20
 // for a space and gives /C:/... on Windows.
 const mediaDirectory = path.join(fileURLToPath(new URL('.', import.meta.url)), '..', 'media'),
   readFileAsync = promisify(readFile),

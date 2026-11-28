@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { createRingLogger } from '../lib/ring-logger.js'
+import { createRingLogger } from '../dist/ring-logger.js'
 
 function fakeLog() {
   const lines = []

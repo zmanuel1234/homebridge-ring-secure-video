@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { PUSH_HEARTBEAT_INTERVAL_MS, withPushHeartbeat } from '../lib/push-receiver-fix.js'
+import { PUSH_HEARTBEAT_INTERVAL_MS, withPushHeartbeat } from '../dist/push-receiver-fix.js'
 
 // A stand-in for push-receiver's PushReceiver that keeps the config it was given.
 class FakePushReceiver {

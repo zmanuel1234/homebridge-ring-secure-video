@@ -3,9 +3,9 @@ import test from 'node:test'
 import { Subject } from 'rxjs'
 import * as hapNodejs from '@homebridge/hap-nodejs'
 import { useLogger } from 'ring-client-api/util'
-import { setHap } from '../lib/hap.js'
-import { Camera, getUsableSnapshotUuid, SNAPSHOT_NOTIFICATION_WAIT_MS } from '../lib/camera.js'
-import { CameraSource } from '../lib/camera-source.js'
+import { setHap } from '../dist/hap.js'
+import { Camera, getUsableSnapshotUuid, SNAPSHOT_NOTIFICATION_WAIT_MS } from '../dist/camera.js'
+import { CameraSource } from '../dist/camera-source.js'
 
 setHap(hapNodejs)
 useLogger({ logInfo() {}, logError() {} })

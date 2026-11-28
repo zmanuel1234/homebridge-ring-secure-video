@@ -10,7 +10,7 @@
 // ESLint's no-dupe-args and no-octal, which oxlint lacks, come from .github/oxlint/sloppy-mode-rules.mjs.
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "ignorePatterns": ["node_modules/**", "lib/**", "release-*/**", "build/**", "json-data/**", ".turbo/**", ".homebridge/**"], // this repository: node_modules/** and its own build output
+  "ignorePatterns": ["node_modules/**", "dist/**", "release-*/**", "build/**", "json-data/**", ".turbo/**", ".homebridge/**"], // this repository: node_modules/** and its own build output
   "jsPlugins": ["./.github/oxlint/sloppy-mode-rules.mjs"],
   "env": { "builtin": true, "node": true },
   "options": { "typeAware": true, "reportUnusedDisableDirectives": "error", "maxWarnings": 0 },

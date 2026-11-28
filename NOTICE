@@ -1,0 +1,13 @@
+homebridge-ring-secure-video
+Copyright 2026 Manuel Zamfir
+
+This product builds on:
+
+- homebridge-ring (https://github.com/dgreif/ring), Copyright (c) 2022 Dusty Greif, under the
+  MIT License (see LICENSE): this plugin's accessory code started from homebridge-ring 14.3.0, and
+  it uses ring-client-api from npm as a dependency.
+- homebridge-ring-hksv (https://github.com/trinityhades/homebridge-ring-hksv) by trinityhades:
+  this plugin continues from its version 15.0.2 (the HKSV recording pipeline, Ring Intercom Video).
+
+Changes since then are listed in CHANGELOG.md and in the history of
+https://github.com/zmanuel1234/homebridge-ring-secure-video.

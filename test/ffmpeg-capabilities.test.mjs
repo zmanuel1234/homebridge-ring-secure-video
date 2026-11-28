@@ -11,8 +11,8 @@ import {
   getUsableEncoders,
   getV4l2DeviceNames,
   isV4l2VideoEncoder,
-} from '../lib/ffmpeg-capabilities.js'
-import { hksvCodecNeedsCapabilities, selectHksvVideoCodec } from '../lib/hksv-options.js'
+} from '../dist/ffmpeg-capabilities.js'
+import { hksvCodecNeedsCapabilities, selectHksvVideoCodec } from '../dist/hksv-options.js'
 
 const listed = new Set(['libx264', 'h264_v4l2m2m', 'h264_videotoolbox'])
 const pi4 = ['bcm2835-codec-decode', 'bcm2835-codec-encode', 'bcm2835-codec-isp']

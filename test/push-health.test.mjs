@@ -5,17 +5,17 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Subject } from 'rxjs'
 import * as hapNodejs from '@homebridge/hap-nodejs'
-import { setHap } from '../lib/hap.js'
+import { setHap } from '../dist/hap.js'
 import { intervalProvider } from 'rxjs/internal/scheduler/intervalProvider'
-import { getHistoryMotionEvents } from '../lib/camera.js'
+import { getHistoryMotionEvents } from '../dist/camera.js'
 import {
   MAX_REFRESHES_WITHOUT_PUSH,
   PushHealthMonitor,
   readPushRecoveryState,
-} from '../lib/push-health.js'
-import { getSavedPlatformConfig, RingPlatform } from '../lib/ring-platform.js'
-import { isChildBridge } from '../lib/config.js'
-import { SessionRefreshSensor } from '../lib/session-refresh-sensor.js'
+} from '../dist/push-health.js'
+import { getSavedPlatformConfig, RingPlatform } from '../dist/ring-platform.js'
+import { isChildBridge } from '../dist/config.js'
+import { SessionRefreshSensor } from '../dist/session-refresh-sensor.js'
 
 setHap(hapNodejs)
 

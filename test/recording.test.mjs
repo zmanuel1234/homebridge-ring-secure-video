@@ -11,14 +11,14 @@ import {
   getMaxRecordingSeconds,
   getReturnAudioPrepareStreamRequest,
   HKSV_RECORDING_MOVFLAGS,
-} from '../lib/camera-source.js'
-import { addMotionWatchdog } from '../lib/camera.js'
-import { FragmentedMp4Parser } from '../lib/fragmented-mp4-parser.js'
-import { ResourceGovernor } from '../lib/hksv-work-queue.js'
-import { ManagedFfmpegProcess } from '../lib/managed-ffmpeg-process.js'
-import { normalizeMediaConfig } from '../lib/media-config.js'
-import { RingMediaIngress } from '../lib/ring-media-ingress.js'
-import { setHap } from '../lib/hap.js'
+} from '../dist/camera-source.js'
+import { addMotionWatchdog } from '../dist/camera.js'
+import { FragmentedMp4Parser } from '../dist/fragmented-mp4-parser.js'
+import { ResourceGovernor } from '../dist/hksv-work-queue.js'
+import { ManagedFfmpegProcess } from '../dist/managed-ffmpeg-process.js'
+import { normalizeMediaConfig } from '../dist/media-config.js'
+import { RingMediaIngress } from '../dist/ring-media-ingress.js'
+import { setHap } from '../dist/hap.js'
 
 setHap(hapNodejs)
 
@@ -343,7 +343,7 @@ test('exposes all media recording controls and applies CBR arguments', async () 
 })
 
 test('does not start, and does not crash, without a configuration block', async () => {
-  const { RingPlatform } = await import('../lib/ring-platform.js')
+  const { RingPlatform } = await import('../dist/ring-platform.js')
   const infos = []
   const listeners = []
   const log = { info: (m) => infos.push(m), error() {}, warn() {}, debug() {} }
@@ -356,7 +356,7 @@ test('does not start, and does not crash, without a configuration block', async 
 })
 
 test('starts nothing, and does not crash, with a configuration block but no Ring token', async () => {
-  const { RingPlatform } = await import('../lib/ring-platform.js')
+  const { RingPlatform } = await import('../dist/ring-platform.js')
   const warnings = []
   const handlers = {}
   const log = { info() {}, error() {}, warn: (m) => warnings.push(m), debug() {} }
@@ -401,7 +401,7 @@ test("ring-client-api's push client checks its connection every 60 s and decrypt
 
 test("the push heartbeat isn't applied once ring-client-api's push client is loaded", async () => {
   await import('ring-client-api') // already loaded: too late to replace the class it imported
-  const { applyPushReceiverFix } = await import('../lib/push-receiver-fix.js')
+  const { applyPushReceiverFix } = await import('../dist/push-receiver-fix.js')
   assert.equal(applyPushReceiverFix().result, 'already-loaded')
 })
 
@@ -409,7 +409,7 @@ test('a plugin update does not force a Ring push or session refresh', async () =
   const { mkdtemp, writeFile, readFile: read, rm } = await import('node:fs/promises')
   const { tmpdir } = await import('node:os')
   const { join } = await import('node:path')
-  const { RingPlatform } = await import('../lib/ring-platform.js')
+  const { RingPlatform } = await import('../dist/ring-platform.js')
   const dir = await mkdtemp(join(tmpdir(), 'ring-update-'))
   const configPath = join(dir, 'config.json')
   const platformConfig = {
@@ -644,9 +644,9 @@ test('marks the last fragment of a recording as the end of the stream', async ()
 
 test('drives the separate notification motion sensor from the camera motion events', async () => {
   const hapNodejs = await import('@homebridge/hap-nodejs')
-  const { setHap } = await import('../lib/hap.js')
+  const { setHap } = await import('../dist/hap.js')
   const { getMotionNotificationSensorUuid, setUpMotionNotificationSensor } = await import(
-    '../lib/motion-notification-sensor.js'
+    '../dist/motion-notification-sensor.js'
   )
   setHap(hapNodejs)
   const { Accessory, Characteristic, Service, uuid } = hapNodejs

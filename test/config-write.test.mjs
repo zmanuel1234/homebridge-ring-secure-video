@@ -16,7 +16,7 @@ import { syncBuiltinESMExports } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
-import { getSystemId, updateHomebridgeConfig, writeFileAtomic } from '../lib/config.js'
+import { getSystemId, updateHomebridgeConfig, writeFileAtomic } from '../dist/config.js'
 
 async function inTempDir(run) {
   const dir = await mkdtemp(join(tmpdir(), 'ring-write-'))

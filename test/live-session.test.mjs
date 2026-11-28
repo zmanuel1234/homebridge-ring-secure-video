@@ -3,8 +3,8 @@ import test from 'node:test'
 import { Subject, Subscription } from 'rxjs'
 import * as hapNodejs from '@homebridge/hap-nodejs'
 import { useLogger } from 'ring-client-api/util'
-import { setHap } from '../lib/hap.js'
-import { CameraSource } from '../lib/camera-source.js'
+import { setHap } from '../dist/hap.js'
+import { CameraSource } from '../dist/camera-source.js'
 
 setHap(hapNodejs)
 useLogger({ logInfo() {}, logError() {} })

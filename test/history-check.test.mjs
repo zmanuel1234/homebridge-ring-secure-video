@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { Subject } from 'rxjs'
 import { intervalProvider } from 'rxjs/internal/scheduler/intervalProvider'
-import { getHistoryMotionEvents } from '../lib/camera.js'
+import { getHistoryMotionEvents } from '../dist/camera.js'
 
 // rxjs times with setInterval; Node 20's mocked setInterval runs an interval once more after it
 // was cleared. So rxjs gets intervals built from the mocked setTimeout, for these tests only.

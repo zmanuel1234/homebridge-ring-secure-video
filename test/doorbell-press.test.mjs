@@ -6,13 +6,13 @@ import { RingCamera } from 'ring-client-api'
 // other motion tests).
 import { intervalProvider } from 'rxjs/internal/scheduler/intervalProvider'
 import * as hapNodejs from '@homebridge/hap-nodejs'
-import { setHap } from '../lib/hap.js'
+import { setHap } from '../dist/hap.js'
 import {
   addDoorbellPressMotion,
   addMotionWatchdog,
   Camera,
   getPushMotionEvents,
-} from '../lib/camera.js'
+} from '../dist/camera.js'
 
 setHap(hapNodejs)
 

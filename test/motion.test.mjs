@@ -3,7 +3,7 @@ import test from 'node:test'
 import { Subject } from 'rxjs'
 import { RingCamera } from 'ring-client-api'
 import { intervalProvider } from 'rxjs/internal/scheduler/intervalProvider'
-import { addMotionWatchdog, getPushMotionEvents, MOTION_WATCHDOG_MS } from '../lib/camera.js'
+import { addMotionWatchdog, getPushMotionEvents, MOTION_WATCHDOG_MS } from '../dist/camera.js'
 
 // rxjs times with setInterval; Node 20's mocked setInterval runs an interval once more after it
 // was cleared ("executing a cancelled action"). So rxjs gets intervals built from the mocked

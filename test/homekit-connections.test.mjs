@@ -12,12 +12,12 @@ import {
   readHomeKitRestartState,
   HomeKitConnectionMonitor,
   readHomeKitConnections,
-} from '../lib/homekit-connections.js'
+} from '../dist/homekit-connections.js'
 import * as hapNodejs from '@homebridge/hap-nodejs'
-import { setHap } from '../lib/hap.js'
-import { RingPlatform } from '../lib/ring-platform.js'
-import { isChildBridge } from '../lib/config.js'
-import { hksvRecordingQueue } from '../lib/hksv-work-queue.js'
+import { setHap } from '../dist/hap.js'
+import { RingPlatform } from '../dist/ring-platform.js'
+import { isChildBridge } from '../dist/config.js'
+import { hksvRecordingQueue } from '../dist/hksv-work-queue.js'
 
 setHap(hapNodejs)
 

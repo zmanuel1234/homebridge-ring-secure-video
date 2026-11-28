@@ -4,10 +4,10 @@ import { createRequire } from 'node:module'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { encryptedPush } from './push-message.mjs'
 
-await import('../lib/index.js')
-const { pushReceiverFix } = await import('../lib/push-receiver-fix.js')
+await import('../dist/index.js')
+const { pushReceiverFix } = await import('../dist/push-receiver-fix.js')
 
-const own = createRequire(fileURLToPath(new URL('../lib/push-receiver-fix.js', import.meta.url)))
+const own = createRequire(fileURLToPath(new URL('../dist/push-receiver-fix.js', import.meta.url)))
 const ring = createRequire(own.resolve('ring-client-api'))
 // the module ring-client-api's `import { PushReceiver } from '@eneris/push-receiver'` gets
 const loaded = await import(pathToFileURL(ring.resolve('@eneris/push-receiver')).href)

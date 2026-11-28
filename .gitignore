@@ -1,20 +1,11 @@
-lib
-node_modules
-.idea
-.DS_Store
-.env
-json-data
-yarn.lock
-.homebridge
-.hoobs
-.turbo
-.gitattributes
+# Shared by the author's plugins (the same block in all of them).
+node_modules/
+dist/
 *.tgz
+*.log
+.DS_Store
 
-# GitShift personal account configuration
-**/github-accounts.json
-
-# Shared by the author's five plugins: never commit secrets, tokens or keys.
+# Never commit secrets, tokens or keys.
 .env
 .env.*
 .npmrc
@@ -22,3 +13,13 @@ yarn.lock
 *.key
 *.p12
 *.pfx
+
+# ---- This repository ----
+.idea
+json-data
+yarn.lock
+.homebridge
+.hoobs
+.turbo
+.gitattributes
+**/github-accounts.json

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
-import { normalizeMediaConfig, sanitizeMediaConfig } from '../lib/media-config.js'
+import { normalizeMediaConfig, sanitizeMediaConfig } from '../dist/media-config.js'
 
 const schema = JSON.parse(await readFile(new URL('../config.schema.json', import.meta.url), 'utf8'))
 const mediaSchema = schema.schema.properties.media.properties
@@ -106,7 +106,7 @@ test('a media block that is not an object is ignored as a whole', () => {
 })
 
 test('the plugin starts, with a warning, when a media setting cannot be used', async () => {
-  const { RingPlatform } = await import('../lib/ring-platform.js')
+  const { RingPlatform } = await import('../dist/ring-platform.js')
   const warnings = []
   const log = { info() {}, error() {}, warn: (m) => warnings.push(m), debug() {} }
   const api = { on() {}, user: { configPath: () => '/nonexistent/config.json', storagePath: () => '/nonexistent' } }

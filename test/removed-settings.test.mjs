@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
-import { getRemovedSettings, removedMediaSettings } from '../lib/media-config.js'
+import { getRemovedSettings, removedMediaSettings } from '../dist/media-config.js'
 
 const schema = JSON.parse(await readFile(new URL('../config.schema.json', import.meta.url), 'utf8'))
 const media = schema.schema.properties.media

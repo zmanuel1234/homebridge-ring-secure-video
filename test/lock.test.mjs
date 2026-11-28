@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import * as hapNodejs from '@homebridge/hap-nodejs'
-import { setHap } from '../lib/hap.js'
-import { Lock, LOCK_TARGET_TIMEOUT_MS } from '../lib/lock.js'
+import { setHap } from '../dist/hap.js'
+import { Lock, LOCK_TARGET_TIMEOUT_MS } from '../dist/lock.js'
 
 setHap(hapNodejs)
 const { LockTargetState: Target } = hapNodejs.Characteristic

@@ -33,12 +33,12 @@ test("talk-back's ffmpeg failing to start is caught where camera-source.ts liste
 test('live view with a talk-back ffmpeg that cannot start fails cleanly instead of crashing', async () => {
   const { Subject, Subscription } = await import('rxjs')
   const hapNodejs = await import('@homebridge/hap-nodejs')
-  const { setHap } = await import('../lib/hap.js')
+  const { setHap } = await import('../dist/hap.js')
   setHap(hapNodejs)
   const { setFfmpegPath } = await import('ring-client-api/ffmpeg')
   setFfmpegPath('/nonexistent/ffmpeg')
-  const { CameraSource } = await import('../lib/camera-source.js')
-  const { hksvRecordingQueue } = await import('../lib/hksv-work-queue.js')
+  const { CameraSource } = await import('../dist/camera-source.js')
+  const { hksvRecordingQueue } = await import('../dist/hksv-work-queue.js')
 
   let released = 0
   const lease = {

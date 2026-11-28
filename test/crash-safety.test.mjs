@@ -4,8 +4,8 @@ import test from 'node:test'
 import { of } from 'rxjs'
 import * as hapNodejs from '@homebridge/hap-nodejs'
 import { useLogger } from 'ring-client-api/util'
-import { setHap } from '../lib/hap.js'
-import '../lib/ring-platform.js'
+import { setHap } from '../dist/hap.js'
+import '../dist/ring-platform.js'
 
 setHap(hapNodejs)
 
@@ -32,7 +32,7 @@ test('an error thrown in an rxjs subscriber is logged instead of stopping Homebr
 test('a packet that is not RTP on the live view audio port is dropped', async (t) => {
   const errors = captureErrors(t)
   const { Subject, Subscription } = await import('rxjs')
-  const { CameraSource } = await import('../lib/camera-source.js')
+  const { CameraSource } = await import('../dist/camera-source.js')
 
   // A real live view session, from prepareStream, as in talkback.test.mjs.
   const lease = {
