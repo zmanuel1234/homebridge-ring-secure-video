@@ -1,0 +1,621 @@
+import assert from 'node:assert/strict'
+import test, { type TestContext } from 'node:test'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { Subject } from 'rxjs'
+import * as hapNodejs from '@homebridge/hap-nodejs'
+import { setHap } from '../src/hap.js'
+import { getHistoryMotionEvents } from '../src/camera.js'
+import {
+  MAX_REFRESHES_WITHOUT_PUSH,
+  PushHealthMonitor,
+  readPushRecoveryState,
+} from '../src/push-health.js'
+import { getSavedPlatformConfig, RingPlatform } from '../src/ring-platform.js'
+import { isChildBridge } from '../src/config.js'
+import { SessionRefreshSensor } from '../src/session-refresh-sensor.js'
+import type { API, Logging, PlatformAccessory, PlatformConfig } from 'homebridge'
+import type { RingApi } from 'ring-client-api'
+import { fake, internals, useMockFriendlyIntervals } from './helpers.js'
+
+setHap(hapNodejs)
+
+const minutes = (n: number) => n * 60_000
+const day = minutes(24 * 60)
+
+function storage(t: TestContext) {
+  const dir = mkdtempSync(join(tmpdir(), 'rsv-push-health-'))
+  t.after(() => rmSync(dir, { recursive: true, force: true }))
+  return dir
+}
+const writeState = (dir: string, state: object) =>
+  writeFileSync(join(dir, '.ring-secure-video-push.json'), JSON.stringify(state))
+
+function monitor(t: TestContext, state?: object) {
+  const dir = storage(t),
+    clock = { now: 10 * day },
+    refreshes: number[] = []
+  if (state) writeState(dir, state)
+  const health = new PushHealthMonitor(
+    dir,
+    () => refreshes.push(clock.now),
+    () => clock.now,
+    () => clock.now,
+  )
+  return { dir, clock, refreshes, health }
+}
+
+test('3 unpushed motion events over 30 minutes ask for one session refresh', (t) => {
+  const { dir, clock, refreshes, health } = monitor(t)
+
+  health.recordMissed(1)
+  clock.now += minutes(15)
+  health.recordMissed(1)
+  clock.now += minutes(15)
+  health.recordMissed(1)
+  assert.equal(refreshes.length, 1)
+  assert.deepEqual(readPushRecoveryState(dir), {
+    refreshPending: true,
+    lastRefreshAt: clock.now,
+    refreshesWithoutPush: 1,
+  })
+
+  clock.now += minutes(60)
+  health.recordMissed(5)
+  assert.equal(refreshes.length, 1, 'once per run')
+})
+
+test('misses close together, or with a push in between, do not', (t) => {
+  const { refreshes, clock, health } = monitor(t)
+
+  health.recordMissed(3)
+  clock.now += minutes(29)
+  health.recordMissed(1)
+  assert.equal(refreshes.length, 0, 'one visit can make several events')
+
+  health.recordPush(true)
+  clock.now += minutes(31)
+  health.recordMissed(2)
+  assert.equal(refreshes.length, 0, 'counted again from the push')
+  clock.now += minutes(31)
+  health.recordMissed(1)
+  assert.equal(refreshes.length, 1)
+})
+
+test('at most once a day', (t) => {
+  const start = 10 * day,
+    { refreshes, clock, health } = monitor(t, {
+      lastRefreshAt: start - minutes(60),
+      refreshesWithoutPush: 1,
+    })
+
+  health.recordMissed(2)
+  clock.now += minutes(30)
+  health.recordMissed(1)
+  assert.equal(refreshes.length, 0)
+  clock.now = start - minutes(60) + day
+  health.recordMissed(1)
+  assert.equal(refreshes.length, 1)
+})
+
+test(`no more after ${MAX_REFRESHES_WITHOUT_PUSH} refreshes that brought no push, until a push arrives`, (t) => {
+  const { dir, refreshes, clock, health } = monitor(t, {
+    lastRefreshAt: 0,
+    refreshesWithoutPush: MAX_REFRESHES_WITHOUT_PUSH,
+  })
+
+  health.recordMissed(2)
+  clock.now += minutes(30)
+  health.recordMissed(1)
+  assert.equal(refreshes.length, 0)
+
+  health.recordPush(false)
+  assert.equal(readPushRecoveryState(dir).refreshesWithoutPush, 2, 'a doorbell push does not')
+  health.recordPush(true)
+  assert.equal(readPushRecoveryState(dir).refreshesWithoutPush, 0)
+})
+
+test('a push drops a refresh still waiting for a restart', (t) => {
+  const { dir, health } = monitor(t, { refreshPending: true, lastRefreshAt: 5, refreshesWithoutPush: 1 })
+
+  health.recordPush(false)
+  assert.deepEqual(readPushRecoveryState(dir), {
+    refreshPending: false,
+    lastRefreshAt: 5,
+    refreshesWithoutPush: 1,
+  })
+})
+
+test('pushes coming back mid-run drop the refresh asked for in this run', (t) => {
+  const { dir, refreshes, clock, health } = monitor(t)
+
+  health.recordPush(true)
+  health.recordMissed(2)
+  clock.now += minutes(30)
+  health.recordMissed(1)
+  assert.equal(refreshes.length, 1)
+  assert.equal(readPushRecoveryState(dir).refreshPending, true)
+  health.recordPush(true)
+  assert.equal(readPushRecoveryState(dir).refreshPending, false)
+})
+
+test("a push does not drop this run's refresh before its token is saved", (t) => {
+  const { dir, health } = monitor(t, { refreshPending: true })
+
+  health.setHoldPending(true)
+  health.recordPush(true)
+  assert.equal(readPushRecoveryState(dir).refreshPending, true)
+})
+
+test('a refresh saved with a clock that was ahead waits at most a day from now', (t) => {
+  const { refreshes, clock, health } = monitor(t, { lastRefreshAt: 20 * day })
+
+  health.recordMissed(2)
+  clock.now += minutes(30)
+  health.recordMissed(1)
+  assert.equal(refreshes.length, 0)
+  clock.now += day
+  health.recordMissed(1)
+  assert.equal(refreshes.length, 1)
+})
+
+test('the history check reports pushes and unpushed motion events', async (t) => {
+  useMockFriendlyIntervals(t, 1_000_000_000_000)
+
+  const startedAt = Date.now(),
+    events: object[] = [],
+    camera: { name: string; onNewNotification: Subject<unknown>; getEvents: () => Promise<{ events: object[] }>; data?: unknown } = {
+      name: 'Front Door',
+      onNewNotification: new Subject(),
+      getEvents: async () => ({ events: [...events].reverse() }),
+    },
+    reported: string[] = []
+  const subscription = getHistoryMotionEvents(fake<Parameters<typeof getHistoryMotionEvents>[0]>(camera), 20, {
+    recordPush: (isMotion) => reported.push(isMotion ? 'motion push' : 'push'),
+    recordMissed: (count) => reported.push(`missed ${count}`),
+  }).subscribe()
+  t.after(() => subscription.unsubscribe())
+  const at = async (seconds: number) => {
+    while (Date.now() - startedAt < seconds * 1000) {
+      t.mock.timers.tick(5000)
+      await new Promise((resolve) => setImmediate(resolve))
+    }
+  }
+
+  await at(25)
+  events.push({ ding_id: 1, ding_id_str: '1', kind: 'motion', created_at: new Date().toISOString() })
+  await at(120)
+  camera.onNewNotification.next({ android_config: { category: 'com.ring.pn.live-event.ding' } })
+  assert.deepEqual(reported, ['missed 1', 'push'])
+
+  const noPerson = (id: number) => ({
+    ding_id: id,
+    ding_id_str: String(id),
+    kind: 'motion',
+    created_at: new Date().toISOString(),
+    cv_properties: { person_detected: false },
+  })
+  // Counted: Ring alerts for all motion, so one without a person should have come too.
+  events.push(noPerson(2))
+  await at(240)
+  assert.deepEqual(reported, ['missed 1', 'push', 'missed 1'])
+
+  // Not counted: no person while Ring alerts for people only, and anything while snoozed.
+  camera.data = { settings: { advanced_motion_detection_human_only_mode: true } }
+  events.push(noPerson(3))
+  await at(360)
+  camera.data = { motion_snooze: { scheduled: false } }
+  events.push({ ding_id: 4, ding_id_str: '4', kind: 'motion', created_at: new Date().toISOString() })
+  await at(480)
+  assert.deepEqual(reported, ['missed 1', 'push', 'missed 1'])
+})
+
+/** A Homebridge accessory as far as the platform uses one here, backed by a real HAP accessory. */
+class TestAccessory {
+  readonly displayName: string
+  readonly UUID: string
+  readonly hap: hapNodejs.Accessory
+  readonly getService: hapNodejs.Accessory['getService']
+  readonly addService: hapNodejs.Accessory['addService']
+  constructor(displayName: string, UUID: string) {
+    this.displayName = displayName
+    this.UUID = UUID
+    this.hap = new hapNodejs.Accessory(displayName, UUID)
+    this.getService = this.hap.getService.bind(this.hap)
+    this.addService = this.hap.addService.bind(this.hap)
+  }
+}
+
+/** A Ring API the test platform created: what it was given, and its token updates. */
+interface CreatedApi {
+  options: ConstructorParameters<typeof RingApi>[0]
+  onRefreshTokenUpdated: Subject<{ oldRefreshToken?: string; newRefreshToken: string }>
+}
+
+/** RingPlatform's private parts these tests use. */
+interface PlatformInternals {
+  pushHealth?: unknown
+  refreshSessionAutomatically(): void
+}
+const reach = (platform: RingPlatform) => internals<PlatformInternals>(platform)
+
+/** Runs the handler Homebridge registered for `event` (it must have one). */
+function fire(events: Record<string, () => void>, event: string) {
+  const handler = events[event]
+  assert.ok(handler, `no ${event} handler`)
+  handler()
+}
+
+/** config.json as the test wrote it, or as the plugin saved it. */
+const readConfig = (path: string) => JSON.parse(readFileSync(path, 'utf8')) as { platforms: Record<string, unknown>[] }
+
+function platform(
+  t: TestContext,
+  {
+    config = {},
+    state,
+    savedToken = 'T0',
+    bridge,
+    saved = {},
+  }: { config?: Record<string, unknown>; state?: object; savedToken?: string; bridge?: { username: string }; saved?: Record<string, unknown> } = {},
+) {
+  const dir = storage(t),
+    created: CreatedApi[] = [],
+    warnings: string[] = [],
+    restarts: boolean[] = []
+  writeFileSync(join(dir, '.ring.json'), JSON.stringify({ systemId: 'old-system-id' }))
+  if (state) writeState(dir, state)
+  const block = {
+    platform: 'Ring Secure Video',
+    refreshToken: savedToken,
+    ...(bridge ? { _bridge: bridge } : {}),
+    ...saved,
+  }
+  writeFileSync(
+    join(dir, 'config.json'),
+    JSON.stringify({ platforms: [{ platform: 'Ring', refreshToken: 'other' }, block] }),
+  )
+  const events: Record<string, () => void> = {},
+    registered: TestAccessory[] = [],
+    api = fake<API>({
+      on: (event: string, handler: () => void) => (events[event] = handler),
+      user: { configPath: () => join(dir, 'config.json'), storagePath: () => dir },
+      platformAccessory: TestAccessory,
+      registerPlatformAccessories: (_p: string, _n: string, accessories: TestAccessory[]) => registered.push(...accessories),
+      unregisterPlatformAccessories() {},
+    })
+  class TestPlatform extends RingPlatform {
+    protected override createRingApi(options: ConstructorParameters<typeof RingApi>[0]) {
+      const onRefreshTokenUpdated: CreatedApi['onRefreshTokenUpdated'] = new Subject()
+      created.push({ options, onRefreshTokenUpdated })
+      return fake<RingApi>({ onRefreshTokenUpdated, getLocations: async () => [], disconnect() {} })
+    }
+    protected override restartChildBridge() {
+      restarts.push(true)
+    }
+  }
+  const log = fake<Logging>({ info() {}, debug() {}, error() {}, warn: (m: string) => warnings.push(m) }),
+    fullConfig: Record<string, unknown> = {
+      platform: 'Ring Secure Video',
+      refreshToken: 'T0',
+      disableLogs: true,
+      // Homebridge removes _bridge from the config it hands a child bridge (see runAs)
+      ...config,
+    }
+  return {
+    dir,
+    created,
+    warnings,
+    restarts,
+    events,
+    registered,
+    config: fullConfig,
+    platform: new TestPlatform(log, fake<ConstructorParameters<typeof RingPlatform>[1]>(fullConfig), api),
+  }
+}
+
+test('a pending automatic refresh gives a new Ring identity, cleared once the token is saved', async (t) => {
+  const { dir, created, platform: p, config, warnings } = platform(t, {
+    state: { refreshPending: true, lastRefreshAt: 5, refreshesWithoutPush: 1 },
+  })
+
+  await p.connectToApi()
+  assert.notEqual(created[0].options.systemId, 'old-system-id')
+  created[0].onRefreshTokenUpdated.next({ oldRefreshToken: 'T0', newRefreshToken: 'T1' })
+  const { refreshDoneAt, ...rest } = readPushRecoveryState(dir)
+  assert.equal(typeof refreshDoneAt, 'number')
+  assert.deepEqual(rest, { refreshPending: false, lastRefreshAt: 5, refreshesWithoutPush: 1 })
+  assert.equal(readConfig(join(dir, 'config.json')).platforms[1]?.refreshToken, 'T1')
+  assert.equal(config.refreshToken, 'T1')
+  assert.match(String(warnings.at(-1)), /Remove the older entry/)
+  created[0].onRefreshTokenUpdated.next({ oldRefreshToken: 'T1', newRefreshToken: 'T2' })
+  assert.equal(warnings.filter((w) => /Remove the older entry/.test(w)).length, 1, 'once')
+  assert.ok((readPushRecoveryState(dir).refreshDoneAt ?? 0) > 0)
+
+  await p.connectToApi()
+  assert.equal(created[1].options.systemId, created[0].options.systemId, 'only once')
+})
+
+test('a refresh whose token could not be saved stays pending, but a retry does not redo it', async (t) => {
+  // config.json holds another token, so the new one can't replace it.
+  const { dir, created, platform: p } = platform(t, {
+    state: { refreshPending: true },
+    savedToken: 'signed-in-again',
+  })
+
+  await p.connectToApi()
+  created[0].onRefreshTokenUpdated.next({ oldRefreshToken: 'T0', newRefreshToken: 'T1' })
+  assert.equal(readPushRecoveryState(dir).refreshPending, true, 'the next start does it again')
+
+  await p.connectToApi()
+  assert.equal(created[1].options.systemId, created[0].options.systemId)
+})
+
+test('with the setting off, a pending refresh is not done, and nothing is watched', async (t) => {
+  const { dir, created, platform: p } = platform(t, {
+    config: { automaticSessionRefresh: false },
+    state: { refreshPending: true },
+  })
+
+  await p.connectToApi()
+  assert.equal(created[0].options.systemId, 'old-system-id')
+  assert.equal(reach(p).pushHealth, undefined)
+  assert.equal(readPushRecoveryState(dir).refreshPending, false, 'not done later on old evidence')
+})
+
+// Homebridge runs a child bridge as a fork of its childBridgeFork.js
+const scripts = new WeakSet<TestContext>()
+function runAs(t: TestContext, script: string) {
+  if (!scripts.has(t)) {
+    // restored once, to what it was before the test
+    scripts.add(t)
+    const saved = process.argv[1]
+    t.after(() => (process.argv[1] = saved))
+  }
+  process.argv[1] = script
+}
+const childScript = '/usr/lib/node_modules/homebridge/dist/childBridgeFork.js',
+  mainScript = '/usr/lib/node_modules/homebridge/bin/homebridge'
+
+test('a child bridge that cannot find its own saved block waits for a restart instead', (t) => {
+  // two unnamed Ring blocks on child bridges: which one is this bridge's can't be told
+  const child = platform(t, { bridge: { username: 'AA' } }),
+    config = readConfig(join(child.dir, 'config.json'))
+  config.platforms.push({ platform: 'Ring Secure Video', refreshToken: 'other', _bridge: { username: 'BB' } })
+  writeFileSync(join(child.dir, 'config.json'), JSON.stringify(config))
+  runAs(t, childScript)
+  reach(child.platform).refreshSessionAutomatically()
+  assert.equal(child.restarts.length, 0)
+  assert.match(String(child.warnings[0]), /give each Ring Secure Video block a name of its own/)
+})
+
+test('a child bridge restarts itself for the refresh; the main bridge waits for a restart', (t) => {
+  const child = platform(t, { bridge: { username: '0E:C2:A3:65:0D:A2' } }),
+    main = platform(t)
+  // hb-service forks the main bridge too, so it has process.send as well
+  const send = process.send
+  process.send = () => true
+  t.after(() => (process.send = send))
+
+  runAs(t, childScript)
+  reach(child.platform).refreshSessionAutomatically()
+  runAs(t, mainScript)
+  reach(main.platform).refreshSessionAutomatically()
+  assert.equal(child.restarts.length, 1)
+  assert.equal(main.restarts.length, 0)
+  assert.match(String(main.warnings[0]), /refreshed the next time Homebridge restarts/)
+
+  runAs(t, childScript)
+  fire(child.events, 'shutdown')
+  reach(child.platform).refreshSessionAutomatically()
+  assert.equal(child.restarts.length, 1, 'not while shutting down')
+})
+
+test('a restarted child bridge uses the token and force settings saved in config.json', async (t) => {
+  runAs(t, childScript)
+  const bridge = { username: '0E:C2:A3:65:0D:A2' },
+    { dir, created, events, config } = platform(t, {
+      bridge,
+      savedToken: 'T5',
+      // Homebridge hands over the settings from its own start; the force setting cleared since.
+      config: { forceRefreshRingApiSession: true },
+      saved: { forceRefreshRingApiSession: false },
+    }),
+    file = join(dir, 'config.json'),
+    homebridgeConfig = readConfig(file)
+  // a Ring block on the main bridge too: not this child bridge's
+  homebridgeConfig.platforms.push({ platform: 'Ring Secure Video', refreshToken: 'M' })
+  writeFileSync(file, JSON.stringify(homebridgeConfig))
+
+  fire(events, 'didFinishLaunching')
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.equal(config.refreshToken, 'T5')
+  assert.equal(created[0].options.refreshToken, 'T5')
+  assert.equal(created[0].options.systemId, 'old-system-id', 'no forced refresh')
+})
+
+test("only this bridge's own block gives the saved token", (t) => {
+  const dir = storage(t),
+    api = fake<API>({ user: { configPath: () => join(dir, 'config.json') } }),
+    block = (token: string, username?: string, name?: string) => ({
+      platform: 'Ring Secure Video',
+      refreshToken: token,
+      ...(name ? { name } : {}),
+      ...(username ? { _bridge: { username } } : {}),
+    }),
+    // as Homebridge hands it over: without _bridge in a child bridge
+    saved = (platforms: object[], child: boolean, config: object = {}) => {
+      writeFileSync(join(dir, 'config.json'), JSON.stringify({ platforms }))
+      return getSavedPlatformConfig(api, fake<PlatformConfig>(config), child)?.refreshToken
+    }
+
+  assert.equal(saved([block('M'), block('A', 'AA')], true), 'A', "child bridge: not the main bridge's")
+  assert.equal(saved([block('M'), block('A', 'AA')], false), 'M', 'main bridge')
+  assert.equal(saved([block('A', 'AA'), block('B', 'BB')], true), undefined, 'two child bridges')
+  assert.equal(
+    saved([block('A', 'AA', 'Home'), block('B', 'BB', 'Office')], true, { name: 'Office' }),
+    'B',
+    'two child bridges, told apart by name',
+  )
+  assert.equal(
+    saved([block('B', 'BB', 'Office')], true, { name: 'Home' }),
+    undefined,
+    "the one block left on a child bridge is another account's",
+  )
+  assert.equal(
+    saved([block('A', 'AA'), block('B', 'BB', 'Office')], true),
+    'A',
+    'unnamed, next to a named one',
+  )
+  assert.equal(saved([block('M'), block('M2')], false), undefined, 'two on the main bridge')
+  assert.equal(saved([block('', 'AA')], true), undefined, 'signed out')
+  assert.equal(
+    saved([{ ...block('p', 'AA'), platform: 'homebridge-ring-secure-video.Ring Secure Video' }], true),
+    'p',
+    'platform named with the plugin',
+  )
+  rmSync(join(dir, 'config.json'))
+  assert.equal(getSavedPlatformConfig(api, fake<PlatformConfig>({}), true), undefined, 'no config.json')
+})
+
+test('isChildBridge tells a child bridge by its script', () => {
+  assert.equal(isChildBridge(childScript), true)
+  assert.equal(isChildBridge('/usr/lib/node_modules/homebridge/lib/childBridgeFork.js'), true)
+  assert.equal(isChildBridge(mainScript), false)
+  assert.equal(isChildBridge(undefined), false)
+})
+
+test('the session refresh sensor opens once the Home app is back after a refresh, and closes a day later', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 100 * day })
+  const { dir, created, registered, platform: p } = platform(t, {
+    config: { sessionRefreshSensor: true },
+    state: { refreshPending: true },
+  })
+  const state = () =>
+    registered[0]?.getService(hapNodejs.Service.ContactSensor)?.getCharacteristic(hapNodejs.Characteristic.ContactSensorState).value
+  const { CONTACT_DETECTED: closed, CONTACT_NOT_DETECTED: open } =
+    hapNodejs.Characteristic.ContactSensorState
+
+  await p.connectToApi()
+  assert.deepEqual(registered.map((a) => a.displayName), ['Ring Session Refreshed'])
+  assert.equal(state(), closed)
+
+  // The new token is saved (here after the set-up; usually before it).
+  created[0].onRefreshTokenUpdated.next({ oldRefreshToken: 'T0', newRefreshToken: 'T1' })
+  t.mock.timers.tick(minutes(3) - 1)
+  assert.equal(state(), closed, 'not before the Home app has seen the bridge again')
+  t.mock.timers.tick(1)
+  assert.equal(state(), open, 'at the latest after 3 minutes')
+  t.mock.timers.tick(day - minutes(3))
+  assert.equal(state(), closed)
+  assert.equal(readPushRecoveryState(dir).refreshPending, false)
+})
+
+test('the session refresh sensor opens 10 s after a home hub subscribes to it', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 100 * day })
+  const { registered, platform: p } = platform(t, {
+    config: { sessionRefreshSensor: true },
+    state: { refreshDoneAt: 100 * day + 1000 },
+  })
+  t.mock.timers.tick(2000)
+  await p.connectToApi()
+  const characteristic = registered[0]?.getService(hapNodejs.Service.ContactSensor)?.getCharacteristic(hapNodejs.Characteristic.ContactSensorState)
+  assert.ok(characteristic)
+
+  t.mock.timers.tick(30_000)
+  characteristic.subscribe()
+  t.mock.timers.tick(9_999)
+  assert.equal(characteristic.value, 0)
+  t.mock.timers.tick(1)
+  assert.equal(characteristic.value, 1)
+})
+
+test('after a restart within the day the sensor opens again; without the setting there is none', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 100 * day })
+  const recent = platform(t, {
+      config: { sessionRefreshSensor: true },
+      state: { refreshDoneAt: 100 * day - minutes(60) },
+    }),
+    old = platform(t, {
+      config: { sessionRefreshSensor: true },
+      state: { refreshDoneAt: 99 * day },
+    }),
+    none = platform(t, { state: { refreshDoneAt: 100 * day - minutes(60) } })
+  const future = platform(t, {
+    config: { sessionRefreshSensor: true },
+    state: { refreshDoneAt: 101 * day },
+  })
+  await recent.platform.connectToApi()
+  await old.platform.connectToApi()
+  await none.platform.connectToApi()
+  await future.platform.connectToApi()
+
+  const value = (accessory: TestAccessory | undefined) =>
+    accessory?.getService(hapNodejs.Service.ContactSensor)?.getCharacteristic(hapNodejs.Characteristic.ContactSensorState).value
+  assert.equal(value(recent.registered[0]), 1, 'open at once: no second notification')
+  assert.equal(value(old.registered[0]), 0)
+  assert.equal(value(future.registered[0]), 0)
+  assert.equal(none.registered.length, 0)
+})
+
+test('session refresh sensor: no needless updates, an already subscribed hub, and stop', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 100 * day })
+  const { CONTACT_DETECTED: closed, CONTACT_NOT_DETECTED: open } =
+    hapNodejs.Characteristic.ContactSensorState
+  const sensor = (cachedValue: number, subscribed = false) => {
+    const accessory = new hapNodejs.Accessory('Ring Session Refreshed', hapNodejs.uuid.generate(String(Math.random())))
+    const characteristic = accessory
+      .addService(hapNodejs.Service.ContactSensor, 'Ring Session Refreshed')
+      .getCharacteristic(hapNodejs.Characteristic.ContactSensorState)
+    characteristic.value = cachedValue
+    if (subscribed) characteristic.subscribe()
+    const changes: unknown[] = []
+    characteristic.on(hapNodejs.CharacteristicEventTypes.CHANGE, ({ newValue }) => changes.push(newValue))
+    return {
+      characteristic,
+      changes,
+      sensor: new SessionRefreshSensor(
+        fake<PlatformAccessory>({ getService: accessory.getService.bind(accessory), addService: accessory.addService.bind(accessory) }),
+        'Ring Session Refreshed',
+        100 * day - 1000, // this run started a second ago
+      ),
+    }
+  }
+
+  // Restarted later that day, cached open: stays open with no update at all.
+  const earlier = sensor(open)
+  earlier.sensor.show(100 * day - minutes(60))
+  assert.deepEqual(earlier.changes, [])
+
+  // A refresh in this run with a hub subscribed before: open 10 s later, once.
+  const subscribed = sensor(closed, true)
+  subscribed.sensor.show(100 * day)
+  subscribed.sensor.show(100 * day)
+  assert.equal(subscribed.characteristic.listenerCount('subscribe'), 0)
+  t.mock.timers.tick(10_000)
+  assert.deepEqual(subscribed.changes, [open])
+
+  // Waiting for a subscriber: show() twice leaves one listener; after stop() nothing opens.
+  const waiting = sensor(closed)
+  waiting.sensor.show(100 * day)
+  waiting.sensor.show(100 * day)
+  assert.equal(waiting.characteristic.listenerCount('subscribe'), 1)
+  waiting.sensor.stop()
+  assert.equal(waiting.characteristic.listenerCount('subscribe'), 0)
+  waiting.characteristic.subscribe()
+  t.mock.timers.tick(minutes(5))
+  assert.deepEqual(waiting.changes, [])
+})
+
+test('a token without a Ring refresh token is not used for reconnecting either', async (t) => {
+  const good = Buffer.from(JSON.stringify({ rt: 'r0' })).toString('base64'),
+    broken = Buffer.from(JSON.stringify({ hid: 'h' })).toString('base64')
+  const { created, platform: p, config } = platform(t, { config: { refreshToken: good }, savedToken: good })
+
+  await p.connectToApi()
+  created[0].onRefreshTokenUpdated.next({ oldRefreshToken: good, newRefreshToken: broken })
+  assert.equal(config.refreshToken, good)
+  await p.connectToApi()
+  assert.equal(created[1].options.refreshToken, good, 'a retry signs in with the working token')
+})

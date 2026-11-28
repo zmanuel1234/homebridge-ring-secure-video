@@ -346,13 +346,13 @@ connection is still open but not answering, as above.
 
 ## Development
 
-The plugin is written in TypeScript (`src/`) and its tests in JavaScript (`test/*.test.mjs`, run
-against the build). It's published as compiled JavaScript (`dist/`), which npm builds on `npm ci`,
-`npm pack` and `npm publish`.
+The plugin and its tests (`test/*.test.ts`) are written in TypeScript. The tests run against the
+sources, except the few that check the built package, which load `dist/`. The plugin is published as
+compiled JavaScript (`dist/`), which npm builds on `npm ci`, `npm pack` and `npm publish`.
 
 ```
 npm ci          # installs and builds
-npm test        # builds, then runs the tests against the build (dist/)
+npm test        # runs the tests (run npm run build first after changing src/)
 npm run check   # type checking
 npm run lint    # oxlint
 npm run build   # build only

@@ -1,0 +1,197 @@
+import assert from 'node:assert/strict'
+import test from 'node:test'
+import { BehaviorSubject, type Observable } from 'rxjs'
+import type { Location } from 'ring-client-api'
+import * as hapNodejs from '@homebridge/hap-nodejs'
+import { setHap } from '../src/hap.js'
+import { LocationModeSwitch } from '../src/location-mode-switch.js'
+import { config, fake, platformAccessory, serviceOf } from './helpers.js'
+
+setHap(hapNodejs)
+const { SecuritySystemTargetState: Target, SecuritySystemCurrentState: Current } =
+  hapNodejs.Characteristic
+
+// A Ring location whose mode changes go to setLocationMode, on a real HAP accessory.
+/** A Ring location, as the plugin uses it (a test can swap its mode stream for another). */
+interface FakeLocation {
+  name: string
+  id: string
+  onLocationMode: Observable<string>
+  getLocationMode: () => Promise<{ mode: string | undefined }>
+  setLocationMode: (mode: string) => Promise<unknown>
+}
+
+/** Ring reports a mode on the location's current mode stream (Ring's BehaviorSubject). */
+const reportMode = (location: FakeLocation, mode: string) => (location.onLocationMode as BehaviorSubject<string>).next(mode)
+
+function setup(t: test.TestContext, setLocationMode: (mode: string) => Promise<unknown>) {
+  const unhandled: unknown[] = []
+  const onUnhandled = (e: unknown) => unhandled.push(e)
+  process.on('unhandledRejection', onUnhandled)
+  t.after(() => process.off('unhandledRejection', onUnhandled))
+
+  const modes = new BehaviorSubject('disarmed'),
+    location: FakeLocation = {
+      name: 'Home',
+      id: 'loc-1',
+      onLocationMode: modes,
+      // the current mode, while the stream is still Ring's (a BehaviorSubject)
+      getLocationMode: async () => ({ mode: (location.onLocationMode as Partial<BehaviorSubject<string>>).value }),
+      setLocationMode,
+    },
+    hap = new hapNodejs.Accessory('Home Mode', hapNodejs.uuid.generate(`mode-${Math.random()}`)),
+    accessory = platformAccessory(hap, 'Home Mode')
+  new LocationModeSwitch(fake<Location>(location), accessory, config({ disableLogs: true }))
+  const service = serviceOf(hap, hapNodejs.Service.SecuritySystem)
+  return {
+    location,
+    modes,
+    unhandled,
+    target: service.getCharacteristic(hapNodejs.Characteristic.SecuritySystemTargetState),
+    current: service.getCharacteristic(hapNodejs.Characteristic.SecuritySystemCurrentState),
+  }
+}
+
+// HomeKit's write: the SET handler as a controller's request reaches it, with HAP's check that
+// the value is one the characteristic allows (only done for a connection). It answers HomeKit at
+// once and talks to Ring afterwards, so it resolves even when Ring then fails.
+const controller = fake<hapNodejs.HAPConnection>({ remoteAddress: 'test', sessionID: 'test' })
+const write = (characteristic: hapNodejs.Characteristic, value: number) => characteristic.handleSetRequest(value, controller)
+// NIGHT_ARM isn't one of the allowed values, so HAP refuses it from a controller and from code
+// alike; these tests hand it straight to the SET handler (as upstream's do) to cover the handler's
+// NIGHT_ARM branch.
+const writeFromCode = (characteristic: hapNodejs.Characteristic, value: number) =>
+  characteristic.emit(hapNodejs.CharacteristicEventTypes.SET, value, () => {}, undefined)
+
+async function settle() {
+  for (let i = 0; i < 10; i++) await new Promise((resolve) => setImmediate(resolve))
+}
+
+function pending() {
+  const calls: { mode: string; resolve: (value?: unknown) => void; reject: (reason: Error) => void }[] = []
+  const setLocationMode = (mode: string) =>
+    new Promise((resolve, reject) => calls.push({ mode, resolve, reject }))
+  return { calls, setLocationMode }
+}
+
+test('a failed mode change is logged, not a crash, and the target goes back to the reported mode', async (t) => {
+  const { target, unhandled, location } = setup(t, async () => {
+    throw new Error('Ring API down')
+  })
+  await write(target, Target.AWAY_ARM)
+  await settle()
+  assert.deepEqual(unhandled, [], 'no unhandled rejection (it would take Homebridge down)')
+  assert.equal(target.value, Target.DISARM, 'back to the mode Ring reports')
+
+  // And the next report from Ring is shown, not held back by a stale target.
+  reportMode(location, 'home')
+  await settle()
+  assert.equal(target.value, Target.STAY_ARM)
+})
+
+test('a failed mode change whose re-read of the mode fails too is logged, not a crash (1.2.1)', async (t) => {
+  const { EMPTY } = await import('rxjs')
+  const { target, unhandled, location } = setup(t, async () => {
+    // Ring unreachable: the change fails, and so does reading the mode again afterwards
+    location.onLocationMode = EMPTY
+    throw new Error('Ring API down')
+  })
+  await write(target, Target.AWAY_ARM)
+  await settle()
+  assert.deepEqual(unhandled, [], 'no unhandled rejection (it would take Homebridge down)')
+})
+
+test('the requested target is kept until Ring reports it, also for STAY_ARM (value 0)', async (t) => {
+  const { calls, setLocationMode } = pending()
+  const { target, current, location } = setup(t, setLocationMode)
+
+  await write(target, Target.STAY_ARM)
+  await settle()
+  assert.deepEqual(calls.map((c) => c.mode), ['home'])
+  reportMode(location, 'away') // another mode reported meanwhile (Ring app, keypad)
+  await settle()
+  assert.equal(target.value, Target.STAY_ARM, 'the pending STAY_ARM target is not overwritten')
+  assert.equal(current.value, Current.AWAY_ARM)
+
+  calls[0].resolve({ mode: 'home' })
+  reportMode(location, 'home')
+  await settle()
+  assert.equal(target.value, Target.STAY_ARM)
+  assert.equal(current.value, Current.STAY_ARM)
+})
+
+test('an older request failing late does not undo a newer one', async (t) => {
+  const { calls, setLocationMode } = pending()
+  const { target } = setup(t, setLocationMode)
+
+  await write(target, Target.AWAY_ARM)
+  await settle()
+  await write(target, Target.STAY_ARM)
+  await settle()
+  assert.deepEqual(calls.map((c) => c.mode), ['away', 'home'])
+
+  calls[0].reject(new Error('Ring API down'))
+  await settle()
+  assert.equal(target.value, Target.STAY_ARM, 'the newer request stays')
+})
+
+test('NIGHT_ARM (handed to the handler) becomes STAY_ARM, but not over a failure that already reset the target', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const { target, unhandled } = setup(t, async () => {
+    throw new Error('Ring API down')
+  })
+  writeFromCode(target, Target.NIGHT_ARM)
+  await settle()
+  assert.equal(target.value, Target.DISARM, 'the failure reset it to the reported mode')
+  t.mock.timers.tick(100) // the delayed NIGHT_ARM → STAY_ARM change
+  await settle()
+  assert.equal(target.value, Target.DISARM)
+  assert.deepEqual(unhandled, [])
+})
+
+test('NIGHT_ARM (handed to the handler) asks Ring for home, and shows as STAY_ARM', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const { calls, setLocationMode } = pending()
+  const { target } = setup(t, setLocationMode)
+  writeFromCode(target, Target.NIGHT_ARM)
+  await settle()
+  assert.deepEqual(calls.map((c) => c.mode), ['home'])
+  t.mock.timers.tick(100)
+  await settle()
+  assert.equal(target.value, Target.STAY_ARM)
+})
+
+test("HomeKit's mode reads answer No Response when Ring hasn't reported a mode yet", async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'setInterval'] })
+  const { ReplaySubject } = await import('rxjs')
+  const { LOCATION_MODE_READ_TIMEOUT_MS } = await import('../src/location-mode-switch.js')
+  const { location } = setup(t, async () => {})
+  const noMode = new ReplaySubject<string>(1) // Ring hasn't answered yet
+  location.onLocationMode = noMode
+  location.getLocationMode = () => new Promise(() => {})
+  // a new accessory on this location, so it reads from the silent subject
+  const hap = new hapNodejs.Accessory('Late Mode', hapNodejs.uuid.generate(`late-${Math.random()}`))
+  new LocationModeSwitch(fake<Location>(location), platformAccessory(hap, 'Late Mode'), config({ disableLogs: true }))
+  const late = serviceOf(hap, hapNodejs.Service.SecuritySystem)
+  for (const characteristic of [Current, Target]) {
+    const read = late.getCharacteristic(characteristic).handleGetRequest()
+    t.mock.timers.tick(LOCATION_MODE_READ_TIMEOUT_MS)
+    // HAP rejects with the status it will report: "No Response"
+    await assert.rejects(read, (status) => status === hapNodejs.HAPStatus.SERVICE_COMMUNICATION_FAILURE)
+  }
+
+  // once Ring reports a mode, reads answer it
+  noMode.next('away')
+  assert.equal(await late.getCharacteristic(Current).handleGetRequest(), Current.AWAY_ARM)
+})
+
+test("Ring's other modes: 'disabled' (modes turned off) and 'unset' (none chosen) show as Disarmed", async (t) => {
+  const { modes, current, target } = setup(t, async () => undefined)
+  for (const mode of ['away', 'disabled', 'home', 'unset']) {
+    modes.next(mode)
+    await settle()
+    const expected = mode === 'away' ? Current.AWAY_ARM : mode === 'home' ? Current.STAY_ARM : Current.DISARMED
+    assert.equal(current.value, expected, mode)
+    assert.equal(target.value, expected === Current.DISARMED ? Target.DISARM : expected, mode)
+  }
+})
