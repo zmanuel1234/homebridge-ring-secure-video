@@ -111,8 +111,7 @@ Without `media.profile`, the profile is `adaptive`, so a config that only had
 
 ## Installation
 
-Requires Node.js 22 (22.19 or later), 24 or 26 and Homebridge 1.8 or later (tested with 2.5; 1.8 is supported but not
-tested).
+Requires Node.js 22 (22.19 or later), 24 or 26 and Homebridge 2 (2.0.0 or later); tested with 2.5.
 
 If you use `homebridge-ring` or `homebridge-ring-hksv`, remove or disable it first: this plugin
 exposes the same Ring devices, and with both running each device shows up twice in the Home app
@@ -179,7 +178,7 @@ environment.
 Tested: complete HomeKit clips from a Ring Video Doorbell 3 Plus on a Raspberry Pi 4 (Node 22,
 Homebridge 2.5) with each of `copy`, `h264_v4l2m2m` and `libx264` (see below). The HKSV fork this
 continues reported 3 cameras on an M4 Mac mini. Not tested here: other Ring cameras, battery
-cameras, Ring Intercom Video, `h264_videotoolbox` and Homebridge 1.8. Please
+cameras, Ring Intercom Video and `h264_videotoolbox`. Please
 [report](https://github.com/zmanuel1234/homebridge-ring-secure-video/issues) how it works with
 your setup.
 
