@@ -39,7 +39,7 @@
   },
   "engines": {
     "node": "^22.19.0 || ^24.0.0 || ^26.0.0",
-    "homebridge": "^1.8.0 || ^2.0.0-beta.0"
+    "homebridge": "^2.0.0"
   },
   "homebridge": {
     "pluginAlias": "Ring Secure Video",
