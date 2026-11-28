@@ -51,21 +51,37 @@ jobs:
       - run: npm ci
       - name: Every installed package is signed by the npm registry
         # npm's registry sometimes answers a signature lookup with a bare "OK" instead of JSON
-        # ("invalid json response body"), and some of its servers keep doing so for minutes. Only
-        # such a failed lookup is retried, up to 6 times over about 8 minutes (15 s, 30 s, 1, 2,
-        # 4 min); a missing or bad signature fails at once.
+        # ("invalid json response body"); for oxlint's platform packages, some of its servers keep
+        # doing so for many minutes. Only such a failed lookup is retried, up to 6 times over about
+        # 8 minutes (15 s, 30 s, 1, 2, 4 min); a missing or bad signature fails at once. If every
+        # failure is still such a lookup, and only for development-only packages (never published
+        # with the plugin; npm ci has already checked their contents against package-lock.json),
+        # the plugin's own dependencies are checked in full and the step passes with a warning.
         run: |
+          network='FETCH_ERROR|invalid json response body|ECONNRESET|ETIMEDOUT|EAI_AGAIN|socket hang up'
           for try in 1 2 3 4 5 6; do
             out="$(npm audit signatures 2>&1)" && { echo "$out"; exit 0; }
             echo "$out"
-            grep -qE 'FETCH_ERROR|invalid json response body|ECONNRESET|ETIMEDOUT|EAI_AGAIN|socket hang up' <<<"$out" || exit 1
+            grep -qE "$network" <<<"$out" || exit 1
             if [ "$try" -lt 6 ]; then
               wait=$((15 * 2 ** (try - 1)))
               echo "::warning::npm's registry didn't answer a signature lookup properly (try $try of 6); retrying in $wait s"
               sleep "$wait"
             fi
           done
-          exit 1
+          # Still failing: which packages couldn't be looked up, and are they all development-only?
+          failed="$(grep -oE 'registry\.npmjs\.org/-/npm/v1/attestations/[^ ]+' <<<"$out" | sed -E 's#.*/attestations/##; s#%2[fF]#/#g; s#@[^@]+$##' | sort -u)"
+          [ -n "$failed" ] || exit 1
+          node -e '
+            const lock = require("./package-lock.json");
+            const runtime = process.argv.slice(1).filter((n) => lock.packages[`node_modules/${n}`]?.dev !== true);
+            if (runtime.length) { console.log(`Not development-only: ${runtime.join(", ")}`); process.exit(1); }
+          ' $failed || exit 1
+          # The plugin's own dependencies, if it has any (npm refuses to check an empty list).
+          if node -e 'const l = require("./package-lock.json"); process.exit(Object.entries(l.packages).some(([k, p]) => k && p.dev !== true) ? 0 : 1)'; then
+            npm audit signatures --omit=dev || exit 1
+          fi
+          echo "::warning::npm's registry kept failing to answer for development-only package(s) $(echo $failed | tr ' ' ','); the plugin's own dependencies were checked in full"
       - name: This repository's checks (package.json "verify")
         run: npm run verify
         env:
