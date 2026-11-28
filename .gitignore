@@ -15,6 +15,14 @@ dist/
 *.pfx
 
 # ---- This repository ----
+# The local Homebridge that `npm run watch` starts (from homebridge/homebridge-plugin-template):
+# only its settings are kept.
+/test/hbConfig/*
+!/test/hbConfig/config.json
+!/test/hbConfig/auth.json
+coverage/
+*.tsbuildinfo
+# Other tools' and the original homebridge-ring's working files.
 .idea
 json-data
 yarn.lock

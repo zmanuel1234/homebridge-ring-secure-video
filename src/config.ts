@@ -21,7 +21,7 @@ import type { Stats } from 'fs'
 import type { API } from 'homebridge'
 import { createHash, randomBytes } from 'crypto'
 import { basename, dirname, join } from 'path'
-import type { MediaConfigInput } from './media-config.ts'
+import type { MediaConfigInput } from './media-config.js'
 
 const systemIdFileName = '.ring.json'
 

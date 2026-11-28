@@ -1,8 +1,8 @@
-import { BaseDeviceAccessory } from './base-device-accessory.ts'
+import { BaseDeviceAccessory } from './base-device-accessory.js'
 import type { RingDevice, RingDeviceData } from 'ring-client-api'
 import { distinctUntilChanged, skip } from 'rxjs/operators'
-import { hap } from './hap.ts'
-import type { RingPlatformConfig } from './config.ts'
+import { hap } from './hap.js'
+import type { RingPlatformConfig } from './config.js'
 import type { PlatformAccessory } from 'homebridge'
 
 // How long a lock/unlock request from HomeKit is shown while waiting for Ring to report it

@@ -2,7 +2,7 @@ import { readFileSync } from 'fs'
 import { performance } from 'perf_hooks'
 import { join } from 'path'
 import { logError, logInfo } from 'ring-client-api/util'
-import { writeFileAtomic } from './config.ts'
+import { writeFileAtomic } from './config.js'
 
 const stateFileName = '.ring-secure-video-push.json'
 /** Motion events in Ring's history with no push notification, since the last push... */

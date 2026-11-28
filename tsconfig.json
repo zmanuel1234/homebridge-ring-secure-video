@@ -1,20 +1,25 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2023", "DOM"],
-    "module": "node16",
-    "esModuleInterop": true,
-    "allowJs": true,
-    "allowImportingTsExtensions": true,
-    "rewriteRelativeImportExtensions": true,
-    "erasableSyntaxOnly": true,
+    "lib": [
+      "DOM",
+      "ES2022"
+    ],
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
     "strict": true,
+    "skipLibCheck": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
     "noImplicitOverride": true,
     "noFallthroughCasesInSwitch": true,
     "types": ["node"],
-    "skipLibCheck": true,
-    "rootDir": "src",
-    "outDir": "dist"
+    "noEmit": true,
+    "newLine": "lf"
   },
-  "include": ["src/**/*.ts"]
+  "include": [
+    "src",
+    "test"
+  ]
 }

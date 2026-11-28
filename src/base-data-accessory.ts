@@ -1,5 +1,5 @@
-import type { CharacteristicType, ServiceType } from './base-accessory.ts'
-import { BaseAccessory } from './base-accessory.ts'
+import type { CharacteristicType, ServiceType } from './base-accessory.js'
+import { BaseAccessory } from './base-accessory.js'
 import type { Observable } from 'rxjs'
 import { merge, Subject } from 'rxjs'
 import type {
@@ -8,7 +8,7 @@ import type {
   RingDevice,
   RingIntercom,
 } from 'ring-client-api'
-import type { RingPlatformConfig } from './config.ts'
+import type { RingPlatformConfig } from './config.js'
 import { debounceTime, distinctUntilChanged, filter, map } from 'rxjs/operators'
 import type {
   PlatformAccessory,
@@ -18,7 +18,7 @@ import type {
 } from 'homebridge'
 import { CharacteristicEventTypes } from 'homebridge'
 import { logError } from 'ring-client-api/util'
-import { toError } from './errors.ts'
+import { toError } from './errors.js'
 
 // How long a value set from HomeKit (not debounced) is shown at most, unless Ring reports it
 // sooner, before Ring's reports count again

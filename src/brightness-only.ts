@@ -1,8 +1,8 @@
-import { BaseDeviceAccessory } from './base-device-accessory.ts'
+import { BaseDeviceAccessory } from './base-device-accessory.js'
 import type { RingDevice } from 'ring-client-api'
-import type { RingPlatformConfig } from './config.ts'
+import type { RingPlatformConfig } from './config.js'
 import type { PlatformAccessory } from 'homebridge'
-import { hap } from './hap.ts'
+import { hap } from './hap.js'
 import { logInfo } from 'ring-client-api/util'
 
 export class BrightnessOnly extends BaseDeviceAccessory {

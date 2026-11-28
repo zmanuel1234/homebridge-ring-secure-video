@@ -1,8 +1,8 @@
-import type { RingPlatformConfig } from './config.ts'
-import type { FfmpegCapabilities } from './ffmpeg-capabilities.ts'
-import { normalizeMediaConfig, type HksvVideoCodec } from './media-config.ts'
+import type { RingPlatformConfig } from './config.js'
+import type { FfmpegCapabilities } from './ffmpeg-capabilities.js'
+import { normalizeMediaConfig, type HksvVideoCodec } from './media-config.js'
 
-export type { HksvVideoCodec } from './media-config.ts'
+export type { HksvVideoCodec } from './media-config.js'
 
 /** [width, height, frames per second], as HAP's recording options take them. */
 export type Resolution = [number, number, number]
