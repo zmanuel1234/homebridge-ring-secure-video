@@ -1,6 +1,6 @@
 // Already applied by index.ts before this module (and so ring-client-api) is loaded; read here
 // for the log line.
-import { pushReceiverFix } from './push-receiver-fix.ts'
+import { pushReceiverFix } from './push-receiver-fix.js'
 import {
   RingApi,
   RingCamera,
@@ -11,7 +11,7 @@ import {
   RingIntercom,
 } from 'ring-client-api'
 import type { Location } from 'ring-client-api'
-import { hap } from './hap.ts'
+import { hap } from './hap.js'
 import type {
   API,
   DynamicPlatformPlugin,
@@ -19,45 +19,45 @@ import type {
   PlatformAccessory,
   PlatformConfig,
 } from 'homebridge'
-import { SecurityPanel } from './security-panel.ts'
-import { Chime } from './chime.ts'
-import { BrightnessOnly } from './brightness-only.ts'
-import { ContactSensor } from './contact-sensor.ts'
-import { MotionSensor } from './motion-sensor.ts'
-import { Lock } from './lock.ts'
-import { SmokeAlarm } from './smoke-alarm.ts'
-import { CoAlarm } from './co-alarm.ts'
-import { SmokeCoListener } from './smoke-co-listener.ts'
-import type { RingPlatformConfig } from './config.ts'
+import { SecurityPanel } from './security-panel.js'
+import { Chime } from './chime.js'
+import { BrightnessOnly } from './brightness-only.js'
+import { ContactSensor } from './contact-sensor.js'
+import { MotionSensor } from './motion-sensor.js'
+import { Lock } from './lock.js'
+import { SmokeAlarm } from './smoke-alarm.js'
+import { CoAlarm } from './co-alarm.js'
+import { SmokeCoListener } from './smoke-co-listener.js'
+import type { RingPlatformConfig } from './config.js'
 import {
   controlCenterDisplayName,
   getSystemId,
   isChildBridge,
   rotateSystemId,
   updateHomebridgeConfig,
-} from './config.ts'
-import { Beam } from './beam.ts'
-import { MultiLevelSwitch } from './multi-level-switch.ts'
-import { Fan } from './fan.ts'
-import { Outlet } from './outlet.ts'
-import { Switch } from './switch.ts'
-import { Camera } from './camera.ts'
-import { shutDownCameraSources } from './camera-source.ts'
+} from './config.js'
+import { Beam } from './beam.js'
+import { MultiLevelSwitch } from './multi-level-switch.js'
+import { Fan } from './fan.js'
+import { Outlet } from './outlet.js'
+import { Switch } from './switch.js'
+import { Camera } from './camera.js'
+import { shutDownCameraSources } from './camera-source.js'
 import {
   PushHealthMonitor,
   type PushRecoveryState,
   readPushRecoveryState,
   writePushRecoveryState,
-} from './push-health.ts'
+} from './push-health.js'
 import { readFileSync } from 'fs'
 import {
   getSessionRefreshSensorUuid,
   SessionRefreshSensor,
-} from './session-refresh-sensor.ts'
-import { PanicButtons } from './panic-buttons.ts'
+} from './session-refresh-sensor.js'
+import { PanicButtons } from './panic-buttons.js'
 import type { RefreshTokenAuth } from 'ring-client-api/rest-client'
 import { logError, logInfo, useLogger } from 'ring-client-api/util'
-import { createRingLogger } from './ring-logger.ts'
+import { createRingLogger } from './ring-logger.js'
 import {
   formatDuration,
   getHomeKitRestartMinutes,
@@ -67,23 +67,23 @@ import {
   MAX_HOMEKIT_RESTARTS_WITHOUT_CONNECTION,
   readHomeKitRestartState,
   writeHomeKitRestartState,
-} from './homekit-connections.ts'
-import type { BaseAccessory } from './base-accessory.ts'
-import { FloodFreezeSensor } from './flood-freeze-sensor.ts'
-import { FreezeSensor } from './freeze-sensor.ts'
-import { TemperatureSensor } from './temperature-sensor.ts'
-import { WaterSensor } from './water-sensor.ts'
-import { LocationModeSwitch } from './location-mode-switch.ts'
-import { Thermostat } from './thermostat.ts'
-import { UnknownZWaveSwitchSwitch } from './unknown-zwave-switch.ts'
-import { Intercom } from './intercom.ts'
-import { Valve } from './valve.ts'
-import { getRemovedSettings, sanitizeMediaConfig } from './media-config.ts'
-import { configureHksvResourceGovernor, hksvRecordingQueue } from './hksv-work-queue.ts'
+} from './homekit-connections.js'
+import type { BaseAccessory } from './base-accessory.js'
+import { FloodFreezeSensor } from './flood-freeze-sensor.js'
+import { FreezeSensor } from './freeze-sensor.js'
+import { TemperatureSensor } from './temperature-sensor.js'
+import { WaterSensor } from './water-sensor.js'
+import { LocationModeSwitch } from './location-mode-switch.js'
+import { Thermostat } from './thermostat.js'
+import { UnknownZWaveSwitchSwitch } from './unknown-zwave-switch.js'
+import { Intercom } from './intercom.js'
+import { Valve } from './valve.js'
+import { getRemovedSettings, sanitizeMediaConfig } from './media-config.js'
+import { configureHksvResourceGovernor, hksvRecordingQueue } from './hksv-work-queue.js'
 import {
   getMotionNotificationSensorUuid,
   setUpMotionNotificationSensor,
-} from './motion-notification-sensor.ts'
+} from './motion-notification-sensor.js'
 import { config as rxjsConfig } from 'rxjs'
 
 // rxjs rethrows an error from a subscriber that has no error handler on a timer, where nothing

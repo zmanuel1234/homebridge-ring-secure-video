@@ -1,7 +1,7 @@
-import { hap } from './hap.ts'
-import type { RingPlatformConfig } from './config.ts'
+import { hap } from './hap.js'
+import type { RingPlatformConfig } from './config.js'
 import { PushNotificationAction, type RingCamera } from 'ring-client-api'
-import { BaseDataAccessory } from './base-data-accessory.ts'
+import { BaseDataAccessory } from './base-data-accessory.js'
 import {
   catchError,
   distinctUntilChanged,
@@ -17,13 +17,13 @@ import {
   takeUntil,
   throttleTime,
 } from 'rxjs/operators'
-import { CameraSource, isHksvEnabled } from './camera-source.ts'
+import { CameraSource, isHksvEnabled } from './camera-source.js'
 import type { PlatformAccessory } from 'homebridge'
-import { TargetValueTimer } from './target-value-timer.ts'
+import { TargetValueTimer } from './target-value-timer.js'
 import { logError, logInfo } from 'ring-client-api/util'
 import { combineLatest, defer, EMPTY, firstValueFrom, merge, of, timer } from 'rxjs'
 import type { Observable, Subscription } from 'rxjs'
-import type { PushHealthReporter } from './push-health.ts'
+import type { PushHealthReporter } from './push-health.js'
 
 export const MOTION_WATCHDOG_MS = 30_000
 /** How long a battery camera's late snapshot is waited for, in the background, after an event. */

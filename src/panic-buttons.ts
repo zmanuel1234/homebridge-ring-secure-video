@@ -1,7 +1,7 @@
 import type { RingDevice, RingDeviceData, AlarmState } from 'ring-client-api'
-import { hap } from './hap.ts'
-import type { RingPlatformConfig } from './config.ts'
-import { BaseDataAccessory } from './base-data-accessory.ts'
+import { hap } from './hap.js'
+import type { RingPlatformConfig } from './config.js'
+import { BaseDataAccessory } from './base-data-accessory.js'
 import type { PlatformAccessory } from 'homebridge'
 import { logInfo } from 'ring-client-api/util'
 

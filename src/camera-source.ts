@@ -1,7 +1,7 @@
 import type { ChildProcess } from 'node:child_process'
 import type { RingCamera } from 'ring-client-api'
-import { hap } from './hap.ts'
-import type { RingPlatformConfig } from './config.ts'
+import { hap } from './hap.js'
+import type { RingPlatformConfig } from './config.js'
 import type { SrtpOptions } from '@homebridge/camera-utils'
 import {
   generateSrtpOptions,
@@ -46,24 +46,24 @@ import {
 import type { StreamingSession } from 'ring-client-api/streaming/streaming-session'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { FragmentedMp4Parser } from './fragmented-mp4-parser.ts'
-import { toError } from './errors.ts'
+import { FragmentedMp4Parser } from './fragmented-mp4-parser.js'
+import { toError } from './errors.js'
 import {
   getFfmpegCapabilities,
   type FfmpegCapabilities,
-} from './ffmpeg-capabilities.ts'
+} from './ffmpeg-capabilities.js'
 import {
   getHksvRecordingResolutions,
   hksvCodecNeedsCapabilities,
   selectHksvVideoCodec,
-} from './hksv-options.ts'
-import { hksvRecordingQueue } from './hksv-work-queue.ts'
+} from './hksv-options.js'
+import { hksvRecordingQueue } from './hksv-work-queue.js'
 import {
   RingMediaIngress,
   type IngressTranscoder,
   type MediaIngressLease,
-} from './ring-media-ingress.ts'
-import { normalizeMediaConfig } from './media-config.ts'
+} from './ring-media-ingress.js'
+import { normalizeMediaConfig } from './media-config.js'
 
 // The package's media folder, next to dist/. fileURLToPath, not URL.pathname, which keeps %20
 // for a space and gives /C:/... on Windows.

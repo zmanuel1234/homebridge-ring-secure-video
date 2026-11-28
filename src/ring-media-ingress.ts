@@ -1,14 +1,14 @@
 import { reservePorts, RtpSplitter } from '@homebridge/camera-utils'
 import type { RingCamera } from 'ring-client-api'
-import { getRecordingFfmpegPath } from './ffmpeg-capabilities.ts'
+import { getRecordingFfmpegPath } from './ffmpeg-capabilities.js'
 import type { StreamingSession } from 'ring-client-api/streaming/streaming-session'
 import { logDebug, logError, logInfo } from 'ring-client-api/util'
 import { Subscription } from 'rxjs'
 import type { Observable } from 'rxjs'
 import { take } from 'rxjs/operators'
 import { RtpPacket } from 'werift'
-import { hksvRecordingQueue } from './hksv-work-queue.ts'
-import { ManagedFfmpegProcess } from './managed-ffmpeg-process.ts'
+import { hksvRecordingQueue } from './hksv-work-queue.js'
+import { ManagedFfmpegProcess } from './managed-ffmpeg-process.js'
 
 /**
  * A camera-local owner for a Ring call.  ring-client-api's startTranscoding()

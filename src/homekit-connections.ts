@@ -3,7 +3,7 @@ import { endianness } from 'os'
 import { performance } from 'perf_hooks'
 import { join } from 'path'
 import { logError } from 'ring-client-api/util'
-import { writeFileAtomic } from './config.ts'
+import { writeFileAtomic } from './config.js'
 
 /** How often the HomeKit connections to the bridge are counted. */
 export const HOMEKIT_CHECK_INTERVAL_MS = 60_000

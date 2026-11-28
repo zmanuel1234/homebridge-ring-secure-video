@@ -1,4 +1,4 @@
-import type { RingPlatformConfig } from './config.ts'
+import type { RingPlatformConfig } from './config.js'
 
 export type MediaProfile = 'adaptive' | 'lowPower' | 'quality'
 

@@ -1,7 +1,7 @@
 {
   "name": "homebridge-ring-secure-video",
   "displayName": "Ring Secure Video",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Ring in HomeKit with HomeKit Secure Video recording: doorbells, cameras, alarm, sensors, locks and lights. One plugin that replaces homebridge-ring.",
   "author": "Manuel Zamfir",
   "contributors": [
@@ -40,8 +40,8 @@
     "NOTICE"
   ],
   "scripts": {
-    "build": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\" && tsc && node -e \"require('fs').cpSync('./src/homebridge-ui/public', './dist/homebridge-ui/public', { recursive: true, filter: (src) => require('path').basename(src) !== 'tsconfig.json' })\"",
-    "check": "tsc --noEmit",
+    "build": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.build.json && node -e \"require('fs').cpSync('src/homebridge-ui/public','dist/homebridge-ui/public',{recursive:true,filter:(src)=>require('path').basename(src)!=='tsconfig.json'})\"",
+    "check": "tsc -p .",
     "lint": "oxlint",
     "test": "npm run build && node --test test/*.test.mjs",
     "prepare": "npm run build",
@@ -49,9 +49,7 @@
     "verify": "npm run check && npm run lint && npm run build && npm test && node .github/scripts/check-homebridge.mjs && node .github/scripts/check-config-schema.mjs",
     "test:matrix": "npm run build && npm test",
     "release:check": "npm run verify && node .github/scripts/check-homebridge.mjs --release",
-    "dev": "concurrently -c yellow,blue --kill-others \"npm:dev:build\" \"npm:dev:run\" ",
-    "dev:build": "tsc --watch --preserveWatchOutput",
-    "dev:run": "RING_DEBUG=true node --watch ./node_modules/.bin/homebridge -U ./.homebridge -P ./node_modules"
+    "watch": "npm run build && npm link && nodemon"
   },
   "keywords": [
     "homebridge",
@@ -83,10 +81,6 @@
     "node": "^22.19.0 || ^24.0.0 || ^26.0.0",
     "homebridge": "^2.0.0"
   },
-  "homebridge": {
-    "pluginAlias": "Ring Secure Video",
-    "pluginType": "platform"
-  },
   "dependencies": {
     "@homebridge/camera-utils": "^3.0.0",
     "@homebridge/plugin-ui-utils": "^2.3.0",
@@ -97,12 +91,21 @@
   "devDependencies": {
     "@types/node": "^22.20.5",
     "ajv": "8.20.0",
-    "concurrently": "^10.0.7",
     "homebridge": "^2.5.0",
-    "homebridge-config-ui-x": "^5.24.0",
+    "nodemon": "^3.1.14",
     "oxlint": "1.95.0",
     "oxlint-tsgolint": "7.0.2008",
+    "tsx": "^4.23.15",
     "typescript": "7.0.2"
+  },
+  "overrides": {
+    "nodemon": {
+      "minimatch": "^11.0.9"
+    }
+  },
+  "homebridge": {
+    "pluginAlias": "Ring Secure Video",
+    "pluginType": "platform"
   },
   "allowScripts": {
     "ffmpeg-for-homebridge@2.2.2": true,

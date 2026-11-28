@@ -1,0 +1,31 @@
+{
+  "bridge": {
+    "name": "Ring Secure Video",
+    "username": "AA:BB:CC:DD:EE:FF",
+    "port": 51826,
+    "pin": "031-45-154"
+  },
+  "description": "Local Homebridge for npm run watch",
+  "plugins": [
+    "homebridge-ring-secure-video",
+    "homebridge-config-ui-x"
+  ],
+  "platforms": [
+    {
+      "name": "Config",
+      "port": 8581,
+      "auth": "none",
+      "theme": "auto",
+      "tempUnits": "c",
+      "lang": "auto",
+      "sudo": false,
+      "platform": "config",
+      "debug": false
+    },
+    {
+      "name": "homebridge-ring-secure-video",
+      "platform": "Ring Secure Video"
+    }
+  ],
+  "accessories": []
+}

@@ -1,6 +1,6 @@
 import type { PlatformAccessory } from 'homebridge'
 import { logInfo } from 'ring-client-api/util'
-import { hap } from './hap.ts'
+import { hap } from './hap.js'
 
 /** How long the sensor stays open after an automatic Ring session refresh. */
 export const SESSION_REFRESH_SENSOR_OPEN_MS = 24 * 60 * 60_000

@@ -1,7 +1,7 @@
 import type { PlatformAccessory } from 'homebridge'
 import type { Observable, Subscription } from 'rxjs'
 import { logInfo } from 'ring-client-api/util'
-import { hap } from './hap.ts'
+import { hap } from './hap.js'
 
 /**
  * A camera's own motion sensor triggers its HomeKit Secure Video recordings, and with

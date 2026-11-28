@@ -1,11 +1,11 @@
 import type { Location, LocationMode } from 'ring-client-api'
 import { distinctUntilChanged, timeout } from 'rxjs/operators'
-import { hap } from './hap.ts'
-import type { RingPlatformConfig } from './config.ts'
+import { hap } from './hap.js'
+import type { RingPlatformConfig } from './config.js'
 import { logError, logInfo } from 'ring-client-api/util'
-import { BaseAccessory } from './base-accessory.ts'
-import { logRejection } from './log-rejection.ts'
-import { toError } from './errors.ts'
+import { BaseAccessory } from './base-accessory.js'
+import { logRejection } from './log-rejection.js'
+import { toError } from './errors.js'
 import { firstValueFrom, of } from 'rxjs'
 import type {
   PlatformAccessory,
