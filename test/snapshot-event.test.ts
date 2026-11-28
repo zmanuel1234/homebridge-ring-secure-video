@@ -94,7 +94,8 @@ test('several events leave only one background wait', async () => {
   // rxjs's deprecated observers list, where it still has one
   const { observers } = internals<{ observers?: unknown[] }>(subject)
   assert.equal(observers?.length ?? (subject.observed ? 1 : 0), 1)
-  camera.pendingSnapshotNotification?.unsubscribe()
+  assert.ok(camera.pendingSnapshotNotification, 'a background wait is pending')
+  camera.pendingSnapshotNotification.unsubscribe()
 })
 
 test('a camera that has a snapshot loads it before the event, as before', async () => {
@@ -162,7 +163,8 @@ test('once snapshots come (Ring Protect), events wait up to 2 s for one; 3 misse
   const after = run('after')
   await settle()
   assert.equal(after.value, 'after', 'sent at once again')
-  camera.pendingSnapshotNotification?.unsubscribe()
+  assert.ok(camera.pendingSnapshotNotification, 'a background wait is pending')
+  camera.pendingSnapshotNotification.unsubscribe()
 })
 
 test('a snapshot by uuid that comes while another load runs is loaded after it', async () => {

@@ -7,6 +7,7 @@ import { fake, rawConfig, schema, type SchemaField } from './helpers.js'
 type Choices = { enum?: unknown[]; oneOf?: { enum: unknown[] }[]; minimum?: number; maximum?: number }
 const mediaSchema = schema.schema.properties.media?.properties ?? {}
 const recordingSchema = mediaSchema.recording?.properties ?? {}
+assert.ok(Object.keys(recordingSchema).length > 0, 'the settings schema has media.recording')
 const profileSchema = (mediaSchema.profile ?? {}) as SchemaField & Choices
 const profiles = profileSchema.oneOf ? profileSchema.oneOf.flatMap((option) => option.enum) : (profileSchema.enum ?? [])
 // These two must be at least the bitrate and the maximum bitrate, which the settings form can't

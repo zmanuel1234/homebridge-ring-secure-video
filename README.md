@@ -346,8 +346,8 @@ connection is still open but not answering, as above.
 
 ## Development
 
-The plugin and its tests (`test/*.test.ts`) are written in TypeScript; the tests run against the
-sources, and the two that check the published package against the build (`dist/`). It's published as
+The plugin and its tests (`test/*.test.ts`) are written in TypeScript. The tests run against the
+sources, except the few that check the built package, which load `dist/`. The plugin is published as
 compiled JavaScript (`dist/`), which npm builds on `npm ci`, `npm pack` and `npm publish`.
 
 ```
