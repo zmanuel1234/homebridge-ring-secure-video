@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.5.0 - 2026-11-28
+
+No change to how the plugin works: the compiled code is byte-for-byte the same as 1.4.0's.
+
+- On the author's Homebridge plugin template (which is built on Homebridge's own), like the author's other plugins.
+- Development only: the template's TypeScript and lint setup (relative imports now name the compiled `.js` files); `npm run watch` (a local Homebridge that restarts on every change) replaces `npm run dev`.
+
 ## 1.4.0 - 2026-11-27
 
 Requires Homebridge 2; nothing else changes in how the plugin works.
