@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.4.0 - 2026-11-27
+
+Requires Homebridge 2; nothing else changes in how the plugin works.
+
+- **Requires Homebridge 2** (2.0.0 or later). Homebridge 1.8 is no longer supported; on Homebridge 1, stay on 1.3.8: the Homebridge UI still offers this update, with a warning that it needs Homebridge 2.
+- The package's compiled files are in `dist/` instead of `lib/`, built from `src/`; the package now includes a NOTICE file.
+- README: Requirements, Development and License sections in the same style as the other plugins.
+- Development only: the same checks, lint setup, issue forms and package layout as the author's other plugins (`npm run verify` also checks the settings schema, the README's JSON examples and Homebridge's plugin rules; oxlint 1.95.0); after a stable release, npm's `beta` tag is removed when it points at an older version; CI no longer fails when npm's registry gives a broken answer for a development-only package.
+
 ## 1.3.8 - 2026-11-27
 
 No change to how the plugin works.
